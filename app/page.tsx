@@ -1,72 +1,26 @@
 "use client";
 
 import { useEffect, useRef, useState, type MouseEvent } from "react";
+import { differenceInCalendarDays, format } from "date-fns";
+import { pl } from "date-fns/locale";
+import DatePicker from "react-datepicker";
 import { TopMenu, type MenuColors, type MenuView } from "../components/TopMenu";
 
 type ExpandableSection = "sec2" | "sec3";
+const PRICE_PER_NIGHT = 204.5;
 
-const MENU_SECTION_CONTENT: Record<
-  Exclude<MenuView, "home">,
-  {
-    heading: string;
-    intro: string;
-    sections: Array<{ title: string; text: string }>;
+const getNightLabel = (nights: number) => {
+  if (nights === 1) {
+    return "noc";
   }
-> = {
-  koncept: {
-    heading: "Koncept - Sekcje specjalne",
-    intro: "Po kliknieciu menu pokazujemy nowy zestaw tresci bez zmiany ukladu strony.",
-    sections: [
-      {
-        title: "Sekcja Koncept 01",
-        text: "Opis koncepcji i klimat marki. Te bloki sa wyswietlane zamiast podstawowej tresci sekcji 1.",
-      },
-      {
-        title: "Sekcja Koncept 02",
-        text: "Mozesz tu umiescic storytelling, wyróżniki lub informacje o stylu miejsca.",
-      },
-      {
-        title: "Sekcja Koncept 03",
-        text: "Trzeci blok na call to action, linki i dalsze przejscia po stronie.",
-      },
-    ],
-  },
-  miejsca: {
-    heading: "Miejsca - Sekcje specjalne",
-    intro: "Widok menu podmienia tresc sekcji 1 i zachowuje menu na gorze.",
-    sections: [
-      {
-        title: "Sekcja Miejsca 01",
-        text: "Lista lokalizacji lub sal. Mozesz tu dodac grafiki i opisy.",
-      },
-      {
-        title: "Sekcja Miejsca 02",
-        text: "Dodatkowe informacje o przestrzeni, pojemnosci i dostepnosci.",
-      },
-      {
-        title: "Sekcja Miejsca 03",
-        text: "Zachowujemy ten sam layout, ale pokazujemy inne dane dla kliknietej pozycji menu.",
-      },
-    ],
-  },
-  rezerwuj: {
-    heading: "Rezerwuj - Sekcje specjalne",
-    intro: "To miejsce na informacje o rezerwacji i formularzu kontaktowym.",
-    sections: [
-      {
-        title: "Sekcja Rezerwuj 01",
-        text: "Warunki, terminy i podstawowe informacje potrzebne przed rezerwacja.",
-      },
-      {
-        title: "Sekcja Rezerwuj 02",
-        text: "Proces krok po kroku: zapytanie, potwierdzenie, finalizacja.",
-      },
-      {
-        title: "Sekcja Rezerwuj 03",
-        text: "Sekcja CTA: numer telefonu, mail i przycisk szybkiej rezerwacji.",
-      },
-    ],
-  },
+
+  const mod10 = nights % 10;
+  const mod100 = nights % 100;
+  if (mod10 >= 2 && mod10 <= 4 && !(mod100 >= 12 && mod100 <= 14)) {
+    return "noce";
+  }
+
+  return "nocy";
 };
 
 const EXPANDED_SECTION_CONTENT: Record<
@@ -74,26 +28,17 @@ const EXPANDED_SECTION_CONTENT: Record<
   {
     heading: string;
     intro: string;
-    sections: Array<{ title: string; text: string }>;
+    body: string[];
     gallery: Array<{ src: string; alt: string }>;
   }
 > = {
   sec2: {
     heading: "KONCEPT HOMMM",
-    intro: "Rozszerzona tresc konceptu widoczna bez opuszczania tej sekcji.",
-    sections: [
-      {
-        title: "Koncept 01",
-        text: "Opis klimatu, rytmu dnia i charakteru wypoczynku w tej czesci oferty.",
-      },
-      {
-        title: "Koncept 02",
-        text: "Miejsce na storytelling, detale doswiadczenia i kluczowe wyrozniki.",
-      },
-      {
-        title: "Koncept 03",
-        text: "Przestrzen na dalsze przejscia: cennik, pakiety lub kontakt.",
-      },
+    intro: "Rozszerzona tresc konceptu widoczna bez opuszczania tej sekcji i bez zmiany rytmu strony.",
+    body: [
+      "To miejsce buduje spokojny, wyciszony klimat pobytu i prowadzi goscia przez naturalny rytm dnia od porannego swiatla po wieczorne wyhamowanie. Architektura, materialy i otoczenie pracuja razem, dzieki czemu kazdy element przestrzeni jest czytelny, prosty i funkcjonalny, a jednoczesnie pozostaje przytulny oraz naturalny w odbiorze.",
+      "W tej sekcji mozna pokazac pelniejszy opis doswiadczenia: jak wyglada poczatek dnia, gdzie znajduje sie strefa relaksu, jak zorganizowane sa miejsca wspolne i prywatne oraz co sprawia, ze pobyt jest komfortowy nawet przy dluzszym wypoczynku. Taki opis pomaga gosciowi szybciej zrozumiec charakter miejsca i wyobrazic sobie pobyt krok po kroku.",
+      "Dodatkowa tresc moze obejmowac szczegoly oferty, mozliwe scenariusze pobytu, sezonowe warianty, a takze praktyczne informacje o dostepie i udogodnieniach. Dzieki temu sekcja nie jest jedynie haslem wizerunkowym, tylko konkretnym, uporzadkowanym opisem tego, czego gosc moze realnie oczekiwac na miejscu.",
     ],
     gallery: [
       { src: "/assets/sec_2.jpg", alt: "Strefa relaksu i natura" },
@@ -103,20 +48,11 @@ const EXPANDED_SECTION_CONTENT: Record<
   },
   sec3: {
     heading: "YOUR SPECIAL PLACE",
-    intro: "Rozszerzona tresc miejsca widoczna w tej samej sekcji po kliknieciu.",
-    sections: [
-      {
-        title: "Miejsce 01",
-        text: "Informacje o przestrzeni, ukladzie i prywatnych strefach dla gosci.",
-      },
-      {
-        title: "Miejsce 02",
-        text: "Opis udogodnien, natury dookola i elementow budujacych spokoj.",
-      },
-      {
-        title: "Miejsce 03",
-        text: "Sekcja na konkrety: terminy, zasady pobytu i dalsze kroki.",
-      },
+    intro: "Rozszerzona tresc miejsca widoczna w tej samej sekcji po kliknieciu, w bardziej zwartym ukladzie.",
+    body: [
+      "Opis tej czesci powinien jasno pokazywac, jak wyglada przestrzen, jakie sa jej najmocniejsze strony oraz dlaczego pobyt tutaj daje realne poczucie oddechu od codziennosci. Zamiast pojedynczych hasel mozna przedstawic spojną narracje o komforcie, prywatnosci i bliskosci natury, tak aby gosc od razu wiedzial, czego sie spodziewac.",
+      "Warto dopisac konkretne informacje o strefach wypoczynku, standardzie apartamentow, elementach wyposazenia oraz o tym, jak zaplanowany jest przeplyw pomiedzy wspolnymi i prywatnymi fragmentami miejsca. Taka forma jest czytelniejsza i pozwala szybciej podjac decyzje, bo pokazuje faktyczne korzysci i praktyczne aspekty pobytu.",
+      "Na koncu tej narracji dobrze jest zostawic przestrzen na szczegoly organizacyjne: terminy, zasady rezerwacji, opcje dodatkowe i dalszy kontakt. Dzieki temu uzytkownik przechodzi plynnie od inspiracji do konkretu, bez potrzeby szukania informacji po innych podstronach.",
     ],
     gallery: [
       { src: "/assets/sec_3.jpg", alt: "Kadr przestrzeni pobytu" },
@@ -130,10 +66,23 @@ export default function Home() {
   const [activeView, setActiveView] = useState<MenuView>("home");
   const [hasScrolled, setHasScrolled] = useState(false);
   const [expandedSection, setExpandedSection] = useState<ExpandableSection | null>(null);
+  const [reservationRange, setReservationRange] = useState<[Date | null, Date | null]>([
+    new Date(2026, 0, 30),
+    new Date(2026, 1, 1),
+  ]);
+  const [reservationGuests, setReservationGuests] = useState("1");
   const isMenuContentVisible = activeView === "rezerwuj";
   const isExpandedContentVisible = expandedSection !== null;
   const isRedMenuMode = isMenuContentVisible || isExpandedContentVisible;
   const lastScrollYRef = useRef(0);
+  const [checkIn, checkOut] = reservationRange;
+  const nights = checkIn && checkOut ? Math.max(1, differenceInCalendarDays(checkOut, checkIn)) : 0;
+  const totalPrice = Math.round(nights * PRICE_PER_NIGHT);
+  const checkInLabel = checkIn ? format(checkIn, "d.MM.yyyy", { locale: pl }) : "--.--.----";
+  const checkOutLabel = checkOut ? format(checkOut, "d.MM.yyyy", { locale: pl }) : "--.--.----";
+  const handleReservationClear = () => {
+    setReservationRange([null, null]);
+  };
 
   useEffect(() => {
     if (!expandedSection) {
@@ -217,8 +166,6 @@ export default function Home() {
     ? { font: "#be1622", logo: "#be1622" }
     : null;
 
-  const activeMenuContent = isMenuContentVisible ? MENU_SECTION_CONTENT.rezerwuj : null;
-
   const handleFloatingLogoClick = (event: MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault();
     setActiveView("home");
@@ -240,12 +187,9 @@ export default function Home() {
           <div className="expanded-content-copy-col">
             <h2>{content.heading}</h2>
             <p className="expanded-content-intro">{content.intro}</p>
-            <div className="expanded-content-texts">
-              {content.sections.map((block) => (
-                <article className="expanded-content-text-block" key={block.title}>
-                  <h3>{block.title}</h3>
-                  <p>{block.text}</p>
-                </article>
+            <div className="expanded-content-body">
+              {content.body.map((paragraph, index) => (
+                <p key={`${section}-paragraph-${index}`}>{paragraph}</p>
               ))}
             </div>
           </div>
@@ -288,20 +232,68 @@ export default function Home() {
         data-menu-font={isMenuContentVisible ? "#be1622" : "#ffffff"}
         data-menu-logo={isMenuContentVisible ? "#be1622" : "#ffffff"}
       >
-        {isMenuContentVisible && activeMenuContent ? (
-          <div className="container container-white">
-            <>
-              <h2>{activeMenuContent.heading}</h2>
-              <p>{activeMenuContent.intro}</p>
-              <div className="hero-menu-sections">
-                {activeMenuContent.sections.map((section) => (
-                  <article className="hero-menu-card" key={section.title}>
-                    <h3>{section.title}</h3>
-                    <p>{section.text}</p>
-                  </article>
-                ))}
+        {isMenuContentVisible ? (
+          <div className="container container-white reservation-layout" aria-label="Sekcja rezerwacji">
+            <div className="reservation-layout__top" />
+            <div className="reservation-layout__bottom">
+              <div className="reservation-system">
+                <div className="reservation-system__calendar-wrap">
+                  <DatePicker
+                    selected={checkIn}
+                    onChange={(update) => setReservationRange(update)}
+                    startDate={checkIn}
+                    endDate={checkOut}
+                    selectsRange
+                    inline
+                    monthsShown={2}
+                    locale={pl}
+                    formatWeekDay={(dayName) => dayName.replace(".", "").slice(0, 3).toLowerCase()}
+                    calendarClassName="reservation-datepicker"
+                  />
+                  <button type="button" className="reservation-system__clear" onClick={handleReservationClear}>
+                    Wyczyść daty
+                  </button>
+                </div>
+
+                <aside className="reservation-summary-card" aria-label="Podsumowanie rezerwacji">
+                  <p className="reservation-summary-card__price">
+                    <span>{totalPrice} zł</span> za {nights} {getNightLabel(nights)}
+                  </p>
+
+                  <div className="reservation-summary-card__dates">
+                    <div className="reservation-summary-card__date-box">
+                      <span>Zameldowanie</span>
+                      <strong>{checkInLabel}</strong>
+                    </div>
+                    <div className="reservation-summary-card__date-box">
+                      <span>Wymeldowanie</span>
+                      <strong>{checkOutLabel}</strong>
+                    </div>
+                  </div>
+
+                  <label className="reservation-summary-card__guests">
+                    <span>Goście</span>
+                    <select
+                      name="guests"
+                      value={reservationGuests}
+                      onChange={(event) => setReservationGuests(event.target.value)}
+                    >
+                      <option value="1">1 gość</option>
+                      <option value="2">2 gości</option>
+                      <option value="3">3 gości</option>
+                      <option value="4">4 gości</option>
+                      <option value="5">5 gości</option>
+                      <option value="6">6 gości</option>
+                    </select>
+                  </label>
+
+                  <button type="button" className="reservation-summary-card__submit">
+                    REZERWUJ
+                  </button>
+                  <p className="reservation-summary-card__note">Płatność nie zostanie jeszcze naliczona</p>
+                </aside>
               </div>
-            </>
+            </div>
           </div>
         ) : (
           <div className={`hero-logo-stage ${hasScrolled ? "is-scrolled" : ""}`} aria-hidden="true">
