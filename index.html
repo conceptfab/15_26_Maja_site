@@ -4,11 +4,22 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Personalizowane Sekcje</title>
+    <link rel="stylesheet" href="https://use.typekit.net/zpt0osi.css" />
     <link rel="stylesheet" href="style.css" />
     <style>
-      /* Ukryj oryginalne radio buttons, które sterują widocznością w Sekcji 1 */
-      input[name='nav-radio'] {
-        display: none;
+      /* Ukryj oryginalne radio buttons, ktĂłre sterujÄ… widocznoĹ›ciÄ… w Sekcji 1 */
+      input[name='nav-radio'],
+      .expand-toggle {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        margin: -1px;
+        padding: 0;
+        border: 0;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        clip-path: inset(50%);
+        white-space: nowrap;
       }
 
       /* Ukryj wszystkie "wymienialne" pierwsze sekcje na starcie */
@@ -29,7 +40,7 @@
         }
       }
 
-      /* Gdy zaznaczony jest konkretny input, pokaż TYLKO odpowiadającą mu PIERWSZĄ ZMIENNĄ SEKCJE */
+      /* Gdy zaznaczony jest konkretny input, pokaĹĽ TYLKO odpowiadajÄ…cÄ… mu PIERWSZÄ„ ZMIENNÄ„ SEKCJE */
       #nav-start:checked ~ #hero-start,
       #nav-koncept:checked ~ #hero-koncept,
       #nav-miejsca:checked ~ #hero-miejsca,
@@ -38,7 +49,7 @@
         animation: hero-in 1.15s cubic-bezier(0.16, 1, 0.3, 1);
       }
 
-      /* Wyróżnienie aktywnego przycisku menu zależnie od aktywnego radio w sekcji 1 */
+      /* WyrĂłĹĽnienie aktywnego przycisku menu zaleĹĽnie od aktywnego radio w sekcji 1 */
       #nav-koncept:checked ~ .hero-section .menu-koncept,
       #nav-miejsca:checked ~ .hero-section .menu-miejsca,
       #nav-rezerwuj:checked ~ .hero-section .menu-rezerwuj {
@@ -49,10 +60,7 @@
       }
 
       /* ----- MECHANIZM CZYTAJ DALEJ (Rozszerzalne sekcje) ----- */
-      /* Ukryj checkbox sterujący rozszerzaniem */
-      .expand-toggle {
-        display: none;
-      }
+      /* Ukryj checkbox sterujÄ…cy rozszerzaniem */
 
       /* Styl bazowy dla przycisku "Czytaj Dalej" */
       .btn-expand {
@@ -73,7 +81,7 @@
         background-color: #000;
       }
 
-      /* Domyślnie - tekst rozszerzony jest ukryty */
+      /* DomyĹ›lnie - tekst rozszerzony jest ukryty */
       .expanded-content {
         display: block;
         max-height: 0;
@@ -90,9 +98,9 @@
           padding-top 0.35s ease;
       }
 
-      /* GDY ZAZNACZONY CHECKBOX (Kliknięto CZYTAJ DALEJ w Sekcji 2) */
+      /* GDY ZAZNACZONY CHECKBOX (KlikniÄ™to CZYTAJ DALEJ w Sekcji 2) */
       #expand-sec2:checked ~ #sec2-wrapper {
-        min-height: 120vh; /* Zwiększenie o połowę standardowych 80vh */
+        min-height: 120vh; /* ZwiÄ™kszenie o poĹ‚owÄ™ standardowych 80vh */
       }
       #expand-sec2:checked ~ #sec2-wrapper .expanded-content {
         max-height: 1000px;
@@ -103,10 +111,10 @@
         border-top: 1px dashed rgba(0, 0, 0, 0.2);
       }
       #expand-sec2:checked ~ #sec2-wrapper .btn-expand {
-        display: none; /* Ukryj przycisk czytaj dalej jak już jest rozwinięte */
+        display: none; /* Ukryj przycisk czytaj dalej jak juĹĽ jest rozwiniÄ™te */
       }
 
-      /* GDY ZAZNACZONY CHECKBOX (Kliknięto CZYTAJ DALEJ w Sekcji 3) */
+      /* GDY ZAZNACZONY CHECKBOX (KlikniÄ™to CZYTAJ DALEJ w Sekcji 3) */
       #expand-sec3:checked ~ #sec3-wrapper {
         min-height: 120vh;
       }
@@ -148,7 +156,7 @@
     </style>
   </head>
   <body>
-    <!-- GŁÓWNE KONTROLERY WIDOKÓW TYLKO DLA 1 SEKCJI -->
+    <!-- GĹĂ“WNE KONTROLERY WIDOKĂ“W TYLKO DLA 1 SEKCJI -->
     <input type="radio" name="nav-radio" id="nav-start" checked />
     <input type="radio" name="nav-radio" id="nav-koncept" />
     <input type="radio" name="nav-radio" id="nav-miejsca" />
@@ -159,7 +167,7 @@
     </div>
 
     <!-- ============================================== WYMIENNE SEKCJE PIERWSZE (HERO) ============================================== -->
-    <section class="section hero-section h-80vh bg-slider" id="hero-start">
+    <section class="section hero-section h-98vh bg-slider" id="hero-start">
       <nav class="top-menu">
         <div class="top-menu-inner">
           <div class="menu-left">
@@ -254,7 +262,7 @@
       </div>
     </section>
 
-    <section class="section hero-section h-80vh bg-koncept-1" id="hero-koncept">
+    <section class="section hero-section h-98vh bg-koncept-1" id="hero-koncept">
       <nav class="top-menu">
         <div class="top-menu-inner">
           <div class="menu-left">
@@ -348,7 +356,7 @@
       </div>
     </section>
 
-    <section class="section hero-section h-80vh bg-miejsca-1" id="hero-miejsca">
+    <section class="section hero-section h-98vh bg-miejsca-1" id="hero-miejsca">
       <nav class="top-menu">
         <div class="top-menu-inner">
           <div class="menu-left">
@@ -443,7 +451,7 @@
     </section>
 
     <section
-      class="section hero-section h-80vh bg-rezerwuj-1"
+      class="section hero-section h-98vh bg-rezerwuj-1"
       id="hero-rezerwuj"
     >
       <nav class="top-menu">
@@ -459,133 +467,179 @@
               >rezerwuj</label
             >
           </div>
-          <div class="menu-right">
-            <a
-              href="#"
-              class="lang-icon"
-              title="Polski"
-              style="
-                display: inline-block;
-                width: 22px;
-                color: currentcolor;
-                opacity: 1;
-                margin-right: 10px;
-              "
-            >
-              <svg
-                viewBox="0 0 20 12"
-                width="22"
-                height="13"
-                xmlns="http://www.w3.org/2000/svg"
-                style="vertical-align: middle"
-              >
-                <rect
-                  width="20"
-                  height="12"
-                  fill="transparent"
-                  stroke="currentColor"
-                  stroke-width="2"
-                />
-                <rect width="20" height="6" y="6" fill="currentColor" />
-              </svg>
-            </a>
-            <a
-              href="#"
-              class="lang-icon"
-              title="English"
-              style="
-                display: inline-block;
-                width: 22px;
-                color: currentcolor;
-                opacity: 0.3;
-                transition: opacity 0.2s;
-              "
-              onmouseover="this.style.opacity = 1"
-              onmouseout="this.style.opacity = 0.3"
-            >
-              <svg
-                viewBox="0 0 20 12"
-                width="22"
-                height="13"
-                xmlns="http://www.w3.org/2000/svg"
-                style="vertical-align: middle"
-              >
-                <rect
-                  width="20"
-                  height="12"
-                  fill="transparent"
-                  stroke="currentColor"
-                  stroke-width="2"
-                />
-                <path
-                  d="M0,0 L20,12 M20,0 L0,12"
-                  stroke="currentColor"
-                  stroke-width="1.5"
-                  fill="none"
-                />
-                <path
-                  d="M10,0 L10,12 M0,6 L20,6"
-                  stroke="currentColor"
-                  stroke-width="2.5"
-                  fill="none"
-                />
-              </svg>
-            </a>
+          <div class="menu-right lang-switch">
+            <a href="#" class="lang-text is-active">PL</a>
+            <span>/</span>
+            <a href="#" class="lang-text">ENG</a>
           </div>
         </div>
       </nav>
-      <div class="container">
-        <h2>WIDOK REZERWACJI (ZMIENNY) - Sekcja 1</h2>
+
+      <div class="container rezerwuj-mockup">
+        <div class="rezerwuj-visual-grid">
+          <div class="rezerwuj-copy">
+            <h1>Lorem Ipsum miejsce</h1>
+            <p>
+              Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do
+              eiusmod tempor incididunt ut labore et dolore magna aliqua. Quis
+              ipsum suspendisse ultrices gravida.
+            </p>
+            <p>
+              Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do
+              eiusmod tempor incididunt ut labore et dolore magna aliqua. Quis
+              ipsum suspendisse ultrices gravida. Risus commodo viverra
+              maecenas accumsan lacus vel.
+            </p>
+          </div>
+
+          <div class="rezerwuj-photo photo-living" aria-hidden="true"></div>
+          <div class="rezerwuj-photo photo-bath" aria-hidden="true"></div>
+          <div class="rezerwuj-photo photo-house" aria-hidden="true"></div>
+          <p class="rezerwuj-price">650 pln/ noc</p>
+        </div>
+
+        <div class="rezerwuj-bottom-row">
+          <div class="rezerwuj-calendar-shell">
+            <p class="rezerwuj-stay">2 noce w: Krakow</p>
+            <p class="rezerwuj-stay-dates">30 sty 2026 - 1 lut 2026</p>
+
+            <div class="calendar-months">
+              <div class="calendar-month">
+                <div class="month-head">
+                  <button type="button" class="month-arrow" aria-label="Poprzedni miesiac">
+                    &lt;
+                  </button>
+                  <p>Styczen 2026</p>
+                  <span aria-hidden="true"></span>
+                </div>
+                <div class="month-weekdays">
+                  <span>Pon.</span><span>Wt.</span><span>Sr.</span><span>Czw.</span
+                  ><span>Pt.</span><span>Sob.</span><span>Niedz.</span>
+                </div>
+                <div class="month-days">
+                  <span class="is-muted">29</span><span class="is-muted">30</span
+                  ><span class="is-muted">31</span><span>1</span><span>2</span
+                  ><span>3</span><span>4</span> <span>5</span><span>6</span
+                  ><span>7</span><span>8</span><span>9</span><span>10</span
+                  ><span>11</span> <span>12</span><span>13</span><span>14</span
+                  ><span>15</span><span>16</span><span>17</span><span>18</span>
+                  <span>19</span><span>20</span><span>21</span><span>22</span
+                  ><span>23</span><span>24</span><span>25</span> <span>26</span
+                  ><span>27</span><span>28</span><span>29</span
+                  ><span class="is-selected">30</span><span>31</span
+                  ><span class="is-muted">1</span>
+                </div>
+              </div>
+
+              <div class="calendar-month">
+                <div class="month-head">
+                  <span aria-hidden="true"></span>
+                  <p>Luty 2026</p>
+                  <button type="button" class="month-arrow" aria-label="Nastepny miesiac">
+                    &gt;
+                  </button>
+                </div>
+                <div class="month-weekdays">
+                  <span>Pon.</span><span>Wt.</span><span>Sr.</span><span>Czw.</span
+                  ><span>Pt.</span><span>Sob.</span><span>Niedz.</span>
+                </div>
+                <div class="month-days">
+                  <span class="is-muted">26</span><span class="is-muted">27</span
+                  ><span class="is-muted">28</span><span class="is-muted">29</span
+                  ><span class="is-muted">30</span><span class="is-muted">31</span
+                  ><span class="is-selected">1</span> <span>2</span><span>3</span
+                  ><span>4</span><span>5</span><span>6</span><span>7</span
+                  ><span>8</span> <span>9</span><span>10</span><span>11</span
+                  ><span>12</span><span>13</span><span>14</span><span>15</span>
+                  <span>16</span><span>17</span><span>18</span><span>19</span
+                  ><span>20</span><span>21</span><span>22</span> <span>23</span
+                  ><span>24</span><span>25</span><span>26</span><span>27</span
+                  ><span>28</span><span class="is-muted">1</span>
+                </div>
+              </div>
+            </div>
+
+            <button type="button" class="clear-dates">Wyczysc daty</button>
+          </div>
+
+          <aside class="booking-card">
+            <p class="night-price"><strong>409 zl</strong> za 2 noce</p>
+
+            <div class="booking-card-grid">
+              <label>
+                <span>Zameldowanie</span>
+                <input type="text" value="30.01.2026" readonly />
+              </label>
+              <label>
+                <span>Wymeldowanie</span>
+                <input type="text" value="1.02.2026" readonly />
+              </label>
+            </div>
+
+            <label class="guests-field">
+              <span>Goscie</span>
+              <select>
+                <option selected>1 gosc</option>
+                <option>2 gosci</option>
+                <option>3 gosci</option>
+                <option>4 gosci</option>
+              </select>
+            </label>
+
+            <button type="button" class="btn-book">REZERWUJ</button>
+            <p class="booking-note">Platnosc nie zostanie jeszcze naliczona</p>
+          </aside>
+        </div>
       </div>
     </section>
 
-    <!-- ============================================== STAŁE SEKCJE DOŚREDNIE (NIEZMIENNE PODCZAS PRZEŁĄCZANIA ZAKŁADEK GÓRY) ============================================== -->
+    <!-- ============================================== STAĹE SEKCJE DOĹšREDNIE (NIEZMIENNE PODCZAS PRZEĹÄ„CZANIA ZAKĹADEK GĂ“RY) ============================================== -->
 
-    <!-- STAŁA Sekcja 2 z rozwinięciem -->
-    <!-- Niewidoczny checkbox sterujący -->
+    <!-- STAĹA Sekcja 2 z rozwiniÄ™ciem -->
+    <!-- Niewidoczny checkbox sterujÄ…cy -->
     <input type="checkbox" id="expand-sec2" class="expand-toggle" />
     <!-- Kontener Sekcji 2 -->
-    <section class="section h-80vh bg-secondary" id="sec2-wrapper">
+    <section class="section h-90vh bg-secondary" id="sec2-wrapper">
       <div class="container">
-        <h2>STAŁA - Sekcja 2</h2>
+        <h2>STAĹA - Sekcja 2</h2>
         <p>
-          Ja się nie zmieniam po kliknięciu głównego menu, ale mam własny
+          Ja siÄ™ nie zmieniam po klikniÄ™ciu gĹ‚Ăłwnego menu, ale mam wĹ‚asny
           przycisk na dole.
         </p>
 
-        <!-- Ta część pojawi się dopiero po kliknięciu "CZYTAJ DALEJ" -->
+        <!-- Ta czÄ™Ĺ›Ä‡ pojawi siÄ™ dopiero po klikniÄ™ciu "CZYTAJ DALEJ" -->
         <div class="expanded-content">
-          <h3>Oto dodatkowa treść</h3>
+          <h3>Oto dodatkowa treĹ›Ä‡</h3>
           <p>
-            Kliknięto przycisk, więc wysokość tego bloku (`.section`) płynnie
-            podskoczyła do 120vh (dodając +50% oryginalnej wielkości, tak jak
-            chciałeś).
+            KlikniÄ™to przycisk, wiÄ™c wysokoĹ›Ä‡ tego bloku (`.section`) pĹ‚ynnie
+            podskoczyĹ‚a do 120vh (dodajÄ…c +50% oryginalnej wielkoĹ›ci, tak jak
+            chciaĹ‚eĹ›).
           </p>
           <p>
-            Możesz tu wpisać dużo więcej tekstu, zdjęć i detali. Sam przycisk
-            zniknął.
+            MoĹĽesz tu wpisaÄ‡ duĹĽo wiÄ™cej tekstu, zdjÄ™Ä‡ i detali. Sam przycisk
+            zniknÄ…Ĺ‚.
           </p>
         </div>
 
-        <!-- Etykieta działająca jak przycisk, aktywująca checkbox wyżej -->
+        <!-- Etykieta dziaĹ‚ajÄ…ca jak przycisk, aktywujÄ…ca checkbox wyĹĽej -->
         <label for="expand-sec2" class="btn-expand">Czytaj dalej</label>
       </div>
     </section>
 
-    <!-- STAŁA Sekcja 3 z rozwinięciem -->
-    <!-- Niewidoczny checkbox sterujący -->
+    <!-- STAĹA Sekcja 3 z rozwiniÄ™ciem -->
+    <!-- Niewidoczny checkbox sterujÄ…cy -->
     <input type="checkbox" id="expand-sec3" class="expand-toggle" />
     <!-- Kontener Sekcji 3 -->
-    <section class="section h-80vh bg-dark" id="sec3-wrapper">
+    <section class="section h-90vh bg-dark" id="sec3-wrapper">
       <div class="container">
-        <h2>STAŁA - Sekcja 3</h2>
-        <p>Tu też stabilnie!</p>
+        <h2>STAĹA - Sekcja 3</h2>
+        <p>Tu teĹĽ stabilnie!</p>
 
         <div class="expanded-content">
           <h3>Kluczowe informacje sekcji 3</h3>
-          <p>Sekcja rozwinięta z 80vh do 120vh.</p>
+          <p>Sekcja rozwiniÄ™ta z 80vh do 120vh.</p>
           <p>
-            Dzięki dodanej animacji w CSS, rozsuwanie wygląda bardzo estetycznie
+            DziÄ™ki dodanej animacji w CSS, rozsuwanie wyglÄ…da bardzo estetycznie
             i nie skacze po oczach.
           </p>
         </div>
@@ -595,10 +649,10 @@
       </div>
     </section>
 
-    <!-- STAŁA Sekcja 4 -->
+    <!-- STAĹA Sekcja 4 -->
     <section class="section h-25vh bg-light">
       <div class="container">
-        <h2>STAŁA Stopka - Sekcja 4</h2>
+        <h2>STAĹA Stopka - Sekcja 4</h2>
         <p>Zawsze na samym dole po przescrollowaniu.</p>
       </div>
     </section>
@@ -609,6 +663,37 @@
       );
       const sections = document.querySelectorAll('.section');
       const progressBar = document.getElementById('scroll-progress-bar');
+      const navMenuLabels = document.querySelectorAll("label[for^='nav-']");
+      const navToHeroMap = {
+        'nav-start': 'hero-start',
+        'nav-koncept': 'hero-koncept',
+        'nav-miejsca': 'hero-miejsca',
+        'nav-rezerwuj': 'hero-rezerwuj',
+      };
+
+      // Fallback: wymusz zaznaczenie radio po kliknieciu etykiety menu.
+      navMenuLabels.forEach((label) => {
+        label.addEventListener('click', () => {
+          const targetId = label.getAttribute('for');
+          const targetRadio = targetId
+            ? document.getElementById(targetId)
+            : null;
+
+          if (
+            targetRadio &&
+            targetRadio instanceof HTMLInputElement &&
+            targetRadio.type === 'radio'
+          ) {
+            targetRadio.checked = true;
+            const heroId = navToHeroMap[targetRadio.id];
+            const heroSection = heroId ? document.getElementById(heroId) : null;
+
+            if (heroSection) {
+              heroSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+          }
+        });
+      });
 
       if ('IntersectionObserver' in window) {
         const io = new IntersectionObserver(
@@ -686,3 +771,4 @@
     </script>
   </body>
 </html>
+

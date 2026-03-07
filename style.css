@@ -1,7 +1,13 @@
 body {
   margin: 0;
-  font-family: sans-serif;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
   background-color: #f0f0f0;
+}
+
+h1 {
+  font-family: "blackcurrant", sans-serif;
+  font-weight: 400;
+  font-style: normal;
 }
 
 html {
@@ -83,6 +89,12 @@ html {
 .h-80vh {
   min-height: 80vh;
 }
+.h-90vh {
+  min-height: 90vh;
+}
+.h-98vh {
+  min-height: 98vh;
+}
 .h-25vh {
   min-height: 25vh;
 }
@@ -90,17 +102,33 @@ html {
 /* ----- KLASY DO PERSONALIZACJI TŁA ----- */
 .bg-slider {
   background-color: #8e44ad;
+  background-image: url('assets/top.jpg');
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
   color: white;
 }
 .bg-dark {
   background-color: #2c3e50;
+  background-image: url('assets/sec_2.jpg');
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
   color: white;
 }
 .bg-light {
   background-color: #ecf0f1;
+  background-image: url('assets/footer.jpg');
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
 }
 .bg-secondary {
   background-color: #2ecc71;
+  background-image: url('assets/sec_1.jpg');
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
   color: white;
 }
 
@@ -131,8 +159,8 @@ html {
 }
 
 .bg-rezerwuj-1 {
-  background-color: #2ecc71;
-  color: white;
+  background-color: #f4f4f4;
+  color: #1a1a1a;
 }
 .bg-rezerwuj-2 {
   background-color: #27ae60;
@@ -141,6 +169,393 @@ html {
 .bg-rezerwuj-3 {
   background-color: #1e8449;
   color: white;
+}
+
+/* ----- WIDOK REZERWACJI (layout wg szkicu) ----- */
+#hero-rezerwuj .top-menu {
+  top: 28px;
+}
+
+#hero-rezerwuj .top-menu::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -16px;
+  border-bottom: 1px solid #bfbfbf;
+}
+
+#hero-rezerwuj .top-menu-inner {
+  max-width: 1140px;
+}
+
+#hero-rezerwuj .menu-left {
+  gap: 34px;
+}
+
+#hero-rezerwuj .menu-item,
+#hero-rezerwuj .lang-switch,
+#hero-rezerwuj .lang-text {
+  color: #a11d2b;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  font-size: 1.9rem;
+}
+
+#hero-rezerwuj .lang-switch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#hero-rezerwuj .lang-text {
+  text-decoration: none;
+  opacity: 0.45;
+}
+
+#hero-rezerwuj .lang-text.is-active {
+  opacity: 1;
+}
+
+#nav-rezerwuj:checked ~ #hero-rezerwuj .menu-rezerwuj {
+  color: #111;
+  border-bottom: 2px solid #111;
+}
+
+#hero-rezerwuj .container.rezerwuj-mockup {
+  max-width: 1140px;
+  background: transparent;
+  padding: 138px 24px 42px;
+  gap: 26px;
+  justify-content: flex-start;
+  color: #1d1d1d;
+}
+
+.rezerwuj-visual-grid {
+  display: grid;
+  grid-template-columns: 1.8fr 1fr 1fr;
+  grid-template-areas:
+    'copy living bath'
+    'house house price';
+  gap: 14px;
+  align-items: start;
+}
+
+.rezerwuj-copy h1 {
+  margin: 0 0 12px;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: clamp(2.8rem, 4vw, 4.2rem);
+  font-weight: 700;
+  line-height: 0.9;
+}
+
+.rezerwuj-copy {
+  grid-area: copy;
+  max-width: 470px;
+}
+
+.rezerwuj-copy p {
+  margin: 0 0 10px;
+  font-size: 13px;
+  line-height: 1.44;
+  color: #3f3f3f;
+}
+
+.rezerwuj-photo {
+  border-radius: 3px;
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+}
+
+.photo-house {
+  grid-area: house;
+  min-height: 286px;
+  background-image: url('assets/sec_1.jpg');
+}
+
+.photo-living {
+  grid-area: living;
+  min-height: 245px;
+  background-image: url('assets/sec_2.jpg');
+}
+
+.photo-bath {
+  grid-area: bath;
+  min-height: 245px;
+  background-image: url('assets/top.jpg');
+}
+
+.rezerwuj-price {
+  grid-area: price;
+  margin: 0;
+  align-self: end;
+  justify-self: end;
+  font-size: clamp(3.4rem, 5vw, 5.1rem);
+  font-weight: 700;
+  line-height: 0.95;
+  color: #111;
+}
+
+.rezerwuj-bottom-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) 360px;
+  gap: 28px;
+  align-items: start;
+}
+
+.rezerwuj-stay {
+  margin: 0;
+  font-size: 1.82rem;
+  font-weight: 700;
+}
+
+.rezerwuj-stay-dates {
+  margin: 4px 0 0;
+  color: #595959;
+  font-size: 0.95rem;
+}
+
+.calendar-months {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.calendar-month {
+  padding: 0;
+}
+
+.month-head {
+  display: grid;
+  grid-template-columns: 18px 1fr 18px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.month-head p {
+  margin: 0;
+  text-align: center;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.month-arrow {
+  border: 0;
+  background: transparent;
+  color: #4f4f4f;
+  cursor: pointer;
+  font-size: 20px;
+  line-height: 1;
+  padding: 0;
+}
+
+.month-weekdays,
+.month-days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.month-weekdays span {
+  font-size: 11px;
+  color: #808080;
+  text-align: center;
+}
+
+.month-days span {
+  min-height: 27px;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  color: #232323;
+  font-size: 13px;
+  border-radius: 999px;
+}
+
+.month-days span.is-muted {
+  color: #c0c0c0;
+}
+
+.month-days span.is-selected {
+  background: #1d1d1d;
+  color: #fff;
+}
+
+.clear-dates {
+  display: inline-block;
+  border: 0;
+  background: transparent;
+  padding: 0 0 1px;
+  margin-top: 12px;
+  color: #444;
+  font-size: 13px;
+  text-decoration: underline;
+  cursor: pointer;
+  float: right;
+}
+
+.booking-card {
+  margin-top: 8px;
+  border: 1px solid #dfdfdf;
+  border-radius: 14px;
+  background: #f7f7f7;
+  box-shadow: 0 12px 30px rgba(20, 20, 20, 0.06);
+  padding: 18px;
+}
+
+.night-price {
+  margin: 0 0 14px;
+  font-size: 1.18rem;
+}
+
+.night-price strong {
+  font-size: 2rem;
+}
+
+.booking-card-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border: 1px solid #d9d9d9;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.booking-card-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px;
+}
+
+.booking-card-grid label + label {
+  border-left: 1px solid #d9d9d9;
+}
+
+.booking-card-grid span,
+.guests-field span {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #656565;
+  font-weight: 700;
+}
+
+.booking-card input,
+.guests-field select {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  font-size: 14px;
+  color: #1c1c1c;
+  outline: none;
+}
+
+.booking-card input {
+  width: 100%;
+}
+
+.guests-field {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  border: 1px solid #d9d9d9;
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.guests-field select {
+  appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, #777 50%),
+    linear-gradient(135deg, #777 50%, transparent 50%);
+  background-position:
+    calc(100% - 14px) 52%,
+    calc(100% - 9px) 52%;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  padding-right: 22px;
+}
+
+.btn-book {
+  margin-top: 13px;
+  width: 100%;
+  border: 0;
+  border-radius: 10px;
+  background: #cc1f2f;
+  color: #fff;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  font-size: 3rem;
+  line-height: 1;
+  padding: 12px 14px;
+  cursor: pointer;
+  transition: filter 0.2s ease-in-out;
+}
+
+.btn-book:hover {
+  filter: brightness(0.94);
+}
+
+.booking-note {
+  margin: 9px 0 0;
+  text-align: center;
+  color: #777;
+  font-size: 12px;
+}
+
+@media (max-width: 1180px) {
+  #hero-rezerwuj .menu-item,
+  #hero-rezerwuj .lang-switch,
+  #hero-rezerwuj .lang-text {
+    font-size: 1.4rem;
+  }
+}
+
+@media (max-width: 980px) {
+  #hero-rezerwuj .container.rezerwuj-mockup {
+    padding-top: 130px;
+  }
+
+  .rezerwuj-visual-grid {
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      'copy copy'
+      'living bath'
+      'house house'
+      'price price';
+  }
+
+  .rezerwuj-price {
+    justify-self: start;
+    margin-top: 8px;
+  }
+
+  .rezerwuj-bottom-row {
+    grid-template-columns: 1fr;
+  }
+
+  .calendar-months {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  #hero-rezerwuj .menu-item,
+  #hero-rezerwuj .lang-switch,
+  #hero-rezerwuj .lang-text {
+    font-size: 1.05rem;
+  }
+
+  .rezerwuj-copy h1 {
+    font-size: 2.9rem;
+  }
+
+  .btn-book {
+    font-size: 2.4rem;
+  }
 }
 
 /* ----- MENU NAWIGACYJNE W SEKCJI 1 ----- */
