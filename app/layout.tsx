@@ -1,9 +1,9 @@
-import type { Metadata } from "next";
-import "./globals.css";
+import type { Metadata } from 'next';
+import './globals.css';
 
 export const metadata: Metadata = {
-  title: "Personalizowane Sekcje",
-  description: "Personalizowane sekcje strony",
+  title: 'HOMMM',
+  description: 'HOMMM',
 };
 
 export default function RootLayout({
@@ -14,7 +14,11 @@ export default function RootLayout({
   return (
     <html lang="pl">
       <head>
-        <link rel="preconnect" href="https://use.typekit.net" crossOrigin="anonymous" />
+        <link
+          rel="preconnect"
+          href="https://use.typekit.net"
+          crossOrigin="anonymous"
+        />
         <link rel="stylesheet" href="https://use.typekit.net/zpt0osi.css" />
       </head>
       <body>{children}</body>

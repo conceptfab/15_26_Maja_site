@@ -29,6 +29,7 @@ const MENU_ITEMS: Array<{ id: Exclude<MenuView, "home">; label: string }> = [
 
 export function TopMenu({ activeView = "home", onNavigate, forceColors = null }: TopMenuProps) {
   const [isCompact, setIsCompact] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [sectionColors, setSectionColors] = useState<MenuColors>(DEFAULT_COLORS);
 
   useEffect(() => {
@@ -95,6 +96,35 @@ export function TopMenu({ activeView = "home", onNavigate, forceColors = null }:
     return () => observer.disconnect();
   }, []);
 
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(min-width: 769px)");
+
+    const handleViewportChange = () => {
+      if (mediaQuery.matches) {
+        setIsMobileMenuOpen(false);
+      }
+    };
+
+    handleViewportChange();
+    mediaQuery.addEventListener("change", handleViewportChange);
+    return () => mediaQuery.removeEventListener("change", handleViewportChange);
+  }, []);
+
+  useEffect(() => {
+    if (!isMobileMenuOpen) {
+      return;
+    }
+
+    const handleEsc = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsMobileMenuOpen(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, [isMobileMenuOpen]);
+
   const resolvedColors = forceColors ?? sectionColors;
   const normalizedFontColor = resolvedColors.font.trim().toLowerCase();
   const isRedMenuMode = normalizedFontColor === "#be1622";
@@ -121,11 +151,13 @@ export function TopMenu({ activeView = "home", onNavigate, forceColors = null }:
     if (view === "rezerwuj") {
       onNavigate?.("rezerwuj");
       scrollToSection("hero-start");
+      setIsMobileMenuOpen(false);
       return;
     }
 
     onNavigate?.("home");
     scrollToSection(view === "koncept" ? "sec2-wrapper" : "sec3-wrapper");
+    setIsMobileMenuOpen(false);
   };
 
   const handleLangClick = (event: MouseEvent<HTMLAnchorElement>) => {
@@ -150,7 +182,23 @@ export function TopMenu({ activeView = "home", onNavigate, forceColors = null }:
       aria-label="Main menu"
     >
       <div className="top-menu-shell">
-        <div className="top-menu-row top-menu-row-bottom">
+        <button
+          type="button"
+          className={`top-menu-hamburger ${isMobileMenuOpen ? "is-open" : ""}`}
+          aria-label={isMobileMenuOpen ? "Zamknij menu" : "Otworz menu"}
+          aria-expanded={isMobileMenuOpen}
+          aria-controls="main-menu-links"
+          onClick={() => setIsMobileMenuOpen((prev) => !prev)}
+        >
+          <span />
+          <span />
+          <span />
+        </button>
+
+        <div
+          id="main-menu-links"
+          className={`top-menu-row top-menu-row-bottom ${isMobileMenuOpen ? "is-open" : ""}`}
+        >
           <div className="menu-main" role="menubar">
             {MENU_ITEMS.map((item) => (
               <a
