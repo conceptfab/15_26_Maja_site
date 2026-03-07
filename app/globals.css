@@ -355,18 +355,16 @@ body {
 }
 
 .expanded-content-container {
-  width: 100vw;
-  max-width: none;
-  margin: 0;
-  border-radius: 0;
+  width: 100%;
+  max-width: var(--container-max-width);
+  margin: 0 auto;
   min-height: 120vh;
   min-height: 120dvh;
   justify-content: flex-start;
   padding-top: clamp(156px, 22vh, 248px);
-  padding-left: clamp(18px, 4vw, 56px);
-  padding-right: clamp(18px, 4vw, 56px);
+  padding-left: var(--container-gutter);
+  padding-right: var(--container-gutter);
   padding-bottom: clamp(26px, 6vh, 56px);
-  box-shadow: none;
 }
 
 .expanded-content-grid {
@@ -845,6 +843,134 @@ body {
 }
 
 /* =========================================================================
+   SCROLL-REVEAL SYSTEM
+   ========================================================================= */
+.reveal {
+  opacity: 0;
+  transition:
+    opacity var(--reveal-duration, 650ms) cubic-bezier(0.16, 1, 0.3, 1),
+    transform var(--reveal-duration, 650ms) cubic-bezier(0.16, 1, 0.3, 1);
+  transition-delay: var(--reveal-delay, 0ms);
+  will-change: opacity, transform;
+}
+
+.reveal--up {
+  transform: translateY(32px);
+}
+
+.reveal--scale {
+  transform: scale(0.94);
+}
+
+.reveal.is-revealed {
+  opacity: 1;
+  transform: none;
+}
+
+/* =========================================================================
+   MOUNT ANIMATIONS (React re-mount transitions)
+   ========================================================================= */
+@keyframes mount-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(22px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes mount-fade-scale {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* -- Reservation entrance -- */
+.reservation-promo {
+  animation: mount-fade-up 600ms cubic-bezier(0.16, 1, 0.3, 1) 80ms both;
+}
+
+.reservation-visual-gallery {
+  animation: mount-fade-up 650ms cubic-bezier(0.16, 1, 0.3, 1) 180ms both;
+}
+
+.reservation-system__calendar-wrap {
+  animation: mount-fade-up 600ms cubic-bezier(0.16, 1, 0.3, 1) 280ms both;
+}
+
+.reservation-summary-card {
+  animation: mount-fade-scale 600ms cubic-bezier(0.16, 1, 0.3, 1) 400ms both;
+}
+
+/* -- Expanded content entrance -- */
+.expanded-content-copy-col > * {
+  animation: mount-fade-up 550ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.expanded-content-copy-col > *:nth-child(1) { animation-delay: 60ms; }
+.expanded-content-copy-col > *:nth-child(2) { animation-delay: 150ms; }
+.expanded-content-copy-col > *:nth-child(3) { animation-delay: 240ms; }
+
+.expanded-content-gallery-item {
+  animation: mount-fade-scale 500ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.expanded-content-gallery-item:nth-child(1) { animation-delay: 120ms; }
+.expanded-content-gallery-item:nth-child(2) { animation-delay: 220ms; }
+.expanded-content-gallery-item:nth-child(3) { animation-delay: 320ms; }
+
+/* -- Story container + children staggered mount -- */
+.story-container > * {
+  animation: mount-fade-up 550ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.story-container > *:nth-child(1) { animation-delay: 80ms; }
+.story-container > *:nth-child(2) { animation-delay: 180ms; }
+.story-container > *:nth-child(3) { animation-delay: 280ms; }
+.story-container > *:nth-child(4) { animation-delay: 380ms; }
+
+/* =========================================================================
+   GALLERY HOVER EFFECTS
+   ========================================================================= */
+.expanded-content-gallery-item img,
+.reservation-visual-item img {
+  transition: transform 500ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.expanded-content-gallery-item:hover img,
+.reservation-visual-item:hover img {
+  transform: scale(1.04);
+}
+
+/* =========================================================================
+   PREFERS-REDUCED-MOTION
+   ========================================================================= */
+@media (prefers-reduced-motion: reduce) {
+  .reveal {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+
+  .reservation-promo,
+  .reservation-visual-gallery,
+  .reservation-system__calendar-wrap,
+  .reservation-summary-card,
+  .expanded-content-copy-col > *,
+  .expanded-content-gallery-item,
+  .story-container > * {
+    animation: none !important;
+  }
+}
+
+/* =========================================================================
    MEDIA QUERIES - WIDOKI MOBILNE
    ========================================================================= */
 @media (max-width: 768px) {
@@ -1072,24 +1198,25 @@ body {
   }
 
   .top-menu {
-    top: 22px;
+    top: var(--floating-logo-top);
   }
 
   .top-menu.is-compact {
     --menu-density: 0.72;
     --menu-logo-scale: 0.78;
-    top: calc(
-      var(--floating-logo-top) + (var(--floating-logo-width) / 4.42) -
-        var(--floating-logo-menu-offset)
-    );
+    top: var(--floating-logo-top);
   }
 
   .top-menu-shell {
     width: 100%;
     max-width: none;
-    padding: calc(12px * var(--menu-density)) 0;
+    min-height: calc(var(--floating-logo-width) / 4.42);
+    padding: 0;
     gap: 0;
     align-items: stretch;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
   }
 
   .top-menu-hamburger {

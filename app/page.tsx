@@ -62,6 +62,7 @@ export default function Home() {
   const isRedMenuMode = isMenuContentVisible || isExpandedContentVisible;
   const lastScrollYRef = useRef(0);
   const isMobileRef = useRef(false);
+  const navGuardRef = useRef(false);
   const [checkIn, checkOut] = reservationRange;
   const nightsRaw =
     checkIn && checkOut ? differenceInCalendarDays(checkOut, checkIn) : 0;
@@ -74,6 +75,14 @@ export default function Home() {
     ? format(checkOut, 'd.MM.yyyy', { locale: pl })
     : '--.--.----';
   const today = useMemo(() => new Date(), []);
+  const navigateTo = (view: MenuView) => {
+    if (view === 'rezerwuj' && activeView !== 'rezerwuj') {
+      navGuardRef.current = true;
+      setTimeout(() => { navGuardRef.current = false; }, 900);
+    }
+    setActiveView(view);
+  };
+
   const handleReservationClear = () => {
     setReservationRange([null, null]);
   };
@@ -105,7 +114,7 @@ export default function Home() {
         setHasScrolled(currentScrollY > SCROLL_COMPACT_THRESHOLD);
         const isMobile = isMobileRef.current;
 
-        if (activeView !== 'home') {
+        if (activeView !== 'home' && !navGuardRef.current) {
           const sec2 = document.getElementById('sec2-wrapper');
           if (sec2) {
             const isScrollingDown = currentScrollY > lastScrollYRef.current;
@@ -123,7 +132,7 @@ export default function Home() {
           lastScrollYRef.current = currentScrollY;
         }
 
-        if (isMobile && activeView === 'rezerwuj') {
+        if (isMobile && activeView === 'rezerwuj' && !navGuardRef.current) {
           const heroSection = document.getElementById('hero-start');
           if (heroSection) {
             const rect = heroSection.getBoundingClientRect();
@@ -164,6 +173,27 @@ export default function Home() {
     onScroll();
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
+  }, [activeView, expandedSection]);
+
+  // Scroll-reveal: observe elements with .reveal class
+  useEffect(() => {
+    const elements = document.querySelectorAll('.reveal:not(.is-revealed)');
+    if (!elements.length) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('is-revealed');
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.08, rootMargin: '0px 0px -6% 0px' },
+    );
+
+    elements.forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
   }, [activeView, expandedSection]);
 
   // Desktop-only: dismiss expanded section on wheel/touchmove/keyboard
@@ -286,7 +316,7 @@ export default function Home() {
     <>
       <TopMenu
         activeView={activeView}
-        onNavigate={setActiveView}
+        onNavigate={navigateTo}
         forceColors={forcedMenuColors}
       />
 
@@ -532,7 +562,7 @@ export default function Home() {
       >
         <div className="container footer-container">
           <div className="footer-grid">
-            <div className="footer-column footer-column--corporate">
+            <div className="footer-column footer-column--corporate reveal reveal--up" style={{ '--reveal-delay': '100ms' } as React.CSSProperties}>
               <h3 className="footer-column__title">DANE KORPORACYJNE:</h3>
               <div className="footer-column__content">
                 <p>Banana Gun Design Maria Budner</p>
@@ -544,7 +574,7 @@ export default function Home() {
             <div className="footer-column footer-column--center footer-column--spacer">
               {/* Pusta kolumna 2 */}
             </div>
-            <div className="footer-column footer-column--center footer-column--brand">
+            <div className="footer-column footer-column--center footer-column--brand reveal reveal--scale">
               <a
                 href="#hero-start"
                 onClick={handleFloatingLogoClick}
@@ -575,7 +605,7 @@ export default function Home() {
                   type="button"
                   className="footer-nav-link"
                   onClick={() => {
-                    setActiveView('rezerwuj');
+                    navigateTo('rezerwuj');
                     document
                       .getElementById('hero-start')
                       ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -588,7 +618,7 @@ export default function Home() {
             <div className="footer-column footer-column--center footer-column--spacer">
               {/* Pusta kolumna 4 */}
             </div>
-            <div className="footer-column footer-column--contact">
+            <div className="footer-column footer-column--contact reveal reveal--up" style={{ '--reveal-delay': '200ms' } as React.CSSProperties}>
               <h3 className="footer-column__title">KONTAKT:</h3>
               <div className="footer-column__content footer-contact">
                 <a
@@ -636,7 +666,7 @@ export default function Home() {
             </div>
           </div>
         </div>
-        <div className="footer-banner">
+        <div className="footer-banner reveal reveal--up" style={{ '--reveal-delay': '150ms' } as React.CSSProperties}>
           <Image
             src="/assets/baner.jpg"
             alt="Baner stopki"
