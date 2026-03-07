@@ -673,7 +673,7 @@ export default function Home() {
             </div>
           </div>
         </div>
-        <div className="footer-banner reveal reveal--up" style={{ '--reveal-delay': '150ms' } as React.CSSProperties}>
+        <div className="footer-banner">
           <Image
             src="/assets/baner.jpg"
             alt="Baner stopki"
