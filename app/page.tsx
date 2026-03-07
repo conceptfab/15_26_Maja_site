@@ -4,10 +4,21 @@ import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { differenceInCalendarDays, format } from "date-fns";
 import { pl } from "date-fns/locale";
 import DatePicker from "react-datepicker";
+import Image from "next/image";
 import { TopMenu, type MenuColors, type MenuView } from "../components/TopMenu";
+import { EXPANDED_SECTION_CONTENT, type ExpandableSection } from "../data/content";
 
-type ExpandableSection = "sec2" | "sec3";
 const PRICE_PER_NIGHT = 204.5;
+
+const DISMISS_KEYS = new Set([
+  "ArrowDown",
+  "ArrowUp",
+  "PageDown",
+  "PageUp",
+  "Home",
+  "End",
+  " ",
+]);
 
 const getNightLabel = (nights: number) => {
   if (nights === 1) {
@@ -23,52 +34,13 @@ const getNightLabel = (nights: number) => {
   return "nocy";
 };
 
-const EXPANDED_SECTION_CONTENT: Record<
-  ExpandableSection,
-  {
-    heading: string;
-    intro: string;
-    body: string[];
-    gallery: Array<{ src: string; alt: string }>;
-  }
-> = {
-  sec2: {
-    heading: "KONCEPT HOMMM",
-    intro: "Rozszerzona tresc konceptu widoczna bez opuszczania tej sekcji i bez zmiany rytmu strony.",
-    body: [
-      "To miejsce buduje spokojny, wyciszony klimat pobytu i prowadzi goscia przez naturalny rytm dnia od porannego swiatla po wieczorne wyhamowanie. Architektura, materialy i otoczenie pracuja razem, dzieki czemu kazdy element przestrzeni jest czytelny, prosty i funkcjonalny, a jednoczesnie pozostaje przytulny oraz naturalny w odbiorze.",
-      "W tej sekcji mozna pokazac pelniejszy opis doswiadczenia: jak wyglada poczatek dnia, gdzie znajduje sie strefa relaksu, jak zorganizowane sa miejsca wspolne i prywatne oraz co sprawia, ze pobyt jest komfortowy nawet przy dluzszym wypoczynku. Taki opis pomaga gosciowi szybciej zrozumiec charakter miejsca i wyobrazic sobie pobyt krok po kroku.",
-      "Dodatkowa tresc moze obejmowac szczegoly oferty, mozliwe scenariusze pobytu, sezonowe warianty, a takze praktyczne informacje o dostepie i udogodnieniach. Dzieki temu sekcja nie jest jedynie haslem wizerunkowym, tylko konkretnym, uporzadkowanym opisem tego, czego gosc moze realnie oczekiwac na miejscu.",
-    ],
-    gallery: [
-      { src: "/assets/sec_2.jpg", alt: "Strefa relaksu i natura" },
-      { src: "/assets/hero.jpg", alt: "Widok glownej przestrzeni" },
-      { src: "/assets/sec_3.jpg", alt: "Detale miejsca" },
-    ],
-  },
-  sec3: {
-    heading: "YOUR SPECIAL PLACE",
-    intro: "Rozszerzona tresc miejsca widoczna w tej samej sekcji po kliknieciu, w bardziej zwartym ukladzie.",
-    body: [
-      "Opis tej czesci powinien jasno pokazywac, jak wyglada przestrzen, jakie sa jej najmocniejsze strony oraz dlaczego pobyt tutaj daje realne poczucie oddechu od codziennosci. Zamiast pojedynczych hasel mozna przedstawic spojną narracje o komforcie, prywatnosci i bliskosci natury, tak aby gosc od razu wiedzial, czego sie spodziewac.",
-      "Warto dopisac konkretne informacje o strefach wypoczynku, standardzie apartamentow, elementach wyposazenia oraz o tym, jak zaplanowany jest przeplyw pomiedzy wspolnymi i prywatnymi fragmentami miejsca. Taka forma jest czytelniejsza i pozwala szybciej podjac decyzje, bo pokazuje faktyczne korzysci i praktyczne aspekty pobytu.",
-      "Na koncu tej narracji dobrze jest zostawic przestrzen na szczegoly organizacyjne: terminy, zasady rezerwacji, opcje dodatkowe i dalszy kontakt. Dzieki temu uzytkownik przechodzi plynnie od inspiracji do konkretu, bez potrzeby szukania informacji po innych podstronach.",
-    ],
-    gallery: [
-      { src: "/assets/sec_3.jpg", alt: "Kadr przestrzeni pobytu" },
-      { src: "/assets/sec_2.jpg", alt: "Strefa na zewnatrz" },
-      { src: "/assets/hero.jpg", alt: "Ujecie klimatu miejsca" },
-    ],
-  },
-};
-
 export default function Home() {
   const [activeView, setActiveView] = useState<MenuView>("home");
   const [hasScrolled, setHasScrolled] = useState(false);
   const [expandedSection, setExpandedSection] = useState<ExpandableSection | null>(null);
   const [reservationRange, setReservationRange] = useState<[Date | null, Date | null]>([
-    new Date(2026, 0, 30),
-    new Date(2026, 1, 1),
+    null,
+    null,
   ]);
   const [reservationGuests, setReservationGuests] = useState("1");
   const isMenuContentVisible = activeView === "rezerwuj";
@@ -76,10 +48,12 @@ export default function Home() {
   const isRedMenuMode = isMenuContentVisible || isExpandedContentVisible;
   const lastScrollYRef = useRef(0);
   const [checkIn, checkOut] = reservationRange;
-  const nights = checkIn && checkOut ? Math.max(1, differenceInCalendarDays(checkOut, checkIn)) : 0;
+  const nightsRaw = checkIn && checkOut ? differenceInCalendarDays(checkOut, checkIn) : 0;
+  const nights = nightsRaw > 0 ? nightsRaw : 0;
   const totalPrice = Math.round(nights * PRICE_PER_NIGHT);
   const checkInLabel = checkIn ? format(checkIn, "d.MM.yyyy", { locale: pl }) : "--.--.----";
   const checkOutLabel = checkOut ? format(checkOut, "d.MM.yyyy", { locale: pl }) : "--.--.----";
+  const today = new Date();
   const handleReservationClear = () => {
     setReservationRange([null, null]);
   };
@@ -96,17 +70,7 @@ export default function Home() {
     const onWheel = () => hideExpandedSection();
     const onTouchMove = () => hideExpandedSection();
     const onKeyDown = (event: KeyboardEvent) => {
-      const dismissKeys = new Set([
-        "ArrowDown",
-        "ArrowUp",
-        "PageDown",
-        "PageUp",
-        "Home",
-        "End",
-        " ",
-      ]);
-
-      if (dismissKeys.has(event.key)) {
+      if (DISMISS_KEYS.has(event.key)) {
         hideExpandedSection();
       }
     };
@@ -123,42 +87,39 @@ export default function Home() {
   }, [expandedSection]);
 
   useEffect(() => {
+    if (activeView !== "home") {
+      lastScrollYRef.current = window.scrollY;
+    }
+
+    let ticking = false;
     const onScroll = () => {
-      setHasScrolled(window.scrollY > 10);
+      if (ticking) return;
+      ticking = true;
+
+      requestAnimationFrame(() => {
+        const currentScrollY = window.scrollY;
+        setHasScrolled(currentScrollY > 10);
+
+        if (activeView !== "home") {
+          const sec2 = document.getElementById("sec2-wrapper");
+          if (sec2) {
+            const isScrollingDown = currentScrollY > lastScrollYRef.current;
+            const sec2Top = sec2.getBoundingClientRect().top;
+            const resetPoint = window.innerHeight * 0.55;
+
+            if (isScrollingDown && currentScrollY > 10 && sec2Top <= resetPoint) {
+              setActiveView("home");
+            }
+          }
+          lastScrollYRef.current = currentScrollY;
+        }
+
+        ticking = false;
+      });
     };
 
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-
-  useEffect(() => {
-    if (activeView === "home") {
-      return;
-    }
-
-    lastScrollYRef.current = window.scrollY;
-
-    const onScroll = () => {
-      const sec2 = document.getElementById("sec2-wrapper");
-      if (!sec2) {
-        return;
-      }
-
-      const currentScrollY = window.scrollY;
-      const isScrollingDown = currentScrollY > lastScrollYRef.current;
-      lastScrollYRef.current = currentScrollY;
-
-      const sec2Top = sec2.getBoundingClientRect().top;
-      const resetPoint = window.innerHeight * 0.55;
-
-      if (isScrollingDown && currentScrollY > 10 && sec2Top <= resetPoint) {
-        setActiveView("home");
-      }
-    };
-
-    window.addEventListener("scroll", onScroll, { passive: true });
-
     return () => window.removeEventListener("scroll", onScroll);
   }, [activeView]);
 
@@ -185,7 +146,7 @@ export default function Home() {
       <div className="container container-white expanded-content-container">
         <div className="expanded-content-grid">
           <div className="expanded-content-copy-col">
-            <h2>{content.heading}</h2>
+            <h2 className="heading-secondary">{content.heading}</h2>
             <p className="expanded-content-intro">{content.intro}</p>
             <div className="expanded-content-body">
               {content.body.map((paragraph, index) => (
@@ -197,7 +158,12 @@ export default function Home() {
           <aside className="expanded-content-gallery-col" aria-label="Galeria miejsca">
             {content.gallery.map((image, index) => (
               <figure className="expanded-content-gallery-item" key={`${image.src}-${index}`}>
-                <img src={image.src} alt={image.alt} />
+                <Image
+                  src={image.src}
+                  alt={image.alt}
+                  fill
+                  sizes="(max-width: 768px) 92vw, 40vw"
+                />
               </figure>
             ))}
           </aside>
@@ -247,6 +213,7 @@ export default function Home() {
                     inline
                     monthsShown={2}
                     locale={pl}
+                    minDate={today}
                     formatWeekDay={(dayName) => dayName.replace(".", "").slice(0, 3).toLowerCase()}
                     calendarClassName="reservation-datepicker"
                   />
@@ -260,32 +227,34 @@ export default function Home() {
                     <span>{totalPrice} zł</span> za {nights} {getNightLabel(nights)}
                   </p>
 
-                  <div className="reservation-summary-card__dates">
-                    <div className="reservation-summary-card__date-box">
-                      <span>Zameldowanie</span>
-                      <strong>{checkInLabel}</strong>
+                  <div className="reservation-summary-card__fields">
+                    <div className="reservation-summary-card__dates">
+                      <div className="reservation-summary-card__date-box">
+                        <span>Zameldowanie</span>
+                        <strong>{checkInLabel}</strong>
+                      </div>
+                      <div className="reservation-summary-card__date-box">
+                        <span>Wymeldowanie</span>
+                        <strong>{checkOutLabel}</strong>
+                      </div>
                     </div>
-                    <div className="reservation-summary-card__date-box">
-                      <span>Wymeldowanie</span>
-                      <strong>{checkOutLabel}</strong>
-                    </div>
-                  </div>
 
-                  <label className="reservation-summary-card__guests">
-                    <span>Goście</span>
-                    <select
-                      name="guests"
-                      value={reservationGuests}
-                      onChange={(event) => setReservationGuests(event.target.value)}
-                    >
-                      <option value="1">1 gość</option>
-                      <option value="2">2 gości</option>
-                      <option value="3">3 gości</option>
-                      <option value="4">4 gości</option>
-                      <option value="5">5 gości</option>
-                      <option value="6">6 gości</option>
-                    </select>
-                  </label>
+                    <label className="reservation-summary-card__guests">
+                      <span>Goście</span>
+                      <select
+                        name="guests"
+                        value={reservationGuests}
+                        onChange={(event) => setReservationGuests(event.target.value)}
+                      >
+                        <option value="1">1 gość</option>
+                        <option value="2">2 gości</option>
+                        <option value="3">3 gości</option>
+                        <option value="4">4 gości</option>
+                        <option value="5">5 gości</option>
+                        <option value="6">6 gości</option>
+                      </select>
+                    </label>
+                  </div>
 
                   <button type="button" className="reservation-summary-card__submit">
                     REZERWUJ
@@ -314,7 +283,7 @@ export default function Home() {
         ) : (
           <div className="container story-container">
             <h1 className="h1-brand">YOUR SPECIAL TIME</h1>
-            <h2 className="story-subtitle">KONCEPT HOMMM</h2>
+            <h2 className="heading-secondary story-subtitle">KONCEPT HOMMM</h2>
 
             <div className="story-text-block">
               <p>
@@ -345,7 +314,7 @@ export default function Home() {
         ) : (
           <div className="container story-container">
             <h1 className="h1-brand">YOUR SPECIAL PLACE</h1>
-            <h2 className="story-subtitle">CHCESZ WYPOCZĄĆ W CISZY I OTOCZENIU NATURY?</h2>
+            <h2 className="heading-secondary story-subtitle">CHCESZ WYPOCZĄĆ W CISZY I OTOCZENIU NATURY?</h2>
 
             <div className="story-text-block">
               <p>

@@ -27,19 +27,19 @@ const MENU_ITEMS: Array<{ id: Exclude<MenuView, "home">; label: string }> = [
   { id: "rezerwuj", label: "rezerwuj" },
 ];
 
-const DEFAULT_LINK_TARGET: Record<Exclude<MenuView, "home">, string> = {
-  koncept: "#sec2-wrapper",
-  miejsca: "#sec3-wrapper",
-  rezerwuj: "#hero-start",
-};
-
 export function TopMenu({ activeView = "home", onNavigate, forceColors = null }: TopMenuProps) {
   const [isCompact, setIsCompact] = useState(false);
   const [sectionColors, setSectionColors] = useState<MenuColors>(DEFAULT_COLORS);
 
   useEffect(() => {
+    let ticking = false;
     const onScroll = () => {
-      setIsCompact(window.scrollY > 24);
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        setIsCompact(window.scrollY > 24);
+        ticking = false;
+      });
     };
 
     onScroll();
@@ -128,13 +128,17 @@ export function TopMenu({ activeView = "home", onNavigate, forceColors = null }:
     scrollToSection(view === "koncept" ? "sec2-wrapper" : "sec3-wrapper");
   };
 
+  const handleLangClick = (event: MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault();
+  };
+
   const navStyle = useMemo(
     () =>
       ({
         "--menu-font-color": resolvedColors.font,
         "--menu-logo-color": resolvedColors.logo,
       }) as CSSProperties,
-    [resolvedColors],
+    [resolvedColors.font, resolvedColors.logo],
   );
 
   return (
@@ -146,23 +150,12 @@ export function TopMenu({ activeView = "home", onNavigate, forceColors = null }:
       aria-label="Main menu"
     >
       <div className="top-menu-shell">
-        <div className="top-menu-row top-menu-row-logo">
-          <a
-            className="menu-home-link"
-            href="#hero-start"
-            aria-label="Powrot do home"
-            onClick={handleHomeClick}
-          >
-            <span className="menu-logo" />
-          </a>
-        </div>
-
         <div className="top-menu-row top-menu-row-bottom">
           <div className="menu-main" role="menubar">
             {MENU_ITEMS.map((item) => (
               <a
                 key={item.id}
-                href={DEFAULT_LINK_TARGET[item.id]}
+                href={`#${item.id === "rezerwuj" ? "hero-start" : item.id === "koncept" ? "sec2-wrapper" : "sec3-wrapper"}`}
                 onClick={(event) => handleMenuClick(event, item.id)}
                 className={activeView === item.id ? "is-current" : undefined}
               >
@@ -172,10 +165,10 @@ export function TopMenu({ activeView = "home", onNavigate, forceColors = null }:
           </div>
 
           <div className="menu-langs">
-            <a href="#" className="is-active" lang="pl" aria-label="Polski">
+            <a href="#" className="is-active" lang="pl" aria-label="Polski" onClick={handleLangClick}>
               PL
             </a>
-            <a href="#" lang="en" aria-label="English">
+            <a href="#" lang="en" aria-label="English" onClick={handleLangClick}>
               EN
             </a>
           </div>

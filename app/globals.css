@@ -37,7 +37,6 @@ body {
   max-width: var(--container-max-width);
   margin: 0 auto;
   padding: var(--container-gutter);
-  /* background-color: rgba(255, 255, 255, 0.85); */
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -162,12 +161,15 @@ body {
   text-underline-offset: 3px;
 }
 
+.reservation-summary-card__fields {
+  border: 1px solid rgba(27, 27, 27, 0.26);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
 .reservation-summary-card__dates {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  border: 1px solid rgba(27, 27, 27, 0.26);
-  border-radius: 10px 10px 0 0;
-  overflow: hidden;
 }
 
 .reservation-summary-card__date-box {
@@ -200,11 +202,8 @@ body {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  margin-top: calc(var(--reservation-card-gap) * -1);
   padding: 10px 12px 12px;
-  border: 1px solid rgba(27, 27, 27, 0.26);
-  border-top: 0;
-  border-radius: 0 0 10px 10px;
+  border-top: 1px solid rgba(27, 27, 27, 0.26);
 }
 
 .reservation-summary-card__guests span {
@@ -290,13 +289,6 @@ body {
   gap: 14px;
 }
 
-.expanded-content-copy-col h2 {
-  margin: 0;
-  font-size: clamp(2rem, 3.4vw, 3.1rem);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
 .expanded-content-intro {
   margin: 0;
   max-width: 72ch;
@@ -325,6 +317,7 @@ body {
 }
 
 .expanded-content-gallery-item {
+  position: relative;
   margin: 0;
   min-height: 150px;
   border-radius: 8px;
@@ -342,30 +335,6 @@ body {
   width: 100%;
   height: 100%;
   object-fit: cover;
-}
-
-.hero-menu-sections {
-  margin-top: 18px;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
-}
-
-.hero-menu-card {
-  padding: 14px;
-  border: 1px solid rgba(190, 22, 34, 0.22);
-  background-color: #fff7f8;
-}
-
-.hero-menu-card h3 {
-  margin: 0 0 8px;
-  font-size: 1rem;
-  color: #be1622;
-}
-
-.hero-menu-card p {
-  margin: 0;
-  line-height: 1.4;
 }
 
 .section-story {
@@ -391,12 +360,17 @@ body {
   text-transform: uppercase;
 }
 
-.story-subtitle {
-  margin: 14px 0 0;
+/* ----- NAGLOWEK SEKUNDARNY (wspolny styl) ----- */
+.heading-secondary {
+  margin: 0;
   font-size: clamp(1.365rem, 2.6vw, 1.82rem);
   letter-spacing: 0.05em;
   text-transform: uppercase;
   font-weight: 900;
+}
+
+.story-subtitle {
+  margin-top: 14px;
 }
 
 .story-text-block {
@@ -663,47 +637,9 @@ body {
   align-items: center;
 }
 
-.top-menu-row-logo {
-  display: none !important;
-  visibility: hidden;
-  height: 0;
-  overflow: hidden;
-}
-
-.top-menu-row-logo .menu-home-link,
-.top-menu-row-logo .menu-logo {
-  display: none !important;
-  opacity: 0;
-  pointer-events: none;
-}
-
 .top-menu-row-bottom {
   justify-content: space-between;
   gap: 24px;
-}
-
-.menu-home-link {
-  display: inline-flex;
-  color: var(--menu-font-color);
-}
-
-.menu-logo {
-  display: block;
-  width: calc(460px * var(--menu-logo-scale));
-  height: calc(104px * var(--menu-logo-scale));
-  background-color: var(--menu-logo-color);
-  mask-image: url('/assets/hommm.svg');
-  mask-position: center;
-  mask-repeat: no-repeat;
-  mask-size: contain;
-  -webkit-mask-image: url('/assets/hommm.svg');
-  -webkit-mask-position: center;
-  -webkit-mask-repeat: no-repeat;
-  -webkit-mask-size: contain;
-  transition:
-    width 240ms ease,
-    height 240ms ease,
-    background-color 200ms ease;
 }
 
 .menu-main,
@@ -779,11 +715,6 @@ body {
     border-radius: 6px;
   }
 
-  .hero-menu-sections {
-    grid-template-columns: 1fr;
-    gap: 10px;
-  }
-
   .story-container {
     padding-top: 44vh;
     padding-bottom: 40px;
@@ -857,8 +788,8 @@ body {
     gap: 10px;
   }
 
-  .expanded-content-copy-col h2 {
-    font-size: clamp(1.7rem, 8.4vw, 2.3rem);
+  .heading-secondary {
+    font-size: clamp(1.2rem, 6vw, 1.5rem);
   }
 
   .expanded-content-body p {
@@ -901,9 +832,5 @@ body {
     justify-content: center;
     flex-wrap: wrap;
     gap: 16px;
-  }
-
-  h2 {
-    font-size: 1.5rem;
   }
 }
