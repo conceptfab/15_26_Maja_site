@@ -1,0 +1,65 @@
+---
+// CommonSections.astro zawiera Sekcję 2, 3 i 4. Są one "stałe", niezależnie od zakładki górnej.
+---
+
+<!-- STAŁA Sekcja 2 z rozwinięciem -->
+<!-- Niewidoczny checkbox sterujący -->
+<input type="checkbox" id="expand-sec2" class="expand-toggle" />
+<!-- Kontener Sekcji 2 -->
+<section class="section h-90vh bg-secondary" id="sec2-wrapper">
+  <div class="container">
+    <h2>STAŁA - Sekcja 2</h2>
+    <p>
+      Ja się nie zmieniam po kliknięciu głównego menu, ale mam własny
+      przycisk na dole.
+    </p>
+
+    <!-- Ta część pojawi się dopiero po kliknięciu "CZYTAJ DALEJ" -->
+    <div class="expanded-content">
+      <h3>Oto dodatkowa treść</h3>
+      <p>
+        Kliknięto przycisk, więc wysokość tego bloku (`.section`) płynnie
+        podskoczyła do 120vh (dodając +50% oryginalnej wielkości, tak jak
+        chciałeś).
+      </p>
+      <p>
+        Możesz tu wpisać dużo więcej tekstu, zdjęć i detali. Sam przycisk
+        zniknął.
+      </p>
+    </div>
+
+    <!-- Etykieta działająca jak przycisk, aktywująca checkbox wyżej -->
+    <label for="expand-sec2" class="btn-expand">Czytaj dalej</label>
+  </div>
+</section>
+
+<!-- STAŁA Sekcja 3 z rozwinięciem -->
+<!-- Niewidoczny checkbox sterujący -->
+<input type="checkbox" id="expand-sec3" class="expand-toggle" />
+<!-- Kontener Sekcji 3 -->
+<section class="section h-90vh bg-dark" id="sec3-wrapper">
+  <div class="container">
+    <h2>STAŁA - Sekcja 3</h2>
+    <p>Tu też stabilnie!</p>
+
+    <div class="expanded-content">
+      <h3>Kluczowe informacje sekcji 3</h3>
+      <p>Sekcja rozwinięta z 80vh do 120vh.</p>
+      <p>
+        Dzięki dodanej animacji w CSS, rozsuwanie wygląda bardzo estetycznie
+        i nie skacze po oczach.
+      </p>
+    </div>
+
+    <!-- Przycisk Read More -->
+    <label for="expand-sec3" class="btn-expand">Czytaj dalej</label>
+  </div>
+</section>
+
+<!-- STAŁA Sekcja 4 -->
+<section class="section h-25vh bg-light">
+  <div class="container">
+    <h2>STAŁA Stopka - Sekcja 4</h2>
+    <p>Zawsze na samym dole po przescrollowaniu.</p>
+  </div>
+</section>

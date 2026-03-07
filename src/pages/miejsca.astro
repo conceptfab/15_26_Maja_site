@@ -1,0 +1,21 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Navigation from '../components/Navigation.astro';
+import ScrollProgress from '../components/ScrollProgress.astro';
+import CommonSections from '../components/CommonSections.astro';
+import GlobalScripts from '../components/GlobalScripts.astro';
+---
+
+<Layout title="Personalizowane Sekcje - Miejsca">
+  <ScrollProgress />
+
+  <section class="section hero-section h-98vh bg-miejsca-1" id="hero-miejsca" style="display: flex;">
+    <Navigation activeTab="miejsca" />
+    <div class="container">
+      <h2>WIDOK MIEJSCA (ZMIENNY) - Sekcja 1</h2>
+    </div>
+  </section>
+
+  <CommonSections />
+  <GlobalScripts />
+</Layout>

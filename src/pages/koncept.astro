@@ -1,0 +1,21 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Navigation from '../components/Navigation.astro';
+import ScrollProgress from '../components/ScrollProgress.astro';
+import CommonSections from '../components/CommonSections.astro';
+import GlobalScripts from '../components/GlobalScripts.astro';
+---
+
+<Layout title="Personalizowane Sekcje - Koncept">
+  <ScrollProgress />
+
+  <section class="section hero-section h-98vh bg-koncept-1" id="hero-koncept" style="display: flex;">
+    <Navigation activeTab="koncept" />
+    <div class="container">
+      <h2>WIDOK KONCEPT (ZMIENNY) - Sekcja 1</h2>
+    </div>
+  </section>
+
+  <CommonSections />
+  <GlobalScripts />
+</Layout>

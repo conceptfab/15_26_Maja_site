@@ -1,0 +1,113 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Navigation from '../components/Navigation.astro';
+import ScrollProgress from '../components/ScrollProgress.astro';
+import CommonSections from '../components/CommonSections.astro';
+import GlobalScripts from '../components/GlobalScripts.astro';
+---
+
+<Layout title="Personalizowane Sekcje - Rezerwuj">
+  <ScrollProgress />
+
+  <section class="section hero-section h-98vh bg-rezerwuj-1" id="hero-rezerwuj" style="display: flex;">
+    <Navigation activeTab="rezerwuj" />
+
+    <div class="container rezerwuj-mockup">
+      <div class="rezerwuj-visual-grid">
+        <div class="rezerwuj-copy">
+          <h1>Lorem Ipsum miejsce</h1>
+          <p>
+            Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do
+            eiusmod tempor incididunt ut labore et dolore magna aliqua. Quis
+            ipsum suspendisse ultrices gravida.
+          </p>
+          <p>
+            Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do
+            eiusmod tempor incididunt ut labore et dolore magna aliqua. Quis
+            ipsum suspendisse ultrices gravida. Risus commodo viverra
+            maecenas accumsan lacus vel.
+          </p>
+        </div>
+
+        <div class="rezerwuj-photo photo-living" aria-hidden="true"></div>
+        <div class="rezerwuj-photo photo-bath" aria-hidden="true"></div>
+        <div class="rezerwuj-photo photo-house" aria-hidden="true"></div>
+        <p class="rezerwuj-price">650 pln/ noc</p>
+      </div>
+
+      <div class="rezerwuj-bottom-row">
+        <div class="rezerwuj-calendar-shell">
+          <p class="rezerwuj-stay">2 noce w: Krakow</p>
+          <p class="rezerwuj-stay-dates">30 sty 2026 - 1 lut 2026</p>
+
+          <div class="calendar-months">
+            <div class="calendar-month">
+              <div class="month-head">
+                <button type="button" class="month-arrow" aria-label="Poprzedni miesiac">
+                  &lt;
+                </button>
+                <p>Styczeń 2026</p>
+                <span aria-hidden="true"></span>
+              </div>
+              <div class="month-weekdays">
+                <span>Pon.</span><span>Wt.</span><span>Śr.</span><span>Czw.</span><span>Pt.</span><span>Sob.</span><span>Niedz.</span>
+              </div>
+              <div class="month-days">
+                <span class="is-muted">29</span><span class="is-muted">30</span><span class="is-muted">31</span><span>1</span><span>2</span><span>3</span><span>4</span> <span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span><span>11</span> <span>12</span><span>13</span><span>14</span><span>15</span><span>16</span><span>17</span><span>18</span><span>19</span><span>20</span><span>21</span><span>22</span><span>23</span><span>24</span><span>25</span> <span>26</span><span>27</span><span>28</span><span>29</span><span class="is-selected">30</span><span>31</span><span class="is-muted">1</span>
+              </div>
+            </div>
+
+            <div class="calendar-month">
+              <div class="month-head">
+                <span aria-hidden="true"></span>
+                <p>Luty 2026</p>
+                <button type="button" class="month-arrow" aria-label="Nastepny miesiac">
+                  &gt;
+                </button>
+              </div>
+              <div class="month-weekdays">
+                <span>Pon.</span><span>Wt.</span><span>Śr.</span><span>Czw.</span><span>Pt.</span><span>Sob.</span><span>Niedz.</span>
+              </div>
+              <div class="month-days">
+                <span class="is-muted">26</span><span class="is-muted">27</span><span class="is-muted">28</span><span class="is-muted">29</span><span class="is-muted">30</span><span class="is-muted">31</span><span class="is-selected">1</span> <span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span> <span>9</span><span>10</span><span>11</span><span>12</span><span>13</span><span>14</span><span>15</span><span>16</span><span>17</span><span>18</span><span>19</span><span>20</span><span>21</span><span>22</span> <span>23</span><span>24</span><span>25</span><span>26</span><span>27</span><span>28</span><span class="is-muted">1</span>
+              </div>
+            </div>
+          </div>
+
+          <button type="button" class="clear-dates">Wyczyść daty</button>
+        </div>
+
+        <aside class="booking-card">
+          <p class="night-price"><strong>409 zt</strong> za 2 noce</p>
+
+          <div class="booking-card-grid">
+            <label>
+              <span>Zameldowanie</span>
+              <input type="text" value="30.01.2026" readonly />
+            </label>
+            <label>
+              <span>Wymeldowanie</span>
+              <input type="text" value="1.02.2026" readonly />
+            </label>
+          </div>
+
+          <label class="guests-field">
+            <span>Goście</span>
+            <select>
+              <option selected>1 gość</option>
+              <option>2 gości</option>
+              <option>3 gości</option>
+              <option>4 gości</option>
+            </select>
+          </label>
+
+          <button type="button" class="btn-book">REZERWUJ</button>
+          <p class="booking-note">Płatność nie zostanie jeszcze naliczona</p>
+        </aside>
+      </div>
+    </div>
+  </section>
+
+  <CommonSections />
+  <GlobalScripts />
+</Layout>

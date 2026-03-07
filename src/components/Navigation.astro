@@ -1,0 +1,64 @@
+---
+export interface Props {
+  activeTab: 'start' | 'koncept' | 'miejsca' | 'rezerwuj';
+}
+
+const { activeTab } = Astro.props;
+---
+
+<nav class="top-menu">
+  <div class="top-menu-inner">
+    <div class="menu-left">
+      <a href="/koncept" class={`menu-koncept menu-item ${activeTab === 'koncept' ? 'is-active-link' : ''}`}>koncept</a>
+      <a href="/miejsca" class={`menu-miejsca menu-item ${activeTab === 'miejsca' ? 'is-active-link' : ''}`}>miejsca</a>
+      <a href="/rezerwuj" class={`menu-rezerwuj menu-item ${activeTab === 'rezerwuj' ? 'is-active-link' : ''}`}>rezerwuj</a>
+    </div>
+    <div class={`menu-right ${activeTab === 'rezerwuj' ? 'lang-switch' : ''}`}>
+      {activeTab === 'rezerwuj' ? (
+        <>
+          <a href="#" class="lang-text is-active">PL</a>
+          <span>/</span>
+          <a href="#" class="lang-text">ENG</a>
+        </>
+      ) : (
+        <>
+          <a
+            href="#"
+            class="lang-icon"
+            title="Polski"
+            style="display: inline-block; width: 22px; color: currentcolor; opacity: 1; margin-right: 10px;"
+          >
+            <svg viewBox="0 0 20 12" width="22" height="13" xmlns="http://www.w3.org/2000/svg" style="vertical-align: middle;">
+              <rect width="20" height="12" fill="transparent" stroke="currentColor" stroke-width="2" />
+              <rect width="20" height="6" y="6" fill="currentColor" />
+            </svg>
+          </a>
+          <a
+            href="#"
+            class="lang-icon"
+            title="English"
+            style="display: inline-block; width: 22px; color: currentcolor; opacity: 0.3; transition: opacity 0.2s;"
+            onmouseover="this.style.opacity = 1"
+            onmouseout="this.style.opacity = 0.3"
+          >
+            <svg viewBox="0 0 20 12" width="22" height="13" xmlns="http://www.w3.org/2000/svg" style="vertical-align: middle;">
+              <rect width="20" height="12" fill="transparent" stroke="currentColor" stroke-width="2" />
+              <path d="M0,0 L20,12 M20,0 L0,12" stroke="currentColor" stroke-width="1.5" fill="none" />
+              <path d="M10,0 L10,12 M0,6 L20,6" stroke="currentColor" stroke-width="2.5" fill="none" />
+            </svg>
+          </a>
+        </>
+      )}
+    </div>
+  </div>
+</nav>
+
+<style>
+  /* Dodajemy stylowanie dla aktywnego linku które zastąpi starą logikę z :checked ~ label */
+  .is-active-link {
+    text-decoration: underline;
+    color: #000;
+    border-bottom: 2px solid #000;
+    pointer-events: none;
+  }
+</style>

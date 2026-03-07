@@ -1,0 +1,27 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Navigation from '../components/Navigation.astro';
+import ScrollProgress from '../components/ScrollProgress.astro';
+import CommonSections from '../components/CommonSections.astro';
+import GlobalScripts from '../components/GlobalScripts.astro';
+---
+
+<Layout title="Personalizowane Sekcje - Start">
+  <!-- Scroll Progress -->
+  <ScrollProgress />
+
+  <!-- SEKCJA 1 (HERO START) -->
+  <section class="section hero-section h-98vh bg-slider" id="hero-start" style="display: flex;">
+    <Navigation activeTab="start" />
+    <div class="container">
+      <h2>STARTOWY HERO (ZMIENNY) - Sekcja 1</h2>
+      <p>Menu wymieni tylko ten widok.</p>
+    </div>
+  </section>
+
+  <!-- STAŁE ZAKŁADKI (Sekcje 2, 3, 4) -->
+  <CommonSections />
+
+  <!-- Globalne Skrypty -->
+  <GlobalScripts />
+</Layout>

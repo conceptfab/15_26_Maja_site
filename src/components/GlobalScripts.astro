@@ -1,0 +1,74 @@
+---
+---
+
+<script>
+  // Mechanizm ujawniania elementów (in-view) oraz zaznaczania aktywnej sekcji (is-active)
+  document.addEventListener('astro:page-load', () => {
+    const sections = document.querySelectorAll('.section');
+    const revealTargets = document.querySelectorAll(
+      '.section:not(.hero-section) .container',
+    );
+
+    // 1. Intersection Observer do wjazdu (reveal) sekcji nie-bohaterów
+    if ('IntersectionObserver' in window) {
+      const io = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              entry.target.classList.add('in-view');
+              io.unobserve(entry.target);
+            }
+          });
+        },
+        { threshold: 0.2 },
+      );
+
+      revealTargets.forEach((el) => io.observe(el));
+    } else {
+      revealTargets.forEach((el) => el.classList.add('in-view'));
+    }
+
+    // 2. Aktywacja sekcji podczas scrollowania (is-active)
+    const updateActiveSection = () => {
+      let activeSection = null;
+      let shortestDistance = Number.POSITIVE_INFINITY;
+      const referenceY = window.innerHeight * 0.45;
+
+      sections.forEach((section) => {
+        const rect = section.getBoundingClientRect();
+        const isVisible = rect.bottom > 0 && rect.top < window.innerHeight;
+
+        if (!isVisible) {
+          section.classList.remove('is-active');
+          return;
+        }
+
+        const middleY = rect.top + rect.height / 2;
+        const distance = Math.abs(middleY - referenceY);
+
+        if (distance < shortestDistance) {
+          shortestDistance = distance;
+          activeSection = section;
+        }
+      });
+
+      sections.forEach((section) =>
+        section.classList.toggle('is-active', section === activeSection),
+      );
+    };
+
+    let isSectionTicking = false;
+    const queueSectionEffects = () => {
+       if (isSectionTicking) return;
+       isSectionTicking = true;
+       window.requestAnimationFrame(() => {
+          updateActiveSection();
+          isSectionTicking = false;
+       });
+    };
+    
+    window.addEventListener('scroll', queueSectionEffects, { passive: true });
+    window.addEventListener('resize', queueSectionEffects);
+    queueSectionEffects();
+  });
+</script>

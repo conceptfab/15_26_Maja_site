@@ -1,0 +1,40 @@
+---
+---
+
+<div class="scroll-progress" aria-hidden="true">
+  <div class="scroll-progress-bar" id="scroll-progress-bar"></div>
+</div>
+
+<script>
+  // W Astro skrypty w ten sposób zamieszczone są połączone i uruchamiane raz per strona
+  // Musimy zadbać by odpalały się też po nawigacji przez ViewTransitions (astro:page-load)
+  document.addEventListener('astro:page-load', () => {
+    const progressBar = document.getElementById('scroll-progress-bar');
+    
+    if (!progressBar) return;
+
+    const updateScrollProgress = () => {
+      const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+      const rawProgress = maxScroll > 0 ? window.scrollY / maxScroll : 0;
+      const progress = Math.min(1, Math.max(0, rawProgress));
+
+      progressBar.style.transform = `scaleX(${progress})`;
+    };
+
+    let isTicking = false;
+
+    const queueScrollEffects = () => {
+      if (isTicking) return;
+      isTicking = true;
+
+      window.requestAnimationFrame(() => {
+        updateScrollProgress();
+        isTicking = false;
+      });
+    };
+
+    window.addEventListener('scroll', queueScrollEffects, { passive: true });
+    window.addEventListener('resize', queueScrollEffects);
+    queueScrollEffects(); // Inicjalne wywołanie
+  });
+</script>
