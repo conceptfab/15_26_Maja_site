@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, type MouseEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import { differenceInCalendarDays, format } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import DatePicker from 'react-datepicker';
@@ -10,8 +10,19 @@ import {
   EXPANDED_SECTION_CONTENT,
   type ExpandableSection,
 } from '../data/content';
+import {
+  EraserIcon,
+  MailIcon,
+  PhoneIcon,
+  InstagramIcon,
+  TikTokIcon,
+  FacebookIcon,
+} from '../components/Icons';
 
+const BRAND_COLOR = '#be1622';
 const PRICE_PER_NIGHT = 204.5;
+const SCROLL_COMPACT_THRESHOLD = 10;
+const SECTION_RESET_RATIO = 0.55;
 
 const DISMISS_KEYS = new Set([
   'ArrowDown',
@@ -50,6 +61,7 @@ export default function Home() {
   const isExpandedContentVisible = expandedSection !== null;
   const isRedMenuMode = isMenuContentVisible || isExpandedContentVisible;
   const lastScrollYRef = useRef(0);
+  const isMobileRef = useRef(false);
   const [checkIn, checkOut] = reservationRange;
   const nightsRaw =
     checkIn && checkOut ? differenceInCalendarDays(checkOut, checkIn) : 0;
@@ -61,17 +73,102 @@ export default function Home() {
   const checkOutLabel = checkOut
     ? format(checkOut, 'd.MM.yyyy', { locale: pl })
     : '--.--.----';
-  const today = new Date();
+  const today = useMemo(() => new Date(), []);
   const handleReservationClear = () => {
     setReservationRange([null, null]);
   };
 
+  // Track mobile viewport via matchMedia listener (not in scroll handler)
   useEffect(() => {
-    if (!expandedSection) {
-      return;
+    const mql = window.matchMedia('(max-width: 768px)');
+    isMobileRef.current = mql.matches;
+    const onChange = (e: MediaQueryListEvent) => {
+      isMobileRef.current = e.matches;
+    };
+    mql.addEventListener('change', onChange);
+    return () => mql.removeEventListener('change', onChange);
+  }, []);
+
+  // Combined scroll handler: compact detection, section reset, expanded dismiss
+  useEffect(() => {
+    if (activeView !== 'home') {
+      lastScrollYRef.current = window.scrollY;
     }
 
-    if (window.matchMedia('(max-width: 768px)').matches) {
+    let ticking = false;
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+
+      requestAnimationFrame(() => {
+        const currentScrollY = window.scrollY;
+        setHasScrolled(currentScrollY > SCROLL_COMPACT_THRESHOLD);
+        const isMobile = isMobileRef.current;
+
+        if (activeView !== 'home') {
+          const sec2 = document.getElementById('sec2-wrapper');
+          if (sec2) {
+            const isScrollingDown = currentScrollY > lastScrollYRef.current;
+            const sec2Top = sec2.getBoundingClientRect().top;
+            const resetPoint = window.innerHeight * SECTION_RESET_RATIO;
+
+            if (
+              isScrollingDown &&
+              currentScrollY > SCROLL_COMPACT_THRESHOLD &&
+              sec2Top <= resetPoint
+            ) {
+              setActiveView('home');
+            }
+          }
+          lastScrollYRef.current = currentScrollY;
+        }
+
+        if (isMobile && activeView === 'rezerwuj') {
+          const heroSection = document.getElementById('hero-start');
+          if (heroSection) {
+            const rect = heroSection.getBoundingClientRect();
+            const isOutOfViewport =
+              rect.bottom <= 0 || rect.top >= window.innerHeight;
+
+            if (isOutOfViewport) {
+              setActiveView('home');
+            }
+          }
+        }
+
+        if (expandedSection) {
+          // Desktop: dismiss on wheel/touchmove (handled below)
+          // Mobile: dismiss when section scrolls out of viewport
+          if (isMobile) {
+            const expandedWrapperId =
+              expandedSection === 'sec2' ? 'sec2-wrapper' : 'sec3-wrapper';
+            const expandedWrapper =
+              document.getElementById(expandedWrapperId);
+
+            if (expandedWrapper) {
+              const rect = expandedWrapper.getBoundingClientRect();
+              const isOutOfViewport =
+                rect.bottom <= 0 || rect.top >= window.innerHeight;
+
+              if (isOutOfViewport) {
+                setExpandedSection(null);
+              }
+            }
+          }
+        }
+
+        ticking = false;
+      });
+    };
+
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [activeView, expandedSection]);
+
+  // Desktop-only: dismiss expanded section on wheel/touchmove/keyboard
+  useEffect(() => {
+    if (!expandedSection || isMobileRef.current) {
       return;
     }
 
@@ -98,79 +195,8 @@ export default function Home() {
     };
   }, [expandedSection]);
 
-  useEffect(() => {
-    if (activeView !== 'home') {
-      lastScrollYRef.current = window.scrollY;
-    }
-
-    let ticking = false;
-    const onScroll = () => {
-      if (ticking) return;
-      ticking = true;
-
-      requestAnimationFrame(() => {
-        const currentScrollY = window.scrollY;
-        setHasScrolled(currentScrollY > 10);
-        const isMobileViewport = window.matchMedia('(max-width: 768px)').matches;
-
-        if (activeView !== 'home') {
-          const sec2 = document.getElementById('sec2-wrapper');
-          if (sec2) {
-            const isScrollingDown = currentScrollY > lastScrollYRef.current;
-            const sec2Top = sec2.getBoundingClientRect().top;
-            const resetPoint = window.innerHeight * 0.55;
-
-            if (
-              isScrollingDown &&
-              currentScrollY > 10 &&
-              sec2Top <= resetPoint
-            ) {
-              setActiveView('home');
-            }
-          }
-          lastScrollYRef.current = currentScrollY;
-        }
-
-        if (isMobileViewport && activeView === 'rezerwuj') {
-          const heroSection = document.getElementById('hero-start');
-          if (heroSection) {
-            const rect = heroSection.getBoundingClientRect();
-            const isOutOfViewport =
-              rect.bottom <= 0 || rect.top >= window.innerHeight;
-
-            if (isOutOfViewport) {
-              setActiveView('home');
-            }
-          }
-        }
-
-        if (isMobileViewport && expandedSection) {
-          const expandedWrapperId =
-            expandedSection === 'sec2' ? 'sec2-wrapper' : 'sec3-wrapper';
-          const expandedWrapper = document.getElementById(expandedWrapperId);
-
-          if (expandedWrapper) {
-            const rect = expandedWrapper.getBoundingClientRect();
-            const isOutOfViewport =
-              rect.bottom <= 0 || rect.top >= window.innerHeight;
-
-            if (isOutOfViewport) {
-              setExpandedSection(null);
-            }
-          }
-        }
-
-        ticking = false;
-      });
-    };
-
-    onScroll();
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
-  }, [activeView, expandedSection]);
-
   const forcedMenuColors: MenuColors | null = isRedMenuMode
-    ? { font: '#be1622', logo: '#be1622' }
+    ? { font: BRAND_COLOR, logo: BRAND_COLOR }
     : null;
 
   const handleFloatingLogoClick = (event: MouseEvent<HTMLAnchorElement>) => {
@@ -187,6 +213,34 @@ export default function Home() {
     document
       .getElementById(targetId)
       ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  const handleFooterNavClick = (
+    event: MouseEvent<HTMLAnchorElement>,
+    targetId: string,
+  ) => {
+    event.preventDefault();
+    document
+      .getElementById(targetId)
+      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  const handleSocialClick = (event: MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault();
+  };
+
+  const handleReservationSubmit = () => {
+    if (!checkIn || !checkOut) {
+      return;
+    }
+    const params = new URLSearchParams({
+      checkin: format(checkIn, 'yyyy-MM-dd'),
+      checkout: format(checkOut, 'yyyy-MM-dd'),
+      guests: reservationGuests,
+    });
+    window.location.href = `mailto:hommm@hommm.eu?subject=${encodeURIComponent('Rezerwacja HOMMM')}&body=${encodeURIComponent(
+      `Zameldowanie: ${checkInLabel}\nWymeldowanie: ${checkOutLabel}\nGoście: ${reservationGuests}\nLiczba nocy: ${nights}\nCena: ${totalPrice} zł\n\n${params.toString()}`
+    )}`;
   };
 
   const renderExpandedContent = (section: ExpandableSection) => {
@@ -253,8 +307,8 @@ export default function Home() {
       <section
         className="section h-100vh bg-slider"
         id="hero-start"
-        data-menu-font={isMenuContentVisible ? '#be1622' : '#ffffff'}
-        data-menu-logo={isMenuContentVisible ? '#be1622' : '#ffffff'}
+        data-menu-font={isMenuContentVisible ? BRAND_COLOR : '#ffffff'}
+        data-menu-logo={isMenuContentVisible ? BRAND_COLOR : '#ffffff'}
       >
         {isMenuContentVisible ? (
           <div
@@ -277,6 +331,7 @@ export default function Home() {
                     src="/assets/sec_2.jpg"
                     alt="Widok Hommm"
                     fill
+                    priority
                     sizes="40vw"
                   />
                 </figure>
@@ -285,6 +340,7 @@ export default function Home() {
                     src="/assets/sec_3.jpg"
                     alt="Detale Hommm"
                     fill
+                    priority
                     sizes="20vw"
                   />
                 </figure>
@@ -293,6 +349,7 @@ export default function Home() {
                     src="/assets/hero.jpg"
                     alt="Klimat Hommm"
                     fill
+                    priority
                     sizes="20vw"
                   />
                 </figure>
@@ -324,20 +381,7 @@ export default function Home() {
                   onClick={handleReservationClear}
                   title="Wyczyść daty"
                 >
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    width="20"
-                    height="20"
-                  >
-                    <path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21" />
-                    <path d="M22 21H7" />
-                    <path d="m5 11 9 9" />
-                  </svg>
+                  <EraserIcon />
                 </button>
 
                 <aside
@@ -383,6 +427,8 @@ export default function Home() {
                   <button
                     type="button"
                     className="reservation-summary-card__submit"
+                    onClick={handleReservationSubmit}
+                    disabled={!checkIn || !checkOut}
                   >
                     REZERWUJ
                   </button>
@@ -407,8 +453,8 @@ export default function Home() {
       <section
         className={`section h-100vh bg-secondary ${expandedSection === 'sec2' ? '' : 'section-story'}`}
         id="sec2-wrapper"
-        data-menu-font={expandedSection === 'sec2' ? '#be1622' : '#ffffff'}
-        data-menu-logo={expandedSection === 'sec2' ? '#be1622' : '#ffffff'}
+        data-menu-font={expandedSection === 'sec2' ? BRAND_COLOR : '#ffffff'}
+        data-menu-logo={expandedSection === 'sec2' ? BRAND_COLOR : '#ffffff'}
       >
         {expandedSection === 'sec2' ? (
           renderExpandedContent('sec2')
@@ -443,17 +489,17 @@ export default function Home() {
       <section
         className={`section h-100vh bg-dark ${expandedSection === 'sec3' ? '' : 'section-story'}`}
         id="sec3-wrapper"
-        data-menu-font={expandedSection === 'sec3' ? '#be1622' : '#ffffff'}
-        data-menu-logo={expandedSection === 'sec3' ? '#be1622' : '#ffffff'}
+        data-menu-font={expandedSection === 'sec3' ? BRAND_COLOR : '#ffffff'}
+        data-menu-logo={expandedSection === 'sec3' ? BRAND_COLOR : '#ffffff'}
       >
         {expandedSection === 'sec3' ? (
           renderExpandedContent('sec3')
         ) : (
           <div className="container story-container">
-            <h1 className="h1-brand">YOUR SPECIAL PLACE</h1>
-            <h2 className="heading-secondary story-subtitle">
+            <h2 className="h1-brand">YOUR SPECIAL PLACE</h2>
+            <h3 className="heading-secondary story-subtitle">
               CHCESZ WYPOCZĄĆ W CISZY I OTOCZENIU NATURY?
-            </h2>
+            </h3>
 
             <div className="story-text-block">
               <p>
@@ -511,10 +557,18 @@ export default function Home() {
                 />
               </a>
               <div className="footer-nav-group">
-                <a href="#sec2-wrapper" className="footer-nav-link">
+                <a
+                  href="#sec2-wrapper"
+                  className="footer-nav-link"
+                  onClick={(e) => handleFooterNavClick(e, 'sec2-wrapper')}
+                >
                   KONCEPT
                 </a>
-                <a href="#sec3-wrapper" className="footer-nav-link">
+                <a
+                  href="#sec3-wrapper"
+                  className="footer-nav-link"
+                  onClick={(e) => handleFooterNavClick(e, 'sec3-wrapper')}
+                >
                   MIEJSCA
                 </a>
                 <button
@@ -541,34 +595,11 @@ export default function Home() {
                   href="mailto:hommm@hommm.eu"
                   className="footer-contact__link"
                 >
-                  <svg
-                    width="20"
-                    height="20"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <rect width="20" height="16" x="2" y="4" rx="2" />
-                    <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
-                  </svg>
+                  <MailIcon />
                   <span>hommm@hommm.eu</span>
                 </a>
                 <a href="tel:+48608259945" className="footer-contact__link">
-                  <svg
-                    width="20"
-                    height="20"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" />
-                  </svg>
+                  <PhoneIcon />
                   <span>608 259 945</span>
                 </a>
 
@@ -577,59 +608,27 @@ export default function Home() {
                     href="#"
                     aria-label="Instagram"
                     className="footer-socials__link"
+                    onClick={handleSocialClick}
                   >
-                    <svg
-                      width="20"
-                      height="20"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
-                      <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
-                      <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
-                    </svg>
+                    <InstagramIcon />
                     <span>Instagram</span>
                   </a>
                   <a
                     href="#"
                     aria-label="TikTok"
                     className="footer-socials__link"
+                    onClick={handleSocialClick}
                   >
-                    <svg
-                      width="20"
-                      height="20"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M9 12a4 4 0 1 0 4 4V4a5 5 0 0 0 5 5" />
-                    </svg>
+                    <TikTokIcon />
                     <span>TikTok</span>
                   </a>
                   <a
                     href="#"
                     aria-label="Facebook"
                     className="footer-socials__link"
+                    onClick={handleSocialClick}
                   >
-                    <svg
-                      width="20"
-                      height="20"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" />
-                    </svg>
+                    <FacebookIcon />
                     <span>Facebook</span>
                   </a>
                 </div>

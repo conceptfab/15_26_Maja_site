@@ -199,7 +199,7 @@ export function TopMenu({ activeView = "home", onNavigate, forceColors = null }:
           id="main-menu-links"
           className={`top-menu-row top-menu-row-bottom ${isMobileMenuOpen ? "is-open" : ""}`}
         >
-          <div className="menu-main" role="menubar">
+          <div className="menu-main">
             {MENU_ITEMS.map((item) => (
               <a
                 key={item.id}
