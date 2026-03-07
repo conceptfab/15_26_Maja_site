@@ -114,25 +114,32 @@ export default function Home() {
         setHasScrolled(currentScrollY > SCROLL_COMPACT_THRESHOLD);
         const isMobile = isMobileRef.current;
 
-        if (activeView !== 'home' && !navGuardRef.current) {
-          const sec2 = document.getElementById('sec2-wrapper');
-          if (sec2) {
-            const isScrollingDown = currentScrollY > lastScrollYRef.current;
-            const sec2Top = sec2.getBoundingClientRect().top;
-            const resetPoint = window.innerHeight * SECTION_RESET_RATIO;
+        const hasReservationDates = reservationRange[0] !== null;
 
-            if (
-              isScrollingDown &&
-              currentScrollY > SCROLL_COMPACT_THRESHOLD &&
-              sec2Top <= resetPoint
-            ) {
-              setActiveView('home');
+        if (activeView !== 'home' && !navGuardRef.current) {
+          // Don't auto-dismiss reservation view when user has selected dates
+          if (activeView === 'rezerwuj' && hasReservationDates) {
+            lastScrollYRef.current = currentScrollY;
+          } else {
+            const sec2 = document.getElementById('sec2-wrapper');
+            if (sec2) {
+              const isScrollingDown = currentScrollY > lastScrollYRef.current;
+              const sec2Top = sec2.getBoundingClientRect().top;
+              const resetPoint = window.innerHeight * SECTION_RESET_RATIO;
+
+              if (
+                isScrollingDown &&
+                currentScrollY > SCROLL_COMPACT_THRESHOLD &&
+                sec2Top <= resetPoint
+              ) {
+                setActiveView('home');
+              }
             }
+            lastScrollYRef.current = currentScrollY;
           }
-          lastScrollYRef.current = currentScrollY;
         }
 
-        if (isMobile && activeView === 'rezerwuj' && !navGuardRef.current) {
+        if (isMobile && activeView === 'rezerwuj' && !navGuardRef.current && !hasReservationDates) {
           const heroSection = document.getElementById('hero-start');
           if (heroSection) {
             const rect = heroSection.getBoundingClientRect();
@@ -173,7 +180,7 @@ export default function Home() {
     onScroll();
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
-  }, [activeView, expandedSection]);
+  }, [activeView, expandedSection, reservationRange]);
 
   // Scroll-reveal: observe elements with .reveal class
   useEffect(() => {
