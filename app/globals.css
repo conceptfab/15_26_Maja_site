@@ -1,0 +1,248 @@
+:root {
+  --container-max-width: 1100px;
+  --container-gutter: 20px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  font-family: sans-serif;
+  background-color: #f0f0f0;
+}
+
+/* Baza dla kazdej sekcji */
+.section {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  border-bottom: 2px solid rgba(0, 0, 0, 0.1);
+}
+
+/* ----- KOLUMNA CENTRALNA NA TRESC ----- */
+.container {
+  width: 100%;
+  max-width: var(--container-max-width);
+  margin: 0 auto;
+  padding: var(--container-gutter);
+  /* background-color: rgba(255, 255, 255, 0.85); */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  color: #333;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
+}
+
+/* ----- KLASY DO PERSONALIZACJI WYSOKOSCI ----- */
+.h-90vh {
+  min-height: 90vh;
+}
+
+.h-35vh {
+  min-height: 35vh;
+}
+
+/* ----- KLASY DO PERSONALIZACJI TLA ----- */
+.bg-slider {
+  background-image: url("/assets/hero.jpg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  color: white;
+}
+
+.bg-dark {
+  background-image: url("/assets/sec_3.jpg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  color: white;
+}
+
+.bg-light {
+  background-image: url("/assets/footer.jpg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  color: #333;
+}
+
+.bg-secondary {
+  background-image: url("/assets/sec_2.jpg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  color: white;
+}
+
+/* ----- MENU NAWIGACYJNE ----- */
+.top-menu {
+  --menu-density: 1;
+  --menu-logo-scale: 1;
+  --menu-font-color: #ffffff;
+  --menu-logo-color: #ffffff;
+  position: fixed;
+  top: 18px;
+  left: 0;
+  width: 100%;
+  z-index: 100;
+  pointer-events: none;
+  transition: top 240ms ease;
+}
+
+.top-menu.is-compact {
+  --menu-density: 0.5;
+  --menu-logo-scale: 0.72;
+  top: 0;
+}
+
+.top-menu-shell {
+  width: 100%;
+  max-width: var(--container-max-width);
+  margin: 0 auto;
+  padding: calc(16px * var(--menu-density)) var(--container-gutter);
+  display: flex;
+  flex-direction: column;
+  gap: calc(10px * var(--menu-density));
+  pointer-events: auto;
+  transition:
+    padding 240ms ease,
+    gap 240ms ease,
+    background-color 240ms ease,
+    border-color 240ms ease,
+    border-radius 240ms ease,
+    backdrop-filter 240ms ease,
+    -webkit-backdrop-filter 240ms ease;
+}
+
+.top-menu.is-compact .top-menu-shell {
+  background-color: rgba(15, 15, 15, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 0;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.top-menu-row {
+  display: flex;
+  align-items: center;
+}
+
+.top-menu-row-logo {
+  justify-content: center;
+}
+
+.top-menu-row-bottom {
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.menu-home-link {
+  display: inline-flex;
+  color: var(--menu-font-color);
+}
+
+.menu-logo {
+  display: block;
+  width: calc(230px * var(--menu-logo-scale));
+  height: calc(52px * var(--menu-logo-scale));
+  background-color: var(--menu-logo-color);
+  mask-image: url("/assets/hommm.svg");
+  mask-position: center;
+  mask-repeat: no-repeat;
+  mask-size: contain;
+  -webkit-mask-image: url("/assets/hommm.svg");
+  -webkit-mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-size: contain;
+  transition:
+    width 240ms ease,
+    height 240ms ease,
+    background-color 200ms ease;
+}
+
+.menu-main,
+.menu-langs {
+  display: flex;
+  align-items: center;
+}
+
+.menu-main {
+  gap: 26px;
+}
+
+.menu-langs {
+  gap: 12px;
+}
+
+.top-menu a {
+  color: var(--menu-font-color);
+  text-decoration: none;
+  text-transform: uppercase;
+  font-size: 16px;
+  letter-spacing: 0.08em;
+  font-weight: 800;
+  transition:
+    color 200ms ease,
+    opacity 200ms ease,
+    letter-spacing 240ms ease;
+}
+
+.menu-langs a {
+  opacity: 0.52;
+}
+
+.menu-langs .is-active {
+  opacity: 1;
+}
+
+.top-menu a:hover {
+  opacity: 0.72;
+}
+
+/* =========================================================================
+   MEDIA QUERIES - WIDOKI MOBILNE
+   ========================================================================= */
+@media (max-width: 768px) {
+  :root {
+    --container-gutter: 14px;
+  }
+
+  .container {
+    width: 92%;
+    border-radius: 6px;
+  }
+
+  .top-menu {
+    top: 8px;
+  }
+
+  .top-menu.is-compact {
+    --menu-density: 0.72;
+    --menu-logo-scale: 0.78;
+    top: 0;
+  }
+
+  .top-menu-row-bottom {
+    flex-direction: column;
+    justify-content: center;
+    gap: 10px;
+  }
+
+  .menu-main {
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  h2 {
+    font-size: 1.5rem;
+  }
+}
