@@ -1,10 +1,34 @@
 {
   "permissions": {
     "allow": [
+      "Bash(head:*)",
+      "Bash(cd /c/_cloud/__cfab_demon/__client/dashboard && npx tsc --noEmit --pretty 2>&1)",
+      "Bash(tail:*)",
+      "Bash(python3 \"C:/_cloud/__cfab_demon/__client/diag_db.py\" 2>/dev/null && cat \"C:/_cloud/__cfab_demon/__client/db_diag_results.txt\" 2>/dev/null)",
+      "Bash(python3:*)",
+      "Bash(which python3 || which python || where python 2>/dev/null)",
+      "Bash(sqlite3:*)",
+      "Bash(cd \"C:\\\\_cloud\\\\__cfab_demon\\\\__client\\\\dashboard\\\\src-tauri\" && cargo check 2>&1)",
+      "Bash(wc:*)",
+      "Bash(find /c/_cloud/__cfab_demon/__client/dashboard/src-tauri/src -type f -name \"*.rs\" | xargs grep -l \"sync\\\\|upload\\\\|export_data_archive\" 2>/dev/null)",
+      "Bash(grep:*)",
+      "Bash(echo OK:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx vite:*)",
       "Bash(npm install:*)",
+      "Bash(node:*)",
+      "mcp__ide__getDiagnostics",
+      "Bash(timeout 60 npm run:*)",
+      "Bash(mv:*)",
+      "Bash(cargo check:*)",
+      "Bash(npx eslint:*)",
       "Bash(npm run:*)",
-      "Bash(rm:*)",
-      "Bash(npx next:*)"
+      "Bash(dir:*)",
+      "Bash(cargo build:*)",
+      "Bash(echo \"$APPDATA\")",
+      "Read(//c/Users/micz/AppData/Roaming/TimeFlow//**)",
+      "Bash(tasklist:*)",
+      "Bash(ls:*)"
     ]
   }
 }
