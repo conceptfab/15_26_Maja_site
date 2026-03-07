@@ -1,5 +1,5 @@
 :root {
-  --container-max-width: 1100px;
+  --container-max-width: 1300px;
   --container-gutter: 20px;
 }
 
@@ -40,18 +40,111 @@ body {
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
 }
 
-/* ----- KLASY DO PERSONALIZACJI WYSOKOSCI ----- */
-.h-90vh {
-  min-height: 90vh;
+.container-white {
+  background-color: #ffffff;
+  color: #1b1b1b;
 }
 
-.h-35vh {
-  min-height: 35vh;
+.hero-menu-sections {
+  margin-top: 18px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.hero-menu-card {
+  padding: 14px;
+  border: 1px solid rgba(190, 22, 34, 0.22);
+  background-color: #fff7f8;
+}
+
+.hero-menu-card h3 {
+  margin: 0 0 8px;
+  font-size: 1rem;
+  color: #be1622;
+}
+
+.hero-menu-card p {
+  margin: 0;
+  line-height: 1.4;
+}
+
+.section-story {
+  align-items: flex-start;
+}
+
+.story-container {
+  padding-top: 65vh;
+  padding-bottom: 24px;
+  justify-content: flex-start;
+  box-shadow: none;
+  color: #ffffff;
+}
+
+.h1-brand {
+  margin: 5vh 0 0;
+  font-family: 'blackcurrant', sans-serif;
+  font-weight: 400;
+  font-style: normal;
+  font-size: clamp(2.58rem, 6.08vw, 5.32rem);
+  line-height: 0.9;
+  text-transform: uppercase;
+}
+
+.story-subtitle {
+  margin: 14px 0 0;
+  font-size: clamp(1.365rem, 2.6vw, 1.82rem);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-weight: 900;
+}
+
+.story-text-block {
+  max-width: 680px;
+  margin-top: 14px;
+}
+
+.story-text-block p {
+  margin: 0 0 10px;
+  font-size: 1.3rem;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.story-read-more {
+  margin-top: 8px;
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  color: #ffffff;
+  padding: 10px 18px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 1.3rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: color 180ms ease;
+}
+
+.story-read-more:hover {
+  color: #be1622;
+}
+
+/* ----- KLASY DO PERSONALIZACJI WYSOKOSCI ----- */
+.h-95vh {
+  min-height: 95vh;
+}
+
+.h-40vh {
+  min-height: 40vh;
 }
 
 /* ----- KLASY DO PERSONALIZACJI TLA ----- */
 .bg-slider {
-  background-image: url("/assets/hero.jpg");
+  background-image: url('/assets/hero.jpg');
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -59,7 +152,7 @@ body {
 }
 
 .bg-dark {
-  background-image: url("/assets/sec_3.jpg");
+  background-image: url('/assets/sec_3.jpg');
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -67,7 +160,7 @@ body {
 }
 
 .bg-light {
-  background-image: url("/assets/footer.jpg");
+  background-image: url('/assets/footer.jpg');
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -75,7 +168,7 @@ body {
 }
 
 .bg-secondary {
-  background-image: url("/assets/sec_2.jpg");
+  background-image: url('/assets/sec_2.jpg');
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -151,14 +244,14 @@ body {
 
 .menu-logo {
   display: block;
-  width: calc(230px * var(--menu-logo-scale));
-  height: calc(52px * var(--menu-logo-scale));
+  width: calc(460px * var(--menu-logo-scale));
+  height: calc(104px * var(--menu-logo-scale));
   background-color: var(--menu-logo-color);
-  mask-image: url("/assets/hommm.svg");
+  mask-image: url('/assets/hommm.svg');
   mask-position: center;
   mask-repeat: no-repeat;
   mask-size: contain;
-  -webkit-mask-image: url("/assets/hommm.svg");
+  -webkit-mask-image: url('/assets/hommm.svg');
   -webkit-mask-position: center;
   -webkit-mask-repeat: no-repeat;
   -webkit-mask-size: contain;
@@ -195,6 +288,10 @@ body {
     letter-spacing 240ms ease;
 }
 
+.top-menu:not(.is-compact) a {
+  font-size: 20px;
+}
+
 .menu-langs a {
   opacity: 0.52;
 }
@@ -203,8 +300,22 @@ body {
   opacity: 1;
 }
 
-.top-menu a:hover {
-  opacity: 0.72;
+.top-menu.is-white-menu a:hover {
+  color: #be1622;
+  font-weight: 900;
+  opacity: 1;
+}
+
+.top-menu.is-red-menu a:hover {
+  font-weight: 900;
+  opacity: 1;
+}
+
+.menu-main a.is-current {
+  opacity: 1;
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 5px;
 }
 
 /* =========================================================================
@@ -218,6 +329,19 @@ body {
   .container {
     width: 92%;
     border-radius: 6px;
+  }
+
+  .hero-menu-sections {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .story-container {
+    padding-top: 65vh;
+  }
+
+  .h1-brand {
+    font-size: clamp(2.05rem, 10.64vw, 3.04rem);
   }
 
   .top-menu {

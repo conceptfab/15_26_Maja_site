@@ -1,11 +1,19 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { CSSProperties } from "react";
+import type { CSSProperties, MouseEvent } from "react";
 
-type MenuColors = {
+export type MenuView = "home" | "koncept" | "miejsca" | "rezerwuj";
+
+export type MenuColors = {
   font: string;
   logo: string;
+};
+
+type TopMenuProps = {
+  activeView?: MenuView;
+  onNavigate?: (view: MenuView) => void;
+  forceColors?: MenuColors | null;
 };
 
 const DEFAULT_COLORS: MenuColors = {
@@ -13,9 +21,21 @@ const DEFAULT_COLORS: MenuColors = {
   logo: "#ffffff",
 };
 
-export function TopMenu() {
+const MENU_ITEMS: Array<{ id: Exclude<MenuView, "home">; label: string }> = [
+  { id: "koncept", label: "koncept" },
+  { id: "miejsca", label: "miejsca" },
+  { id: "rezerwuj", label: "rezerwuj" },
+];
+
+const DEFAULT_LINK_TARGET: Record<Exclude<MenuView, "home">, string> = {
+  koncept: "#sec2-wrapper",
+  miejsca: "#sec3-wrapper",
+  rezerwuj: "#hero-start",
+};
+
+export function TopMenu({ activeView = "home", onNavigate, forceColors = null }: TopMenuProps) {
   const [isCompact, setIsCompact] = useState(false);
-  const [colors, setColors] = useState<MenuColors>(DEFAULT_COLORS);
+  const [sectionColors, setSectionColors] = useState<MenuColors>(DEFAULT_COLORS);
 
   useEffect(() => {
     const onScroll = () => {
@@ -42,7 +62,7 @@ export function TopMenu() {
     const applyColors = (section: HTMLElement) => {
       const font = section.dataset.menuFont ?? DEFAULT_COLORS.font;
       const logo = section.dataset.menuLogo ?? font;
-      setColors({ font, logo });
+      setSectionColors({ font, logo });
     };
 
     const pickInitialSection =
@@ -75,33 +95,80 @@ export function TopMenu() {
     return () => observer.disconnect();
   }, []);
 
+  const resolvedColors = forceColors ?? sectionColors;
+  const normalizedFontColor = resolvedColors.font.trim().toLowerCase();
+  const isRedMenuMode = normalizedFontColor === "#be1622";
+
+  const scrollToSection = (sectionId: string) => {
+    const section = document.getElementById(sectionId);
+    if (section) {
+      section.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  };
+
+  const handleHomeClick = (event: MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault();
+    onNavigate?.("home");
+    scrollToSection("hero-start");
+  };
+
+  const handleMenuClick = (
+    event: MouseEvent<HTMLAnchorElement>,
+    view: Exclude<MenuView, "home">,
+  ) => {
+    event.preventDefault();
+
+    if (view === "rezerwuj") {
+      onNavigate?.("rezerwuj");
+      scrollToSection("hero-start");
+      return;
+    }
+
+    onNavigate?.("home");
+    scrollToSection(view === "koncept" ? "sec2-wrapper" : "sec3-wrapper");
+  };
+
   const navStyle = useMemo(
     () =>
       ({
-        "--menu-font-color": colors.font,
-        "--menu-logo-color": colors.logo,
+        "--menu-font-color": resolvedColors.font,
+        "--menu-logo-color": resolvedColors.logo,
       }) as CSSProperties,
-    [colors],
+    [resolvedColors],
   );
 
   return (
     <nav
-      className={`top-menu ${isCompact ? "is-compact" : ""}`}
+      className={`top-menu ${isCompact ? "is-compact" : ""} ${
+        isRedMenuMode ? "is-red-menu" : "is-white-menu"
+      }`}
       style={navStyle}
       aria-label="Main menu"
     >
       <div className="top-menu-shell">
         <div className="top-menu-row top-menu-row-logo">
-          <a className="menu-home-link" href="#hero-start" aria-label="Powrot do home">
+          <a
+            className="menu-home-link"
+            href="#hero-start"
+            aria-label="Powrot do home"
+            onClick={handleHomeClick}
+          >
             <span className="menu-logo" />
           </a>
         </div>
 
         <div className="top-menu-row top-menu-row-bottom">
           <div className="menu-main" role="menubar">
-            <a href="#hero-start">koncept</a>
-            <a href="#sec2-wrapper">miejsca</a>
-            <a href="#sec4-wrapper">rezerwuj</a>
+            {MENU_ITEMS.map((item) => (
+              <a
+                key={item.id}
+                href={DEFAULT_LINK_TARGET[item.id]}
+                onClick={(event) => handleMenuClick(event, item.id)}
+                className={activeView === item.id ? "is-current" : undefined}
+              >
+                {item.label}
+              </a>
+            ))}
           </div>
 
           <div className="menu-langs">

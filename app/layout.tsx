@@ -13,6 +13,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="pl">
+      <head>
+        <link rel="stylesheet" href="https://use.typekit.net/zpt0osi.css" />
+      </head>
       <body>{children}</body>
     </html>
   );
