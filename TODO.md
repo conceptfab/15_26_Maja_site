@@ -11,7 +11,7 @@ Chce dodac backend do zarządzania treścią tej witryny:
 - Automatyczna optymalizacja plików graficznych do widoków - wynikowo warianty webp
 - System rezerwacji - mail do użytkownika i admina z informacją o chęci rezerwacji. W panelu admina tworzenie listy rezerwacji z danymi użytkowników - po zatwierdzeniu przez admina rezerwacji lub opłacenia pobytu w kalendarzu dany termin nie może być dostępnyy dla innych
 - Trzeba dodac do formularze rezerwacji możliwości dodania komentarza
-- Logowanie admina na secret kod, biała lista adminów - maile poza biała listą są ignorowane
+- Logowanie admina na sekretny mail admina wysyłany jest 6 cyfrowy kod, wazny przez 15 minu
 - system statystyk dla danych dotyczących rezerwacji/wynajmu
 
 Cały panel administracyjny ma wyglądać jak profesjonalny dashboard administracyjny
