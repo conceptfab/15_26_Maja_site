@@ -12,28 +12,47 @@
 | Autentykacja | Brak | Brak systemu logowania |
 | Email / powiadomienia | Brak | Tylko mailto: link |
 | Optymalizacja grafik | Czesciowy | Obrazy CSS bez optymalizacji |
-| SEO / Analytics | Brak | Brak GA, brak zarzadzania meta |
+| SEO / Analytics | Brak | Brak analytics, brak zarzadzania meta |
+
+---
+
+## Zasady projektu
+
+- **KISS** — minimalny stack, zero zbednych abstrakcji
+- **Server Components domyslnie** — `'use client'` tylko gdzie interakcja
+- **Server Actions do mutacji** — Route Handlers tylko dla publicznego API (rezerwacje, availability)
+- **Fallback na statyczna tresc** — strona dziala nawet bez DB
+- **Minimum zaleznosci** — kazda musi miec uzasadnienie
 
 ---
 
 ## Wybor technologii
 
-### Backend & infrastruktura
-
 | Warstwa | Technologia | Uzasadnienie |
 |---------|-------------|--------------|
-| API | **Next.js API Routes (App Router)** | Juz uzywany; zero nowego frameworka; deploy na Vercel natywny |
-| Baza danych | **PostgreSQL** (Neon / Supabase) | Relacyjna, idealna do rezerwacji i kalendarza; darmowy tier na Neon |
+| Framework | **Next.js 15 App Router** | Juz uzywany; zero migracji |
+| Baza danych | **Neon PostgreSQL** | Serverless, darmowy tier, branching |
 | ORM | **Prisma** | Typowany schemat, migracje, integracja z Next.js |
-| Autentykacja | **Custom JWT + secret code** | Prosta logika: whitelist emaili + tajny kod; bez ciezkich bibliotek |
-| Email | **Resend** | Prosty API, darmowy tier 100 maili/dzien, integracja z React Email |
-| CMS (tresc) | **Custom admin panel** + Prisma | JSON-based content w DB; edytor w panelu admina |
-| i18n | **next-intl** | Lekki, natywny dla App Router, obsluga PL/ENG |
-| Optymalizacja grafik | **Sharp** + Next.js Image | Automatyczna konwersja do WebP, generowanie wariantow |
-| Analytics | **Google Analytics 4** + **Vercel Analytics** | GA4 do SEO/marketingu; Vercel Analytics do statystyk technicznych |
-| Walidacja formularzy | **Zod** | Typowana walidacja na froncie i backendzie |
-| UI panelu admina | **Tailwind CSS** + komponenty custom | Profesjonalny dashboard; bez dodatkowej biblioteki UI |
-| Hosting | **Vercel** (frontend + API) + **Neon** (DB) | Darmowy tier, natywna integracja z Next.js |
+| Autentykacja | **Custom (jose + httpOnly cookie)** | Whitelist emaili + secret code; `jose` jest lekki i ESM-native |
+| Email | **Resend + React Email** | Prosty API, 100 maili/dzien free, szablony w JSX |
+| i18n | **Custom hook + JSON** | Dla 1 strony wystarczy; zero dodatkowych zaleznosci |
+| Walidacja | **Zod** | Jeden schemat na front i back |
+| UI admina | **shadcn/ui + Tailwind CSS** | Gotowe komponenty (Table, Form, Dialog, Card), pelna kontrola, zero vendor lock-in |
+| Optymalizacja grafik | **Sharp + next/image** | Konwersja do WebP przy uploadzie, serwowanie przez CDN |
+| Analytics | **Vercel Analytics** | Zero konfiguracji, wbudowane. GA4 opcjonalnie pozniej |
+| Hosting | **Vercel** (frontend + API) + **Neon** (DB) | Darmowy tier, natywna integracja |
+
+### Zaleznosci produkcyjne (nowe)
+
+```
+prisma @prisma/client jose zod resend @react-email/components sharp @vercel/analytics
+```
+
+### Zaleznosci dev
+
+```
+shadcn/ui (npx shadcn@latest init)
+```
 
 ---
 
@@ -44,11 +63,11 @@ HOMMM Site
 |
 |-- Public (frontend)
 |   |-- / .................. Strona glowna (istniejaca)
-|   |-- /[locale]/ ......... Routing jezykowy (PL/ENG)
+|   |-- Przelacznik PL/ENG  Prosty hook useLocale() + pliki JSON
 |
-|-- Admin Panel (frontend)
+|-- Admin Panel
 |   |-- /admin/login ....... Logowanie (secret code + email)
-|   |-- /admin/dashboard ... Glowny panel ze statystykami
+|   |-- /admin/dashboard ... Statystyki (karty, bez wykresow na start)
 |   |-- /admin/content ..... Edycja tresci sekcji (PL/ENG)
 |   |-- /admin/gallery ..... Zarzadzanie galeria i grafikami
 |   |-- /admin/reservations  Lista rezerwacji + zatwierdzanie
@@ -56,16 +75,21 @@ HOMMM Site
 |   |-- /admin/seo ......... Ustawienia SEO i meta tagow
 |   |-- /admin/settings .... Ustawienia globalne strony
 |
-|-- API Routes
-|   |-- /api/auth .......... Logowanie, sesja, wylogowanie
-|   |-- /api/content ....... CRUD tresci sekcji
-|   |-- /api/reservations .. CRUD rezerwacji
-|   |-- /api/gallery ....... Upload i zarzadzanie grafikami
-|   |-- /api/seo ........... Ustawienia SEO
-|   |-- /api/stats ......... Statystyki rezerwacji/wynajmu
-|   |-- /api/upload ........ Upload + optymalizacja obrazow
+|-- API (Route Handlers - tylko publiczne endpointy)
+|   |-- /api/auth/login .... Logowanie -> JWT w httpOnly cookie
+|   |-- /api/auth/logout ... Wylogowanie
+|   |-- /api/auth/me ....... Sprawdz sesje
+|   |-- /api/reservations .. POST nowa rezerwacja (publiczny)
+|   |-- /api/reservations/availability .. GET dostepnosc (publiczny)
 |
-|-- Database (PostgreSQL)
+|-- Server Actions (mutacje admina)
+|   |-- actions/content .... CRUD tresci sekcji
+|   |-- actions/reservations Zmiana statusu, notatki
+|   |-- actions/gallery .... Upload, usuwanie, edycja
+|   |-- actions/seo ........ Ustawienia SEO
+|   |-- actions/settings ... Ustawienia globalne
+|
+|-- Database (Neon PostgreSQL)
     |-- admins ............. Whitelist adminow
     |-- sessions ........... Sesje logowania
     |-- sections ........... Sekcje strony (JSON content PL/ENG)
@@ -133,11 +157,11 @@ model Reservation {
 }
 
 enum ReservationStatus {
-  PENDING      // Wstępna (Oczekująca na zatwierdzenie) - BLOKUJE TERMIN
-  DEPOSIT_PAID // Opłacona zaliczka - BLOKUJE TERMIN
-  PAID         // Opłacona całość - BLOKUJE TERMIN
+  PENDING      // Oczekujaca na zatwierdzenie - BLOKUJE TERMIN
+  DEPOSIT_PAID // Oplacona zaliczka - BLOKUJE TERMIN
+  PAID         // Oplacona calosc - BLOKUJE TERMIN
   CANCELLED    // Anulowana
-  COMPLETED    // Zakończona (po pobycie)
+  COMPLETED    // Zakonczona (po pobycie)
 }
 
 model GalleryImage {
@@ -160,7 +184,6 @@ model SeoSettings {
   descriptionPl   String?
   descriptionEn   String?
   ogImageUrl      String?
-  gaTrackingId    String?                // Google Analytics ID
   customHeadTags  String?                // Dodatkowe tagi <head>
 }
 
@@ -183,32 +206,36 @@ model SiteSettings {
 
 1. **Instalacja zaleznosci**
    ```
-   prisma, @prisma/client, zod, jsonwebtoken, bcryptjs,
-   next-intl, resend, sharp, tailwindcss (jesli brak)
+   prisma @prisma/client jose zod resend sharp @vercel/analytics
+   npx shadcn@latest init (komponenty: button, input, card, table, dialog, form, sheet, tabs)
    ```
 
-2. **Konfiguracja Prisma + PostgreSQL**
+2. **Konfiguracja Prisma + Neon PostgreSQL**
    - Plik `prisma/schema.prisma` z pelnym schematem
    - Konfiguracja `.env` (DATABASE_URL, JWT_SECRET, ADMIN_SECRET_CODE)
-   - Migracja inicjalna
+   - Migracja inicjalna + seed (konto admina, poczatkowe sekcje)
 
 3. **System autentykacji admina**
-   - `POST /api/auth/login` - email + secret code -> JWT token
-   - `POST /api/auth/logout` - uniewaznij sesje
-   - `GET /api/auth/me` - sprawdz aktualna sesje
-   - Middleware sprawdzajacy JWT na `/admin/*` i `/api/*` (oprocz login)
+   - `POST /api/auth/login` — email + secret code → JWT (jose) w httpOnly cookie
+   - `POST /api/auth/logout` — usun cookie + sesje z DB
+   - `GET /api/auth/me` — sprawdz aktualna sesje
+   - Middleware sprawdzajacy JWT na `/admin/*`
    - Whitelist emaili w tabeli `Admin`
-   - Token w httpOnly cookie
 
-4. **Layout panelu admina**
-   - `/admin/layout.tsx` - sidebar, topbar, responsywny dashboard layout
-   - `/admin/login/page.tsx` - formularz logowania
-   - `/admin/dashboard/page.tsx` - placeholder z nawigacja
-   - Profesjonalny design: ciemny sidebar, jasna tresc, karty statystyk
+4. **Layout panelu admina (shadcn/ui)**
+   - `/admin/layout.tsx` — sidebar (Sheet na mobile), topbar, nawigacja
+   - `/admin/login/page.tsx` — formularz logowania (shadcn Form + Input)
+   - `/admin/dashboard/page.tsx` — karty statystyk (shadcn Card)
+   - Dark mode sidebar, jasna tresc
 
-5. **Konfiguracja Tailwind CSS** (jesli nie jest zainstalowany)
+5. **Prisma client singleton** (`lib/db.ts`)
 
-**Rezultat:** Admin moze sie zalogowac i zobaczyc pusty dashboard.
+6. **Dokumentacja**
+   - `docs/setup.md` — jak uruchomic projekt lokalnie (env, DB, seed, dev server)
+   - `docs/architecture.md` — opis architektury: warstwy, flow danych, decyzje techniczne
+   - `docs/auth.md` — jak dziala auth (secret code + JWT + whitelist), jak dodac admina
+
+**Rezultat:** Admin moze sie zalogowac i zobaczyc pusty dashboard. Nowy developer moze uruchomic projekt w <15 min.
 
 ---
 
@@ -218,74 +245,81 @@ model SiteSettings {
 
 **Zadania:**
 
-1. **API tresci**
-   - `GET /api/content` - pobierz wszystkie sekcje
-   - `GET /api/content/[slug]` - pobierz jedna sekcje
-   - `PUT /api/content/[slug]` - aktualizuj sekcje (chronione)
+1. **Server Actions dla tresci** (`actions/content.ts`)
+   - `getContent()` — pobierz wszystkie sekcje
+   - `getContentBySlug(slug)` — pobierz jedna sekcje
+   - `updateContent(slug, data)` — aktualizuj sekcje (chronione)
 
 2. **Panel edycji tresci**
-   - `/admin/content/page.tsx` - lista sekcji z podgladem
-   - `/admin/content/[slug]/page.tsx` - edytor sekcji
-   - Edytor JSON z podgladem na zywo
-   - Przelacznik PL / ENG
+   - `/admin/content/page.tsx` — lista sekcji z podgladem (shadcn Table)
+   - `/admin/content/[slug]/page.tsx` — edytor sekcji (shadcn Form + Tabs PL/ENG)
+   - Przelacznik PL / ENG (shadcn Tabs)
    - Wybor tla sekcji (kolor / obraz)
-   - Zarzadzanie tagami
 
-3. **Integracja i18n (next-intl)**
-   - Konfiguracja `next-intl` z routing `/pl/` i `/en/`
-   - Middleware do detekcji jezyka
-   - Przeniesienie statycznych tekstow do plikow tlumaczen
-   - Dynamiczne tresci z bazy danych wg aktywnego jezyka
+3. **Custom i18n**
+   - `lib/i18n.ts` — hook `useLocale()` + helper `t(key)`
+   - `messages/pl.json` + `messages/en.json` — statyczne tlumaczenia UI
+   - Dynamiczne tresci z DB wg aktywnego jezyka
+   - Przelacznik PL/ENG w TopMenu (zapis w cookie/localStorage)
 
 4. **Refaktor frontendu**
-   - Strona glowna pobiera tresc z API zamiast hardcoded
-   - Fallback na statyczna tresc jesli API niedostepne
-   - Obsluga przelacznika PL/ENG w TopMenu
+   - Strona glowna pobiera tresc z DB (Server Component + Prisma)
+   - Fallback na statyczna tresc z `data/content.ts` gdy DB niedostepne
+   - Obsluga przelacznika PL/ENG
+
+5. **Dokumentacja**
+   - `docs/content.md` — struktura JSON tresci sekcji, jak dodac nowa sekcje, przyklad danych
+   - `docs/i18n.md` — jak dziala i18n, jak dodac nowy jezyk, format plikow tlumaczen
 
 **Rezultat:** Pelna obsluga PL/ENG, admin edytuje tresc w panelu.
 
 ---
 
-### FAZA 3: System rezerwacji (backend)
+### FAZA 3: System rezerwacji
 
 **Cel:** Pelny obieg rezerwacji z emailami i kalendarzem.
 
 **Zadania:**
 
-1. **API rezerwacji**
-   - `POST /api/reservations` - utworz rezerwacje (publiczny)
-     - Walidacja: daty, liczba gosci, email, telefon, komentarz
+1. **API rezerwacji (publiczne Route Handlers)**
+   - `POST /api/reservations` — utworz rezerwacje
+     - Walidacja Zod: daty, liczba gosci, email, telefon, komentarz
      - Sprawdzenie dostepnosci terminu
-     - Wyslanie emaila do goscia (potwierdzenie zgloszenia)
-     - Wyslanie emaila do admina (powiadomienie)
-   - `GET /api/reservations` - lista rezerwacji (admin)
-   - `GET /api/reservations/[id]` - szczegoly (admin)
-   - `PATCH /api/reservations/[id]` - zmien status (admin)
-   - `GET /api/reservations/availability` - sprawdz dostepnosc (publiczny)
+     - Email do goscia (potwierdzenie zgloszenia)
+     - Email do admina (powiadomienie)
+   - `GET /api/reservations/availability` — sprawdz dostepnosc (publiczny)
 
-2. **Refaktor formularza rezerwacji**
-   - Dodanie pol: imie, email, telefon, komentarz
-   - Walidacja po stronie klienta (Zod)
+2. **Server Actions admina** (`actions/reservations.ts`)
+   - `getReservations(filters)` — lista z filtrami
+   - `getReservation(id)` — szczegoly
+   - `updateReservationStatus(id, status)` — zmien status + wyslij email
+   - `addAdminNote(id, note)` — dodaj notatke
+
+3. **Refaktor formularza rezerwacji**
+   - Komponent `ReservationForm.tsx` (wydzielony z page.tsx)
+   - Walidacja kliencka (Zod)
    - Wysylka do API zamiast mailto:
-   - Wyswietlanie dostepnosci w kalendarzu (zablokowane daty)
+   - Wyswietlanie zajetych dat w kalendarzu
    - Potwierdzenie po wyslaniu
 
-3. **Szablony email (React Email + Resend)**
+4. **Szablony email (React Email + Resend)**
    - Email do goscia: "Otrzymalismy Twoja rezerwacje"
    - Email do admina: "Nowa rezerwacja od [imie]"
-   - Email do goscia: "Rezerwacja potwierdzona" (po zatwierdzeniu)
+   - Email do goscia: "Rezerwacja potwierdzona"
    - Email do goscia: "Rezerwacja anulowana"
 
-4. **Panel admina - rezerwacje**
-   - `/admin/reservations/page.tsx` - tabela rezerwacji z filtrami
-     - Filtry: status, daty, szukaj po nazwisku/emailu
-     - Akcje: zatwierdz, oznacz jako oplacona, anuluj
-   - `/admin/reservations/[id]/page.tsx` - szczegoly rezerwacji
-   - `/admin/calendar/page.tsx` - widok kalendarza z zajetymi terminami
-     - Kolorowanie wg statusu (oczekujace, potwierdzone, oplacone)
-     - Mozliwosc recznego blokowania terminow
+5. **Panel admina — rezerwacje**
+   - `/admin/reservations/page.tsx` — tabela (shadcn Table + filtry)
+   - `/admin/reservations/[id]/page.tsx` — szczegoly
+   - `/admin/calendar/page.tsx` — widok kalendarza z zajetymi terminami
+     - Kolorowanie wg statusu
+     - Reczne blokowanie terminow
 
-**Rezultat:** Pelny obieg rezerwacji: gosc -> email -> admin zatwierdza -> kalendarz blokuje termin.
+6. **Dokumentacja**
+   - `docs/reservations.md` — caly obieg rezerwacji (statusy, przejscia, blokowanie dat), flow emaili
+   - `docs/api.md` — opis publicznych endpointow (rezerwacje, availability), formaty request/response, kody bledow
+
+**Rezultat:** Pelny obieg: gosc → email → admin zatwierdza → kalendarz blokuje.
 
 ---
 
@@ -295,105 +329,89 @@ model SiteSettings {
 
 **Zadania:**
 
-1. **API uploadow**
-   - `POST /api/upload` - upload grafiki (admin)
-     - Przetwarzanie przez Sharp: resize, konwersja do WebP, generowanie miniatur
-     - Zapis oryginalow i zoptymalizowanych wersji
-     - Zwrot URLi (original, webp, thumb)
-   - `DELETE /api/upload/[id]` - usun grafike
+1. **Server Actions galerii** (`actions/gallery.ts`)
+   - `uploadImage(formData)` — upload + Sharp (resize, WebP, thumb)
+   - `deleteImage(id)` — usun grafike
+   - `updateImageOrder(ids[])` — zmien kolejnosc
+   - `updateImageAlt(id, altPl, altEn)` — edycja alt text
 
 2. **Panel galerii**
-   - `/admin/gallery/page.tsx` - grid z miniaturami
+   - `/admin/gallery/page.tsx` — grid z miniaturami
    - Drag & drop upload
-   - Zmiana kolejnosci (drag & drop)
+   - Zmiana kolejnosci
    - Edycja alt text (PL/ENG)
-   - Podglad oryginal vs WebP z rozmiarem pliku
    - Przypisanie do sekcji
 
-3. **Zarzadzanie tlami sekcji**
-   - Wybor z galerii lub upload nowego tla
-   - Podglad na zywo w edytorze sekcji
+3. **Integracja z frontem**
+   - Tla sekcji ladowane z DB
+   - next/image z automatycznym WebP
 
-4. **Integracja z frontem**
-   - Komponent galerii na stronie glownej (jesli potrzebny)
-   - Tla sekcji ladowane z bazy
-   - Next.js Image z automatycznym WebP
+4. **Dokumentacja**
+   - `docs/gallery.md` — formaty obrazow, warianty (original/webp/thumb), limity, jak dziala Sharp pipeline
 
-**Rezultat:** Admin uploaduje grafiki -> automatyczna optymalizacja -> wyswietlanie na stronie.
+**Rezultat:** Admin uploaduje grafiki → optymalizacja → wyswietlanie na stronie.
 
 ---
 
 ### FAZA 5: SEO, Analytics i statystyki
 
-**Cel:** Zarzadzanie SEO, integracja Google Analytics, dashboard statystyk.
+**Cel:** Zarzadzanie SEO, analytics, dashboard statystyk.
 
 **Zadania:**
 
 1. **SEO Management**
-   - `GET/PUT /api/seo` - ustawienia SEO (admin)
-   - `/admin/seo/page.tsx` - formularz edycji
+   - Server Actions: `getSeoSettings()`, `updateSeoSettings(data)`
+   - `/admin/seo/page.tsx` — formularz (shadcn Form)
      - Title i description (PL/ENG)
      - OG image
      - Custom head tags
-     - Google Analytics Tracking ID
-   - Dynamiczne `<head>` na stronie glownej na podstawie DB
+   - Dynamiczne `<head>` w layout na podstawie DB (`generateMetadata`)
 
-2. **Google Analytics 4**
-   - Komponent `<GoogleAnalytics />` w layout.tsx
-   - Tracking ID z bazy danych (konfigurowalny w panelu)
-   - Sledznie zdarzen: rezerwacja, zmiana jezyka, klikniecia menu
+2. **Vercel Analytics**
+   - `@vercel/analytics` w layout.tsx — zero konfiguracji
+   - GA4 opcjonalnie: pole w SeoSettings, komponent `<GoogleAnalytics />` ladowany warunkowo
 
-3. **Vercel Analytics** (opcjonalnie)
-   - `@vercel/analytics` - Web Vitals i statystyki
-   - Wyswietlanie w dashboardzie admina (link do Vercel)
+3. **Dashboard statystyk rezerwacji**
+   - `/admin/dashboard/page.tsx` — rozbudowany:
+     - Karty: rezerwacje wg statusu, przychod, oblozenosc (shadcn Card)
+     - Dane agregowane przez Server Actions (`getStats()`)
+     - Wykresy dodane pozniej jesli potrzebne (recharts)
 
-4. **Dashboard statystyk rezerwacji**
-   - `/admin/dashboard/page.tsx` - rozbudowany dashboard:
-     - Liczba rezerwacji (wg statusu) - miesieczne/roczne
-     - Przychod: potwierdzone + oplacone
-     - Oblozenosc: procent zajetych dni w miesiacu
-     - Srednia dlugosc pobytu
-     - Najpopularniejsze terminy
-     - Wykres rezerwacji w czasie (prosty chart - np. recharts)
-   - `GET /api/stats` - agregowane dane statystyczne
-
-**Rezultat:** Profesjonalny dashboard ze statystykami, SEO zarzadzane z panelu.
+**Rezultat:** SEO zarzadzane z panelu, podstawowe statystyki.
 
 ---
 
 ### FAZA 6: Ustawienia globalne i finalizacja
 
-**Cel:** Konfiguracja globalna strony, testy, deploy.
+**Cel:** Konfiguracja globalna, zabezpieczenia, deploy.
 
 **Zadania:**
 
-1. **Ustawienia globalne**
-   - `/admin/settings/page.tsx`
-     - Cena za noc (obecnie hardcoded 204.5 PLN)
-     - Maksymalna liczba gosci
-     - Dane kontaktowe (email, telefon, social media)
-     - Konfiguracja menu (kolejnosc, widocznosc sekcji)
-     - Whitelist adminow (dodaj/usun email)
+1. **Ustawienia globalne** (`/admin/settings/page.tsx`)
+   - Cena za noc (obecnie hardcoded 204.5 PLN)
+   - Maksymalna liczba gosci
+   - Dane kontaktowe (email, telefon, social media)
+   - Whitelist adminow (dodaj/usun email)
 
 2. **Zabezpieczenia**
-   - Rate limiting na API (szczegolnie login i rezerwacje)
-   - CSRF protection
-   - Sanityzacja inputow
+   - Rate limiting na `/api/auth/login` i `/api/reservations` (prosty in-memory counter lub middleware)
    - Walidacja Zod na wszystkich endpointach
-   - Bezpieczne httpOnly cookies
+   - httpOnly cookies (juz z Fazy 1)
+   - Sanityzacja inputow
 
-3. **Testy**
-   - Testy API (rezerwacje, auth, content)
-   - Test dostepnosci kalendarza (edge cases: nakladajace sie daty)
-   - Test flow rezerwacji end-to-end
-
-4. **Deploy na Vercel**
+3. **Deploy na Vercel**
    - Konfiguracja zmiennych srodowiskowych
    - Polaczenie z Neon PostgreSQL
    - Konfiguracja domeny
-   - Seed bazy danych (poczatkowa tresc, konto admina)
+   - Seed bazy danych
 
-**Rezultat:** Gotowa aplikacja na produkcji.
+4. **Finalizacja dokumentacji**
+   - `docs/deploy.md` — jak deployowac (Vercel + Neon), zmienne srodowiskowe, domena, seed
+   - `docs/admin-guide.md` — poradnik dla admina (logowanie, edycja tresci, rezerwacje, galeria, SEO)
+   - Przeglad i aktualizacja wszystkich plikow `docs/` — upewnienie sie ze sa spójne z kodem
+   - `README.md` — krotki opis projektu + linki do dokumentacji w `docs/`
+
+**Rezultat:** Gotowa aplikacja na produkcji z pelna dokumentacja.
 
 ---
 
@@ -407,13 +425,12 @@ model SiteSettings {
 |   |-- migrations/
 |
 |-- app/
-|   |-- [locale]/                  // i18n routing
-|   |   |-- layout.tsx
-|   |   |-- page.tsx               // Strona glowna (refaktor)
-|   |   |-- not-found.tsx
+|   |-- layout.tsx                 // Root layout + Vercel Analytics
+|   |-- page.tsx                   // Strona glowna (Server Component, dane z DB)
+|   |-- not-found.tsx
 |   |
 |   |-- admin/
-|   |   |-- layout.tsx             // Dashboard layout (sidebar, topbar)
+|   |   |-- layout.tsx             // Dashboard layout (shadcn sidebar, topbar)
 |   |   |-- login/page.tsx
 |   |   |-- dashboard/page.tsx
 |   |   |-- content/
@@ -432,25 +449,22 @@ model SiteSettings {
 |   |   |   |-- login/route.ts
 |   |   |   |-- logout/route.ts
 |   |   |   |-- me/route.ts
-|   |   |-- content/
-|   |   |   |-- route.ts           // GET all
-|   |   |   |-- [slug]/route.ts    // GET/PUT one
 |   |   |-- reservations/
-|   |   |   |-- route.ts           // GET all / POST new
-|   |   |   |-- [id]/route.ts      // GET/PATCH one
-|   |   |   |-- availability/route.ts
-|   |   |-- gallery/route.ts
-|   |   |-- upload/route.ts
-|   |   |-- seo/route.ts
-|   |   |-- stats/route.ts
-|   |
-|   |-- globals.css
+|   |   |   |-- route.ts           // POST nowa (publiczny)
+|   |   |   |-- availability/route.ts  // GET dostepnosc (publiczny)
+|
+|-- actions/
+|   |-- content.ts                 // Server Actions: CRUD sekcji
+|   |-- reservations.ts            // Server Actions: zarzadzanie rezerwacjami (admin)
+|   |-- gallery.ts                 // Server Actions: upload, edycja, usuwanie
+|   |-- seo.ts                     // Server Actions: ustawienia SEO
+|   |-- settings.ts                // Server Actions: ustawienia globalne
 |
 |-- components/
-|   |-- TopMenu.tsx                // Istniejacy (rozszerzony o i18n)
+|   |-- ui/                        // shadcn/ui (auto-generowane)
+|   |-- TopMenu.tsx                // Istniejacy (+ przelacznik PL/ENG)
 |   |-- Icons.tsx                  // Istniejacy
 |   |-- ReservationForm.tsx        // Wydzielony z page.tsx
-|   |-- GoogleAnalytics.tsx
 |   |-- admin/
 |   |   |-- Sidebar.tsx
 |   |   |-- StatsCard.tsx
@@ -461,13 +475,14 @@ model SiteSettings {
 |
 |-- lib/
 |   |-- db.ts                      // Prisma client singleton
-|   |-- auth.ts                    // JWT helpers, middleware
-|   |-- mail.ts                    // Resend client + szablony
+|   |-- auth.ts                    // jose helpers + middleware
+|   |-- mail.ts                    // Resend client
 |   |-- image.ts                   // Sharp processing
+|   |-- i18n.ts                    // Custom hook useLocale() + helper t()
 |   |-- validations.ts             // Zod schemas
 |
 |-- emails/
-|   |-- ReservationConfirmation.tsx // React Email template
+|   |-- ReservationConfirmation.tsx
 |   |-- ReservationNotifyAdmin.tsx
 |   |-- ReservationApproved.tsx
 |   |-- ReservationCancelled.tsx
@@ -476,8 +491,20 @@ model SiteSettings {
 |   |-- pl.json                    // Tlumaczenia PL
 |   |-- en.json                    // Tlumaczenia ENG
 |
+|-- docs/
+|   |-- setup.md                   // Uruchomienie lokalne (env, DB, seed, dev)
+|   |-- architecture.md            // Warstwy, flow danych, decyzje techniczne
+|   |-- auth.md                    // Auth: secret code + JWT + whitelist
+|   |-- content.md                 // Struktura JSON sekcji, dodawanie nowej sekcji
+|   |-- i18n.md                    // System tlumaczen, dodawanie jezyka
+|   |-- reservations.md            // Obieg rezerwacji, statusy, flow emaili
+|   |-- api.md                     // Publiczne endpointy: request/response/bledy
+|   |-- gallery.md                 // Obrazy: formaty, warianty, Sharp pipeline
+|   |-- deploy.md                  // Deploy: Vercel + Neon, env vars, domena
+|   |-- admin-guide.md             // Poradnik dla admina (non-tech)
+|
 |-- data/
-|   |-- content.ts                 // Istniejacy (fallback)
+|   |-- content.ts                 // Istniejacy (fallback gdy brak DB)
 |
 |-- public/
 |   |-- assets/                    // Istniejace grafiki
@@ -489,7 +516,7 @@ model SiteSettings {
 ## Zmienne srodowiskowe (.env)
 
 ```env
-# Database
+# Database (Neon)
 DATABASE_URL="postgresql://user:pass@host:5432/hommm"
 
 # Auth
@@ -500,9 +527,6 @@ ADMIN_SECRET_CODE="tajny-kod-dostepu-dla-adminow"
 RESEND_API_KEY="re_..."
 ADMIN_EMAIL="hommm@hommm.eu"
 
-# Analytics
-NEXT_PUBLIC_GA_TRACKING_ID="G-XXXXXXXXXX"
-
 # App
 NEXT_PUBLIC_BASE_URL="https://hommm.eu"
 ```
@@ -511,30 +535,40 @@ NEXT_PUBLIC_BASE_URL="https://hommm.eu"
 
 ## Kolejnosc priorytetow
 
-| Priorytet | Faza | Szacowany zakres |
-|-----------|------|------------------|
+| Priorytet | Faza | Zakres |
+|-----------|------|--------|
 | 1 (krytyczny) | Faza 1 - Fundament | DB + Auth + Layout admina |
 | 2 (krytyczny) | Faza 3 - Rezerwacje | Caly obieg rezerwacji |
 | 3 (wysoki) | Faza 2 - CMS + i18n | Edycja tresci PL/ENG |
 | 4 (sredni) | Faza 4 - Galeria | Upload + optymalizacja WebP |
 | 5 (sredni) | Faza 5 - SEO/Stats | Analytics + dashboard |
-| 6 (niski) | Faza 6 - Finalizacja | Ustawienia + testy + deploy |
+| 6 (niski) | Faza 6 - Finalizacja | Ustawienia + deploy |
 
-> Fazy 1 i 3 sa krytyczne - bez nich strona nie ma podstawowej funkcjonalnosci backendu.
+> Fazy 1 i 3 sa krytyczne — bez nich strona nie ma podstawowej funkcjonalnosci backendu.
 > Faza 2 (CMS) moze byc czesciowo realizowana rownolegle z Faza 3.
 
 ---
 
 ## Uwagi implementacyjne
 
-1. **Secret code auth** - Admin podaje email + tajny kod (wspolny dla wszystkich). Jesli email jest na whitelist i kod sie zgadza -> JWT token. Proste i bezpieczne dla malego zespolu.
+1. **Secret code auth** — Admin podaje email + tajny kod (wspolny). Jesli email na whitelist i kod OK → JWT (jose) w httpOnly cookie. Proste i bezpieczne dla malego zespolu.
 
-2. **JSON content** - Tresc sekcji przechowywana jako JSON w Prisma (`Json` type). Pozwala na elastyczna strukture bez zmian schematu.
+2. **Server Actions vs Route Handlers** — Route Handlers tylko dla publicznego API (tworzenie rezerwacji, sprawdzanie dostepnosci). Wszystkie mutacje admina przez Server Actions (`'use server'`) — prostsze, typowane, bez recznego fetch.
 
-3. **Obsluga braku DB** - Frontend powinien miec fallback na statyczna tresc z `data/content.ts` gdy API jest niedostepne (np. podczas buildu).
+3. **JSON content** — Tresc sekcji jako JSON w Prisma (`Json` type). Elastyczna struktura bez zmian schematu.
 
-4. **Optymalizacja grafik** - Sharp przetwarza przy uploadzie, nie przy kazdym uzyciu. Generuje 3 warianty: original, webp (max 1920px), thumb (400px).
+4. **Fallback na statyczna tresc** — Frontend laduje z DB (Server Component + Prisma). Gdy DB niedostepne — fallback na `data/content.ts`.
 
-5. **Kalendarz dostepnosci** - Rezerwacje ze statusem PENDING, DEPOSIT_PAID lub PAID blokuja daty. Uzytkownik widzi je jako "zajete", admin widzi szczegolowy status.
+5. **Custom i18n** — Hook `useLocale()` + pliki `messages/pl.json` i `en.json`. Jezyk w cookie. Dynamiczna tresc z DB (`titlePl`/`titleEn`, `contentPl`/`contentEn`).
 
-6. **Rate limiting** - Uzyc middleware Next.js lub biblioteke `rate-limiter-flexible` - szczegolnie na `/api/auth/login` i `/api/reservations`.
+6. **Optymalizacja grafik** — Sharp przetwarza przy uploadzie (nie przy kazdym uzyciu). 3 warianty: original, webp (max 1920px), thumb (400px).
+
+7. **Kalendarz dostepnosci** — Rezerwacje PENDING, DEPOSIT_PAID, PAID blokuja daty. Uzytkownik widzi "zajete", admin widzi szczegolowy status.
+
+8. **shadcn/ui** — Komponenty kopiowane do projektu (components/ui/). Uzywane w panelu admina: Table, Form, Dialog, Card, Sheet, Tabs, Input, Button. Pelna kontrola, zero vendor lock-in.
+
+9. **Wykresy** — Na start karty statystyk (shadcn Card). Recharts dodany pozniej gdy beda dane.
+
+10. **Rate limiting** — Prosty in-memory counter w middleware na `/api/auth/login` i `/api/reservations`. Bez dodatkowych bibliotek.
+
+11. **Dokumentacja** — Tworzona przyrostowo z kazdą fazą (nie na koniec). Kazdy plik w `docs/` opisuje jedno zagadnienie. Format: krotki opis → jak to dziala → jak zmodyfikowac/rozszerzyc → przyklady. `admin-guide.md` jest pisany dla osoby nietechnicznej. Dokumentacja aktualizowana przy kazdej zmianie kodu, ktora zmienia zachowanie opisane w docs.
