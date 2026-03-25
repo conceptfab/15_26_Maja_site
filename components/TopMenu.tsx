@@ -136,20 +136,14 @@ export function TopMenu({ activeView = "home", onNavigate, forceColors = null }:
     }
   };
 
-  const handleHomeClick = (event: MouseEvent<HTMLAnchorElement>) => {
-    event.preventDefault();
-    onNavigate?.("home");
-    scrollToSection("hero-start");
-  };
-
   const handleMenuClick = (
     event: MouseEvent<HTMLAnchorElement>,
     view: Exclude<MenuView, "home">,
   ) => {
     event.preventDefault();
 
-    if (view === "rezerwuj") {
-      onNavigate?.("rezerwuj");
+    if (view === "miejsca" || view === "rezerwuj") {
+      onNavigate?.(view);
       scrollToSection("hero-start");
       setIsMobileMenuOpen(false);
       return;
@@ -203,7 +197,7 @@ export function TopMenu({ activeView = "home", onNavigate, forceColors = null }:
             {MENU_ITEMS.map((item) => (
               <a
                 key={item.id}
-                href={`#${item.id === "rezerwuj" ? "hero-start" : item.id === "koncept" ? "sec2-wrapper" : "sec3-wrapper"}`}
+                href={`#${item.id === "koncept" ? "sec2-wrapper" : "hero-start"}`}
                 onClick={(event) => handleMenuClick(event, item.id)}
                 className={activeView === item.id ? "is-current" : undefined}
               >

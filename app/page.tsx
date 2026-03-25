@@ -22,8 +22,6 @@ import {
 const BRAND_COLOR = '#be1622';
 const PRICE_PER_NIGHT = 204.5;
 const SCROLL_COMPACT_THRESHOLD = 10;
-const SECTION_RESET_RATIO = 0.55;
-
 const DISMISS_KEYS = new Set([
   'ArrowDown',
   'ArrowUp',
@@ -57,9 +55,11 @@ export default function Home() {
     [Date | null, Date | null]
   >([null, null]);
   const [reservationGuests, setReservationGuests] = useState('1');
-  const isMenuContentVisible = activeView === 'rezerwuj';
+  const isReservationView =
+    activeView === 'miejsca' || activeView === 'rezerwuj';
+  const showReservationGallery = activeView === 'miejsca';
   const isExpandedContentVisible = expandedSection !== null;
-  const isRedMenuMode = isMenuContentVisible || isExpandedContentVisible;
+  const isRedMenuMode = isReservationView || isExpandedContentVisible;
   const lastScrollYRef = useRef(0);
   const isMobileRef = useRef(false);
   const navGuardRef = useRef(false);
@@ -75,11 +75,23 @@ export default function Home() {
     ? format(checkOut, 'd.MM.yyyy', { locale: pl })
     : '--.--.----';
   const today = useMemo(() => new Date(), []);
+
+  const scrollToHeroStart = () => {
+    document
+      .getElementById('hero-start')
+      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
   const navigateTo = (view: MenuView) => {
-    if (view === 'rezerwuj' && activeView !== 'rezerwuj') {
+    const isNextReservationView = view === 'miejsca' || view === 'rezerwuj';
+
+    if (isNextReservationView && activeView !== view) {
       navGuardRef.current = true;
-      setTimeout(() => { navGuardRef.current = false; }, 900);
+      setTimeout(() => {
+        navGuardRef.current = false;
+      }, 900);
     }
+
     setActiveView(view);
   };
 
@@ -87,88 +99,86 @@ export default function Home() {
     setReservationRange([null, null]);
   };
 
-  // Track mobile viewport via matchMedia listener (not in scroll handler)
   useEffect(() => {
     const mql = window.matchMedia('(max-width: 768px)');
     isMobileRef.current = mql.matches;
-    const onChange = (e: MediaQueryListEvent) => {
-      isMobileRef.current = e.matches;
+
+    const onChange = (event: MediaQueryListEvent) => {
+      isMobileRef.current = event.matches;
     };
+
     mql.addEventListener('change', onChange);
     return () => mql.removeEventListener('change', onChange);
   }, []);
 
-  // Combined scroll handler: compact detection, section reset, expanded dismiss
   useEffect(() => {
     if (activeView !== 'home') {
       lastScrollYRef.current = window.scrollY;
     }
 
     let ticking = false;
+
     const onScroll = () => {
-      if (ticking) return;
+      if (ticking) {
+        return;
+      }
+
       ticking = true;
 
       requestAnimationFrame(() => {
         const currentScrollY = window.scrollY;
-        setHasScrolled(currentScrollY > SCROLL_COMPACT_THRESHOLD);
         const isMobile = isMobileRef.current;
-
         const hasReservationDates = reservationRange[0] !== null;
 
+        setHasScrolled(currentScrollY > SCROLL_COMPACT_THRESHOLD);
+
         if (activeView !== 'home' && !navGuardRef.current) {
-          // Don't auto-dismiss reservation view when user has selected dates
-          if (activeView === 'rezerwuj' && hasReservationDates) {
-            lastScrollYRef.current = currentScrollY;
-          } else {
-            const sec2 = document.getElementById('sec2-wrapper');
-            if (sec2) {
-              const isScrollingDown = currentScrollY > lastScrollYRef.current;
-              const sec2Top = sec2.getBoundingClientRect().top;
-              const resetPoint = window.innerHeight * SECTION_RESET_RATIO;
+          const isScrollingDown = currentScrollY > lastScrollYRef.current;
+
+          if (isReservationView) {
+            if (!hasReservationDates) {
+              const heroSection = document.getElementById('hero-start');
 
               if (
+                heroSection &&
                 isScrollingDown &&
                 currentScrollY > SCROLL_COMPACT_THRESHOLD &&
-                sec2Top <= resetPoint
+                heroSection.getBoundingClientRect().bottom <= 0
               ) {
                 setActiveView('home');
               }
             }
-            lastScrollYRef.current = currentScrollY;
+          } else {
+            const sec2 = document.getElementById('sec2-wrapper');
+
+            if (sec2) {
+              const sec2Top = sec2.getBoundingClientRect().top;
+
+              if (
+                isScrollingDown &&
+                currentScrollY > SCROLL_COMPACT_THRESHOLD &&
+                sec2Top <= 0
+              ) {
+                setActiveView('home');
+              }
+            }
           }
+
+          lastScrollYRef.current = currentScrollY;
         }
 
-        if (isMobile && activeView === 'rezerwuj' && !navGuardRef.current && !hasReservationDates) {
-          const heroSection = document.getElementById('hero-start');
-          if (heroSection) {
-            const rect = heroSection.getBoundingClientRect();
+        if (expandedSection && isMobile) {
+          const expandedWrapperId =
+            expandedSection === 'sec2' ? 'sec2-wrapper' : 'sec3-wrapper';
+          const expandedWrapper = document.getElementById(expandedWrapperId);
+
+          if (expandedWrapper) {
+            const rect = expandedWrapper.getBoundingClientRect();
             const isOutOfViewport =
               rect.bottom <= 0 || rect.top >= window.innerHeight;
 
             if (isOutOfViewport) {
-              setActiveView('home');
-            }
-          }
-        }
-
-        if (expandedSection) {
-          // Desktop: dismiss on wheel/touchmove (handled below)
-          // Mobile: dismiss when section scrolls out of viewport
-          if (isMobile) {
-            const expandedWrapperId =
-              expandedSection === 'sec2' ? 'sec2-wrapper' : 'sec3-wrapper';
-            const expandedWrapper =
-              document.getElementById(expandedWrapperId);
-
-            if (expandedWrapper) {
-              const rect = expandedWrapper.getBoundingClientRect();
-              const isOutOfViewport =
-                rect.bottom <= 0 || rect.top >= window.innerHeight;
-
-              if (isOutOfViewport) {
-                setExpandedSection(null);
-              }
+              setExpandedSection(null);
             }
           }
         }
@@ -179,13 +189,15 @@ export default function Home() {
 
     onScroll();
     window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
-  }, [activeView, expandedSection, reservationRange]);
 
-  // Scroll-reveal: observe elements with .reveal class
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [activeView, expandedSection, isReservationView, reservationRange]);
+
   useEffect(() => {
     const elements = document.querySelectorAll('.reveal:not(.is-revealed)');
-    if (!elements.length) return;
+    if (!elements.length) {
+      return;
+    }
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -199,11 +211,10 @@ export default function Home() {
       { threshold: 0.08, rootMargin: '0px 0px -6% 0px' },
     );
 
-    elements.forEach((el) => observer.observe(el));
+    elements.forEach((element) => observer.observe(element));
     return () => observer.disconnect();
   }, [activeView, expandedSection]);
 
-  // Desktop-only: dismiss expanded section on wheel/touchmove/keyboard
   useEffect(() => {
     if (!expandedSection || isMobileRef.current) {
       return;
@@ -239,14 +250,13 @@ export default function Home() {
   const handleFloatingLogoClick = (event: MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault();
     setActiveView('home');
-    document
-      .getElementById('hero-start')
-      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    scrollToHeroStart();
   };
 
   const handleReadMoreClick = (section: ExpandableSection) => {
     setExpandedSection(section);
     const targetId = section === 'sec2' ? 'sec2-wrapper' : 'sec3-wrapper';
+
     document
       .getElementById(targetId)
       ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -270,15 +280,108 @@ export default function Home() {
     if (!checkIn || !checkOut) {
       return;
     }
+
     const params = new URLSearchParams({
       checkin: format(checkIn, 'yyyy-MM-dd'),
       checkout: format(checkOut, 'yyyy-MM-dd'),
       guests: reservationGuests,
     });
+
     window.location.href = `mailto:hommm@hommm.eu?subject=${encodeURIComponent('Rezerwacja HOMMM')}&body=${encodeURIComponent(
-      `Zameldowanie: ${checkInLabel}\nWymeldowanie: ${checkOutLabel}\nGoście: ${reservationGuests}\nLiczba nocy: ${nights}\nCena: ${totalPrice} zł\n\n${params.toString()}`
+      `Zameldowanie: ${checkInLabel}\nWymeldowanie: ${checkOutLabel}\nGoscie: ${reservationGuests}\nLiczba nocy: ${nights}\nCena: ${totalPrice} zl\n\n${params.toString()}`
     )}`;
   };
+
+  const renderReservationSystem = () => (
+    <div className="reservation-layout__bottom">
+      <div
+        className={
+          showReservationGallery
+            ? 'reservation-system'
+            : 'reservation-system reservation-system--panel-only'
+        }
+      >
+        <div className="reservation-system__calendar-wrap">
+          <DatePicker
+            selected={checkIn}
+            onChange={(update) => setReservationRange(update)}
+            startDate={checkIn}
+            endDate={checkOut}
+            selectsRange
+            inline
+            monthsShown={2}
+            locale={pl}
+            minDate={today}
+            formatWeekDay={(dayName) =>
+              dayName.replace('.', '').slice(0, 3).toLowerCase()
+            }
+            calendarClassName="reservation-datepicker"
+            fixedHeight
+          />
+        </div>
+
+        <button
+          type="button"
+          className="reservation-system__clear"
+          onClick={handleReservationClear}
+          title="Wyczysc daty"
+        >
+          <EraserIcon />
+        </button>
+
+        <aside
+          className="reservation-summary-card"
+          aria-label="Podsumowanie rezerwacji"
+        >
+          <p className="reservation-summary-card__price">
+            <span>{totalPrice} zl</span> za {nights} {getNightLabel(nights)}
+          </p>
+
+          <div className="reservation-summary-card__fields">
+            <div className="reservation-summary-card__dates">
+              <div className="reservation-summary-card__date-box">
+                <span>Zameldowanie</span>
+                <strong>{checkInLabel}</strong>
+              </div>
+              <div className="reservation-summary-card__date-box">
+                <span>Wymeldowanie</span>
+                <strong>{checkOutLabel}</strong>
+              </div>
+            </div>
+
+            <label className="reservation-summary-card__guests">
+              <span>Goscie</span>
+              <select
+                name="guests"
+                value={reservationGuests}
+                onChange={(event) => setReservationGuests(event.target.value)}
+              >
+                <option value="1">1 gosc</option>
+                <option value="2">2 gosci</option>
+                <option value="3">3 gosci</option>
+                <option value="4">4 gosci</option>
+                <option value="5">5 gosci</option>
+                <option value="6">6 gosci</option>
+              </select>
+            </label>
+          </div>
+
+          <button
+            type="button"
+            className="reservation-summary-card__submit"
+            onClick={handleReservationSubmit}
+            disabled={!checkIn || !checkOut}
+          >
+            REZERWUJ
+          </button>
+
+          <p className="reservation-summary-card__note">
+            Platnosc nie zostanie jeszcze naliczona
+          </p>
+        </aside>
+      </div>
+    </div>
+  );
 
   const renderExpandedContent = (section: ExpandableSection) => {
     const content = EXPANDED_SECTION_CONTENT[section];
@@ -340,141 +443,61 @@ export default function Home() {
         </a>
       </div>
 
-      {/* SEKCJA HERO */}
       <section
         className="section h-100vh bg-slider"
         id="hero-start"
-        data-menu-font={isMenuContentVisible ? BRAND_COLOR : '#ffffff'}
-        data-menu-logo={isMenuContentVisible ? BRAND_COLOR : '#ffffff'}
+        data-menu-font={isReservationView ? BRAND_COLOR : '#ffffff'}
+        data-menu-logo={isReservationView ? BRAND_COLOR : '#ffffff'}
       >
-        {isMenuContentVisible ? (
+        {isReservationView ? (
           <div
-            className="container container-white reservation-layout"
+            className={`container container-white reservation-layout ${showReservationGallery ? '' : 'reservation-layout--panel-only'}`}
             aria-label="Sekcja rezerwacji"
           >
-            <div className="reservation-layout__top">
-              <div className="reservation-promo">
-                <h2 className="heading-secondary">ZAREZERWUJ SWÓJ CZAS</h2>
-                <p className="reservation-promo__text">
-                  Wybierz daty i poczuj spokój Hommm. Nasz kalendarz pokazuje
-                  aktualną dostępność apartamentów. Zaplanuj swój pobyt w
-                  miejscu, gdzie natura spotyka się z komfortem.
-                </p>
-              </div>
-
-              <div className="reservation-visual-gallery">
-                <figure className="reservation-visual-item reservation-visual-item--large">
-                  <Image
-                    src="/assets/sec_2.jpg"
-                    alt="Widok Hommm"
-                    fill
-                    priority
-                    sizes="40vw"
-                  />
-                </figure>
-                <figure className="reservation-visual-item">
-                  <Image
-                    src="/assets/sec_3.jpg"
-                    alt="Detale Hommm"
-                    fill
-                    priority
-                    sizes="20vw"
-                  />
-                </figure>
-                <figure className="reservation-visual-item">
-                  <Image
-                    src="/assets/hero.jpg"
-                    alt="Klimat Hommm"
-                    fill
-                    priority
-                    sizes="20vw"
-                  />
-                </figure>
-              </div>
-            </div>
-            <div className="reservation-layout__bottom">
-              <div className="reservation-system">
-                <div className="reservation-system__calendar-wrap">
-                  <DatePicker
-                    selected={checkIn}
-                    onChange={(update) => setReservationRange(update)}
-                    startDate={checkIn}
-                    endDate={checkOut}
-                    selectsRange
-                    inline
-                    monthsShown={2}
-                    locale={pl}
-                    minDate={today}
-                    formatWeekDay={(dayName) =>
-                      dayName.replace('.', '').slice(0, 3).toLowerCase()
-                    }
-                    calendarClassName="reservation-datepicker"
-                    fixedHeight
-                  />
+            {showReservationGallery ? (
+              <div className="reservation-layout__top">
+                <div className="reservation-promo">
+                  <h2 className="heading-secondary">ZAREZERWUJ SWOJ CZAS</h2>
+                  <p className="reservation-promo__text">
+                    Wybierz daty i poczuj spokoj Hommm. Nasz kalendarz pokazuje
+                    aktualna dostepnosc apartamentow. Zaplanuj swoj pobyt w
+                    miejscu, gdzie natura spotyka sie z komfortem.
+                  </p>
                 </div>
-                <button
-                  type="button"
-                  className="reservation-system__clear"
-                  onClick={handleReservationClear}
-                  title="Wyczyść daty"
-                >
-                  <EraserIcon />
-                </button>
 
-                <aside
-                  className="reservation-summary-card"
-                  aria-label="Podsumowanie rezerwacji"
-                >
-                  <p className="reservation-summary-card__price">
-                    <span>{totalPrice} zł</span> za {nights}{' '}
-                    {getNightLabel(nights)}
-                  </p>
-
-                  <div className="reservation-summary-card__fields">
-                    <div className="reservation-summary-card__dates">
-                      <div className="reservation-summary-card__date-box">
-                        <span>Zameldowanie</span>
-                        <strong>{checkInLabel}</strong>
-                      </div>
-                      <div className="reservation-summary-card__date-box">
-                        <span>Wymeldowanie</span>
-                        <strong>{checkOutLabel}</strong>
-                      </div>
-                    </div>
-
-                    <label className="reservation-summary-card__guests">
-                      <span>Goście</span>
-                      <select
-                        name="guests"
-                        value={reservationGuests}
-                        onChange={(event) =>
-                          setReservationGuests(event.target.value)
-                        }
-                      >
-                        <option value="1">1 gość</option>
-                        <option value="2">2 gości</option>
-                        <option value="3">3 gości</option>
-                        <option value="4">4 gości</option>
-                        <option value="5">5 gości</option>
-                        <option value="6">6 gości</option>
-                      </select>
-                    </label>
-                  </div>
-
-                  <button
-                    type="button"
-                    className="reservation-summary-card__submit"
-                    onClick={handleReservationSubmit}
-                    disabled={!checkIn || !checkOut}
-                  >
-                    REZERWUJ
-                  </button>
-                  <p className="reservation-summary-card__note">
-                    Płatność nie zostanie jeszcze naliczona
-                  </p>
-                </aside>
+                <div className="reservation-visual-gallery">
+                  <figure className="reservation-visual-item reservation-visual-item--large">
+                    <Image
+                      src="/assets/sec_2.jpg"
+                      alt="Widok Hommm"
+                      fill
+                      priority
+                      sizes="40vw"
+                    />
+                  </figure>
+                  <figure className="reservation-visual-item">
+                    <Image
+                      src="/assets/sec_3.jpg"
+                      alt="Detale Hommm"
+                      fill
+                      priority
+                      sizes="20vw"
+                    />
+                  </figure>
+                  <figure className="reservation-visual-item">
+                    <Image
+                      src="/assets/hero.jpg"
+                      alt="Klimat Hommm"
+                      fill
+                      priority
+                      sizes="20vw"
+                    />
+                  </figure>
+                </div>
               </div>
-            </div>
+            ) : null}
+
+            {renderReservationSystem()}
           </div>
         ) : (
           <div
@@ -486,7 +509,6 @@ export default function Home() {
         )}
       </section>
 
-      {/* STALE SEKCJE */}
       <section
         className={`section h-100vh bg-secondary ${expandedSection === 'sec2' ? '' : 'section-story'}`}
         id="sec2-wrapper"
@@ -517,7 +539,7 @@ export default function Home() {
               className="story-read-more"
               onClick={() => handleReadMoreClick('sec2')}
             >
-              CZYTAJ WIĘCEJ
+              CZYTAJ WIECEJ
             </button>
           </div>
         )}
@@ -535,7 +557,7 @@ export default function Home() {
           <div className="container story-container">
             <h2 className="h1-brand">YOUR SPECIAL PLACE</h2>
             <h3 className="heading-secondary story-subtitle">
-              CHCESZ WYPOCZĄĆ W CISZY I OTOCZENIU NATURY?
+              CHCESZ WYPOCZAC W CISZY I OTOCZENIU NATURY?
             </h3>
 
             <div className="story-text-block">
@@ -555,7 +577,7 @@ export default function Home() {
               className="story-read-more"
               onClick={() => handleReadMoreClick('sec3')}
             >
-              CZYTAJ WIĘCEJ
+              CZYTAJ WIECEJ
             </button>
           </div>
         )}
@@ -569,18 +591,23 @@ export default function Home() {
       >
         <div className="container footer-container">
           <div className="footer-grid">
-            <div className="footer-column footer-column--corporate reveal reveal--up" style={{ '--reveal-delay': '100ms' } as React.CSSProperties}>
+            <div
+              className="footer-column footer-column--corporate reveal reveal--up"
+              style={{ '--reveal-delay': '100ms' } as React.CSSProperties}
+            >
               <h3 className="footer-column__title">DANE KORPORACYJNE:</h3>
               <div className="footer-column__content">
                 <p>Banana Gun Design Maria Budner</p>
                 <p>ul. Sanocka 39 m 5</p>
-                <p>93-038 Łódź</p>
+                <p>93-038 Lodz</p>
                 <p>NIP 7292494164</p>
               </div>
             </div>
+
             <div className="footer-column footer-column--center footer-column--spacer">
               {/* Pusta kolumna 2 */}
             </div>
+
             <div className="footer-column footer-column--center footer-column--brand reveal reveal--scale">
               <a
                 href="#hero-start"
@@ -593,39 +620,48 @@ export default function Home() {
                   className="footer-logo"
                 />
               </a>
+
               <div className="footer-nav-group">
                 <a
                   href="#sec2-wrapper"
                   className="footer-nav-link"
-                  onClick={(e) => handleFooterNavClick(e, 'sec2-wrapper')}
+                  onClick={(event) => handleFooterNavClick(event, 'sec2-wrapper')}
                 >
                   KONCEPT
                 </a>
-                <a
-                  href="#sec3-wrapper"
+
+                <button
+                  type="button"
                   className="footer-nav-link"
-                  onClick={(e) => handleFooterNavClick(e, 'sec3-wrapper')}
+                  onClick={() => {
+                    navigateTo('miejsca');
+                    scrollToHeroStart();
+                  }}
                 >
                   MIEJSCA
-                </a>
+                </button>
+
                 <button
                   type="button"
                   className="footer-nav-link"
                   onClick={() => {
                     navigateTo('rezerwuj');
-                    document
-                      .getElementById('hero-start')
-                      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    scrollToHeroStart();
                   }}
                 >
                   REZERWUJ
                 </button>
               </div>
             </div>
+
             <div className="footer-column footer-column--center footer-column--spacer">
               {/* Pusta kolumna 4 */}
             </div>
-            <div className="footer-column footer-column--contact reveal reveal--up" style={{ '--reveal-delay': '200ms' } as React.CSSProperties}>
+
+            <div
+              className="footer-column footer-column--contact reveal reveal--up"
+              style={{ '--reveal-delay': '200ms' } as React.CSSProperties}
+            >
               <h3 className="footer-column__title">KONTAKT:</h3>
               <div className="footer-column__content footer-contact">
                 <a
@@ -635,6 +671,7 @@ export default function Home() {
                   <MailIcon />
                   <span>hommm@hommm.eu</span>
                 </a>
+
                 <a href="tel:+48608259945" className="footer-contact__link">
                   <PhoneIcon />
                   <span>608 259 945</span>
@@ -650,6 +687,7 @@ export default function Home() {
                     <InstagramIcon />
                     <span>Instagram</span>
                   </a>
+
                   <a
                     href="#"
                     aria-label="TikTok"
@@ -659,6 +697,7 @@ export default function Home() {
                     <TikTokIcon />
                     <span>TikTok</span>
                   </a>
+
                   <a
                     href="#"
                     aria-label="Facebook"
@@ -673,6 +712,7 @@ export default function Home() {
             </div>
           </div>
         </div>
+
         <div className="footer-banner">
           <Image
             src="/assets/baner.jpg"

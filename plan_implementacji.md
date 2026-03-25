@@ -133,11 +133,11 @@ model Reservation {
 }
 
 enum ReservationStatus {
-  PENDING      // Oczekujaca na zatwierdzenie
-  CONFIRMED    // Zatwierdzona przez admina
-  PAID         // Oplacona
+  PENDING      // Wstępna (Oczekująca na zatwierdzenie) - BLOKUJE TERMIN
+  DEPOSIT_PAID // Opłacona zaliczka - BLOKUJE TERMIN
+  PAID         // Opłacona całość - BLOKUJE TERMIN
   CANCELLED    // Anulowana
-  COMPLETED    // Zakonczona (po pobycie)
+  COMPLETED    // Zakończona (po pobycie)
 }
 
 model GalleryImage {
@@ -535,6 +535,6 @@ NEXT_PUBLIC_BASE_URL="https://hommm.eu"
 
 4. **Optymalizacja grafik** - Sharp przetwarza przy uploadzie, nie przy kazdym uzyciu. Generuje 3 warianty: original, webp (max 1920px), thumb (400px).
 
-5. **Kalendarz dostepnosci** - Rezerwacje ze statusem CONFIRMED lub PAID blokuja daty. PENDING nie blokuje (admin moze odrzucic).
+5. **Kalendarz dostepnosci** - Rezerwacje ze statusem PENDING, DEPOSIT_PAID lub PAID blokuja daty. Uzytkownik widzi je jako "zajete", admin widzi szczegolowy status.
 
 6. **Rate limiting** - Uzyc middleware Next.js lub biblioteke `rate-limiter-flexible` - szczegolnie na `/api/auth/login` i `/api/reservations`.
