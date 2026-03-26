@@ -1,45 +1,89 @@
 # System zarzadzania trescia (CMS)
 
-## Architektura
+## Zakres
 
-Tresc strony przechowywana jest w tabeli `Section` (Prisma) i powiazana z `Page` (slug: `home`).
+Po Fazie 2 CMS pozwala adminowi edytowac tresc glownej strony HOMMM w dwoch jezykach. Zakres wdrozenia obejmuje istniejace sekcje strony `home`, a nie pelny, dowolnie rozszerzalny builder stron.
 
-Kazda sekcja ma:
-- `slug` — unikalny identyfikator (np. `hero`, `koncept`, `miejsce`, `kontakt`)
-- `titlePl` / `titleEn` — tytuły w dwoch jezykach
-- `contentPl` / `contentEn` — JSON z polami tresci (np. `heading`, `subheading`, `body`)
-- `bgImage` / `bgColor` — tlo sekcji
-- `isVisible` — widocznosc na stronie
-- `order` — kolejnosc wyswietlania
+## Z czego sklada sie system
 
-## Struktura JSON tresci sekcji
+| Obszar | Plik / model | Rola |
+|--------|--------------|------|
+| Dane strony | `Page`, `Section` w Prisma | przechowywanie tresci i kolejnosci |
+| Pobranie tresci publicznej | `lib/content.ts` | czyta sekcje z DB i daje fallback |
+| Akcje CMS | `actions/content.ts` | lista sekcji, sekcja po slugu, zapis zmian |
+| Lista sekcji w panelu | `app/admin/content/page.tsx` | wejscie do edycji |
+| Edytor sekcji | `app/admin/content/[slug]/SectionEditor.tsx` | formularz PL/EN + podglad |
+| Sidebar admina | `app/api/content/sections/route.ts` | lekka lista slugow i nazw |
 
-### hero
-```json
-{ "heading": "YOUR SPECIAL TIME", "subheading": "HOMMM" }
+## Model danych
+
+### Strona
+
+Aktualnie CMS obsluguje jedna strone:
+
+- `Page.slug = "home"`
+- `Page.isHome = true`
+
+### Sekcja
+
+Najwazniejsze pola w `Section`:
+
+| Pole | Znaczenie |
+|------|-----------|
+| `slug` | techniczny identyfikator sekcji |
+| `order` | kolejnosc renderowania |
+| `titlePl` / `titleEn` | nazwa sekcji w panelu |
+| `contentPl` / `contentEn` | JSON z polami tekstowymi |
+| `isVisible` | flaga widocznosci w modelu |
+| `bgImage` / `bgColor` | pola wygladu zapisane w DB |
+
+## Jak frontend pobiera tresc
+
+```text
+app/page.tsx
+  -> getHomeContent()
+       -> pobierz sekcje strony home z DB
+       -> uporzadkuj po order asc
+       -> gdy blad albo brak danych: fallback na content statyczny
+  -> HomeClient
+       -> wybierz contentPl albo contentEn
+       -> wyrenderuj znane sekcje
 ```
 
-### koncept
+## Aktualny zestaw sekcji
+
+| Slug | Rola | Obslugiwane pola tekstowe |
+|------|------|---------------------------|
+| `hero` | branding hero | `heading`, `subheading` |
+| `koncept` | sekcja opisu miejsca | `heading`, `subheading`, `body`, `intro` |
+| `miejsce` | druga sekcja opisu | `heading`, `subheading`, `body`, `intro` |
+| `rezerwacja` | panel rezerwacji | `title`, `description`, `description2`, `checkin`, `checkout`, `guests_label`, `submit`, `note`, `clear`, `info`, `night_one`, `night_few`, `night_many`, `guest_one`, `guest_few` |
+| `kontakt` | stopka i dane kontaktowe | `email`, `phone`, `company`, `address`, `nip` |
+
+## Struktura JSON
+
+### Zasada praktyczna
+
+Mimo ze `contentPl` i `contentEn` sa technicznie polami `Json`, obecna implementacja traktuje je jak plaskie slowniki `string -> string`.
+
+`jsonToRecord()` w edytorze:
+
+- zamienia obiekt JSON na rekord stringow,
+- niestringowe wartosci serializuje do JSON stringa.
+
+W praktyce najlepiej trzymac tam proste pola tekstowe.
+
+### Przyklad: `hero`
+
 ```json
 {
   "heading": "YOUR SPECIAL TIME",
-  "subheading": "KONCEPT HOMMM",
-  "body": "Tekst glowny sekcji...",
-  "intro": "Krotki wstep do rozszerzonej tresci"
+  "subheading": "HOMMM"
 }
 ```
 
-### miejsce
-```json
-{
-  "heading": "YOUR SPECIAL PLACE",
-  "subheading": "CHCESZ WYPOCZAC...",
-  "body": "Tekst glowny...",
-  "intro": "Krotki wstep..."
-}
-```
+### Przyklad: `kontakt`
 
-### kontakt
 ```json
 {
   "email": "hommm@hommm.eu",
@@ -50,28 +94,50 @@ Kazda sekcja ma:
 }
 ```
 
-## Server Actions
+## Edytor admina
 
-Plik: `actions/content.ts`
+### Widok listy
 
-| Funkcja | Opis | Autoryzacja |
-|---------|------|-------------|
-| `getContent()` | Lista wszystkich sekcji strony glownej | Nie |
-| `getContentBySlug(slug)` | Pojedyncza sekcja wg slug | Nie |
-| `updateContent(slug, data)` | Aktualizacja sekcji | Tak (JWT) |
+`/admin/content`:
 
-## Panel admina
+- pobiera sekcje przez `getContent()`,
+- pokazuje badge widocznosci,
+- buduje preview z pierwszego sensownego pola (`body`, `heading`, `subheading`, `intro`, `email`).
 
-- `/admin/content` — lista sekcji (Table z podgladem)
-- `/admin/content/[slug]` — edytor sekcji z tabami PL/ENG
+### Widok szczegolow
 
-## Fallback
+`/admin/content/[slug]`:
 
-Gdy baza danych jest niedostepna, strona glowna uzywa statycznych danych z `data/content.ts`.
+- ma osobne zakladki `PL` i `EN`,
+- pozwala zmieniac nazwe sekcji w panelu,
+- pozwala edytowac pola tekstowe zdefiniowane dla danego slugu,
+- pozwala ustawic `bgImage`, `bgColor` i `isVisible`,
+- pokazuje live preview w `iframe`.
+
+### Live preview
+
+Edytor wysyla zmiany przez `postMessage` z typem `cms-live-preview`. `HomeClient.tsx` nasluchuje tej wiadomosci i tymczasowo nadpisuje tresc sekcji bez czekania na zapis do bazy.
+
+## Ograniczenia obecnego CMS
+
+| Obszar | Ograniczenie |
+|--------|--------------|
+| Dynamicznosc | frontend renderuje tylko z gory znane slugi |
+| `isVisible` | flaga jest zapisywana, ale publiczny frontend nie ukrywa jeszcze sekcji na jej podstawie |
+| `bgImage` / `bgColor` | pola sa edytowalne, ale publiczna warstwa jeszcze ich nie uzywa |
+| Typy pol | edytor zaklada glownie pola tekstowe; brak dedykowanej obslugi tablic, galerii z DB i blokow zagniezdzonych |
 
 ## Jak dodac nowa sekcje
 
-1. Dodaj rekord do seed (`prisma/seed.ts`) lub recznie w Prisma Studio
-2. Upewnij sie, ze `pageId` wskazuje na strone glowna (slug: `home`)
-3. Ustaw unikalne pole `slug`
-4. Dodaj obsluge w `components/HomeClient.tsx` (renderowanie sekcji)
+Dodanie nowej sekcji wymaga zmian w kilku miejscach:
+
+1. dodaj rekord `Section` do seeda albo bazy, powiazany ze strona `home`,
+2. uzupelnij `contentPl` i `contentEn`,
+3. dodaj ikone w `lib/section-icons.ts`,
+4. rozszerz `components/HomeClient.tsx`, aby nowy slug byl rzeczywiscie renderowany,
+5. opcjonalnie dodaj opisy pol w `FIELD_LABELS` w `SectionEditor.tsx`,
+6. jesli sekcja ma miec sensowny podglad w iframe, dopisz mapowanie slugu do kotwicy.
+
+## Wnioski
+
+CMS po Fazie 2 rozwiazuje kluczowy problem biznesowy: copy i tresc sekcji nie sa juz zaszyte tylko w kodzie. Nadal jednak jest to CMS "sekcyjny", a nie pelny builder stron - zmieniasz tresc istniejacych blokow, ale sama struktura frontendu pozostaje kontrolowana przez kod.

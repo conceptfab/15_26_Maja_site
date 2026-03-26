@@ -1,257 +1,127 @@
-# Architektura informacji — HOMMM
+# Architektura informacji - HOMMM
 
-## 1. Hierarchia tresci
+## Zakres
 
-Strona glowna jest single-page z sekcjami. Ponizej hierarchia od gory do dolu:
+Po realizacji Faz 0-2 publiczna czesc serwisu nadal dziala jako jedna strona (`/`), ale tresci sekcji sa juz pobierane z bazy danych z fallbackiem na dane statyczne. Model `Page` istnieje i pozwala przejsc do drzewa stron w kolejnych fazach, jednak aktualnie produkcyjnie uzywana jest tylko strona `home`.
 
-```
-HOMMM — Strona glowna (/)
-│
-├── [1] HERO (id: hero-start)
-│   ├── Logo HOMMM (pierwsze wrazenie, brand)
-│   ├── Tryb "miejsca" — galeria zdjec obiektu
-│   └── Tryb "rezerwuj" — formularz rezerwacji
-│       ├── Wybor dat (DatePicker: check-in / check-out)
-│       ├── Liczba gosci
-│       ├── Podsumowanie (noce × cena)
-│       └── Przycisk "Rezerwuj"
-│
-├── [2] KONCEPT HOMMM (id: sec2-wrapper, slug: "koncept")
-│   ├── Tytul: "YOUR SPECIAL TIME"
-│   ├── Podtytul: "KONCEPT HOMMM"
-│   ├── Przycisk "Czytaj wiecej"
-│   └── Rozwiniety content:
-│       ├── Naglowek + intro
-│       ├── Tresc (3 paragrafy)
-│       └── Galeria (3 zdjecia)
-│
-├── [3] MIEJSCE (id: sec3-wrapper, slug: "miejsce")
-│   ├── Tytul: "YOUR SPECIAL PLACE"
-│   ├── Podtytul: pytanie zachecajace
-│   ├── Przycisk "Czytaj wiecej"
-│   └── Rozwiniety content:
-│       ├── Naglowek + intro
-│       ├── Tresc (3 paragrafy)
-│       └── Galeria (3 zdjecia)
-│
-└── [4] FOOTER (id: sec4-wrapper, slug: "kontakt")
-    ├── Logo HOMMM
-    ├── Nawigacja (powtorzenie menu)
-    ├── Dane korporacyjne (NIP, nazwa firmy)
-    ├── Kontakt (email, telefon)
-    ├── Social media (Instagram, TikTok, Facebook)
-    └── Baner promocyjny
-```
+## Struktura publiczna
 
-### Docelowa hierarchia (po CMS — Faza 2)
+### Hierarchia sekcji
 
-Sekcje beda zarzadzane z panelu admina. Kazda sekcja ma slug, kolejnosc, widocznosc i tresc PL/ENG.
+| Kolejnosc | Slug | Kotwica / obszar | Rola |
+|-----------|------|------------------|------|
+| 1 | `hero` | `#hero-start` | Pierwsze wrazenie i branding |
+| 2 | `koncept` | `#sec2-wrapper` | Opis charakteru miejsca |
+| 3 | `miejsce` | `#sec3-wrapper` | Opis przestrzeni i otoczenia |
+| 4 | `rezerwacja` | `#hero-start` | Panel dat, gosci i ceny w obrebie hero |
+| 5 | `kontakt` | `#sec4-wrapper` | Dane kontaktowe, sociale, baner |
 
-Planowane slugi w CMS:
+### Wazna decyzja IA
 
-| Slug | Sekcja | Opis |
-|------|--------|------|
-| `hero` | Hero | Glowny widok + rezerwacja |
-| `koncept` | Koncept HOMMM | O obiekcie — filozofia |
-| `miejsce` | Miejsce | Lokalizacja, otoczenie |
-| `kontakt` | Footer/Kontakt | Dane kontaktowe, social media |
+`hero` i `rezerwacja` to dwa osobne rekordy CMS, ale sa renderowane w tym samym obszarze wizualnym. To daje dwa efekty:
 
-Nowe sekcje (opcjonalne, dodawane przez admina w przyszlosci):
-- `cennik` — oddzielna sekcja cennikowa (jesli potrzebna)
-- `opinie` — referencje gosci
-- `faq` — czesto zadawane pytania
+- branding i system rezerwacji pozostaja blisko siebie,
+- edytor tresci musi mapowac oba slugi na ten sam obszar podgladu.
 
----
+## Nawigacja publiczna
 
-## 2. Nawigacja
+### Top menu
 
-### Obecna nawigacja (TopMenu)
+| Element | Zachowanie |
+|---------|------------|
+| `koncept` | Scroll do `#sec2-wrapper` |
+| `miejsca` | Przelacza hero w widok galerii/rezerwacji i przewija do `#hero-start` |
+| `rezerwuj` | Przelacza hero w widok panelu rezerwacji i przewija do `#hero-start` |
+| `PL` / `EN` | Zmienia jezyk po stronie klienta przez `I18nProvider` |
 
-```
-┌─────────────────────────────────────────┐
-│  [LOGO]    KONCEPT  MIEJSCA  REZERWUJ   │
-│                                  PL|EN  │
-└─────────────────────────────────────────┘
-```
+### Footer
 
-| Pozycja | Akcja | Cel |
-|---------|-------|-----|
-| KONCEPT | Scroll do sec2-wrapper | Sekcja "Koncept HOMMM" |
-| MIEJSCA | Przelaczenie hero na tryb galerii | Galeria zdjec obiektu |
-| REZERWUJ | Przelaczenie hero na tryb rezerwacji | Formularz rezerwacji |
-| PL | Aktywny jezyk (polski) | — |
-| EN | Nieaktywny (brak implementacji) | Przelaczenie na angielski |
+Stopka powtarza podstawowe drogi nawigacyjne:
 
-### Mobile (< 769px)
+- powrot do poczatku strony,
+- przejscie do sekcji `koncept`,
+- przejscie do trybu `miejsca`,
+- przejscie do trybu `rezerwuj`.
 
-- Hamburger menu (3 kreski)
-- Pelnoekranowe overlay z linkami
-- Zamkniecie: klik na X lub Escape
-- aria-label: "Otworz menu" / "Zamknij menu"
+### Mobile
 
-### Docelowa nawigacja (po i18n — Faza 2)
+Na szerokosci do `768px` top menu przechodzi w hamburger z overlayem. Menu:
 
-Bez zmian w strukturze. Zmiany:
-- PL/EN przelacznik aktywny (zapis jezyka w cookie)
-- Etykiety menu tlumaczone z `messages/pl.json` / `messages/en.json`
-- `lang` na `<html>` zmienia sie dynamicznie
+- obsluguje `Escape`,
+- ustawia `aria-expanded`,
+- zamyka sie po wyborze pozycji.
 
----
+## Architektura informacji w CMS
 
-## 3. Taxonomia sekcji w CMS
+### Model danych
 
-Kazda sekcja w bazie danych (tabela `Section`) bedzie miala:
+Tresc trzymana jest w tabeli `Section` powiazanej z `Page`.
 
-| Pole | Typ | Opis |
-|------|-----|------|
-| slug | String (unique) | Identyfikator sekcji (np. "hero", "koncept") |
-| order | Int | Kolejnosc wyswietlania (1, 2, 3, 4) |
-| isVisible | Boolean | Czy sekcja jest widoczna na stronie |
-| titlePl / titleEn | String | Tytul sekcji PL/ENG |
-| contentPl / contentEn | JSON | Struktura tresci (paragrafy, galeria, intro) |
-| bgImage | String? | Sciezka do obrazu tla |
-| bgColor | String? | Kolor tla (fallback) |
-| tags | String[] | Tagi sekcji (do filtrowania/grupowania) |
+| Pole | Znaczenie |
+|------|-----------|
+| `slug` | Techniczny identyfikator sekcji |
+| `order` | Kolejnosc w ramach strony |
+| `titlePl` / `titleEn` | Nazwa sekcji w panelu |
+| `contentPl` / `contentEn` | Slownik pol tekstowych dla danej sekcji |
+| `isVisible` | Flaga widocznosci w modelu |
+| `bgImage` / `bgColor` | Dane prezentacyjne trzymane juz w CMS |
+| `tags` | Rezerwa pod dalsze grupowanie sekcji |
 
-### Przykladowa struktura JSON content
+### Istotne ograniczenie obecnej implementacji
 
-```json
-{
-  "heading": "KONCEPT HOMMM",
-  "intro": "Krotki wstep...",
-  "body": [
-    "Paragraf pierwszy...",
-    "Paragraf drugi...",
-    "Paragraf trzeci..."
-  ],
-  "gallery": [
-    { "src": "/uploads/gal_00.webp", "alt": "Opis zdjecia" },
-    { "src": "/uploads/gal_01.webp", "alt": "Opis zdjecia" }
-  ]
-}
-```
+CMS nie jest jeszcze w pelni schemato-niezalezny. Aktualny frontend renderuje na sztywno sekcje:
 
----
+- `hero`,
+- `koncept`,
+- `miejsce`,
+- `rezerwacja`,
+- `kontakt`.
 
-## 4. Mapa strony (Sitemap)
+To oznacza, ze dodanie nowego rekordu `Section` w bazie nie wystarczy, zeby pojawil sie on publicznie. Trzeba jeszcze rozszerzyc `components/HomeClient.tsx`.
 
-### Strony publiczne
+### Pola gotowe, ale jeszcze nieobslugiwane na froncie
 
-| URL | Opis | Priorytet | Czestotliwosc |
-|-----|------|-----------|---------------|
-| `/` | Strona glowna (wszystkie sekcje) | 1.0 | weekly |
+| Pole | Stan |
+|------|------|
+| `isVisible` | Edytowalne w panelu, ale publiczny frontend nie ukrywa jeszcze sekcji na podstawie tej flagi |
+| `bgImage` / `bgColor` | Edytowalne w panelu, ale warstwa publiczna nie czyta ich jeszcze przy renderowaniu |
 
-### Strony admina (nie indeksowane)
+## Architektura informacji panelu admina
 
-| URL | Opis |
+### Aktualnie dostepne trasy
+
+| URL | Rola |
 |-----|------|
-| `/admin/login` | Logowanie |
-| `/admin/dashboard` | Dashboard |
-| `/admin/content` | Zarzadzanie trescia |
-| `/admin/reservations` | Lista rezerwacji |
-| `/admin/calendar` | Kalendarz dostepnosci |
-| `/admin/gallery` | Galeria |
-| `/admin/seo` | Ustawienia SEO |
-| `/admin/settings` | Ustawienia globalne |
+| `/admin/login` | Wejscie do panelu |
+| `/admin/dashboard` | Karty ze statystykami |
+| `/admin/content` | Lista sekcji |
+| `/admin/content/[slug]` | Edytor konkretnej sekcji |
 
-### Implementacja sitemap (Faza 5)
+### Nawigacja shellu admina
 
-Plik `app/sitemap.ts` (Next.js convention):
+Sidebar pokazuje tez linki do:
 
-```typescript
-export default function sitemap() {
-  return [
-    {
-      url: 'https://hommm.eu',
-      lastModified: new Date(),
-      changeFrequency: 'weekly',
-      priority: 1,
-    },
-  ]
-}
-```
+- `gallery`,
+- `reservations`,
+- `calendar`,
+- `seo`,
+- `settings`.
 
-### Robots.txt (Faza 5)
+To jest nawigacja przygotowana pod kolejne fazy. Same widoki nie sa jeszcze zaimplementowane w obecnym zakresie.
 
-```
-User-agent: *
-Allow: /
-Disallow: /admin/
-Sitemap: https://hommm.eu/sitemap.xml
-```
+## Mapa strony
 
----
+### Stan aktualny
 
-## 5. Dane strukturalne (Faza 5)
+| URL | Typ | Uwagi |
+|-----|-----|-------|
+| `/` | publiczna | jedyna strona publiczna |
+| `/admin/*` | prywatna | obszar panelu admina, poza indeksowaniem |
 
-JSON-LD do osadzenia w `<head>`:
+### Stan planowany
 
-```json
-{
-  "@context": "https://schema.org",
-  "@type": "LodgingBusiness",
-  "name": "HOMMM",
-  "description": "Apartament w otoczeniu natury",
-  "url": "https://hommm.eu",
-  "telephone": "+48 ...",
-  "email": "hommm@hommm.eu",
-  "address": {
-    "@type": "PostalAddress",
-    "addressCountry": "PL"
-  },
-  "priceRange": "204.5 PLN/noc"
-}
-```
+Dynamiczne `sitemap.xml`, `robots.txt` i ewentualne podstrony z modelu `Page` sa przewidziane na kolejne etapy. Obecna architektura danych juz to przygotowuje, ale routing publiczny nadal konczy sie na jednej stronie.
 
----
+## Wnioski
 
-## 6. Flow informacji: Frontend ↔ Backend
-
-```
-GOSC (przegladarka)
-  │
-  ├─ GET / ──────────────► Server Component (page.tsx)
-  │                            │
-  │                            ├─ Prisma: pobierz sekcje z DB
-  │                            │   (fallback: data/content.ts)
-  │                            │
-  │                            ├─ Prisma: pobierz ustawienia SEO
-  │                            │   (generateMetadata)
-  │                            │
-  │                            └─ Renderuj HTML z trescia PL lub ENG
-  │                                (wg cookie jezyka)
-  │
-  ├─ GET /api/reservations/availability
-  │     └──────────────────► Zwroc zajete daty (publiczny endpoint)
-  │
-  └─ POST /api/reservations
-        └──────────────────► Walidacja Zod → zapis do DB → email do goscia + admina
-
-
-ADMIN (panel /admin/*)
-  │
-  ├─ Auth: JWT w httpOnly cookie (jose)
-  │
-  ├─ Server Actions (chronione):
-  │   ├─ getContent() / updateContent()
-  │   ├─ getReservations() / updateReservationStatus()
-  │   ├─ uploadImage() / deleteImage()
-  │   ├─ getSeoSettings() / updateSeoSettings()
-  │   └─ getSettings() / updateSettings()
-  │
-  └─ Mutacje → revalidatePath('/') → odswiezenie strony publicznej
-```
-
----
-
-## 7. Podsumowanie decyzji architektonicznych
-
-| Decyzja | Uzasadnienie |
-|---------|-------------|
-| Single-page (1 strona publiczna) | Obiekt ma 1 apartament; wszystkie informacje na jednej stronie |
-| Sekcje jako JSON w DB | Elastyczna struktura bez zmian schematu; admin edytuje tresc |
-| Fallback na statyczna tresc | Strona dziala nawet bez DB (degradacja graceful) |
-| Server Components domyslnie | Mniej JS po stronie klienta; szybsze ladowanie |
-| Cookie do jezyka | Proste, bez URL rewrite; 1 strona = 1 URL |
-| Anchor navigation | Single-page — nawigacja przez scroll do sekcji |
-| Admin pod /admin/* | Oddzielona logicznie; chroniona JWT middleware |
+Architektura informacji jest celowo prosta: jedna strona publiczna, piec sekcji i krotka droga do rezerwacji. CMS po Fazie 2 pozwala zarzadzac trescia i jezykiem, ale nie rozszerza jeszcze samej struktury informacji bez zmian w kodzie. To rozroznienie warto zachowac w dalszej dokumentacji i komunikacji z klientem.

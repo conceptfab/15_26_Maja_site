@@ -1,49 +1,94 @@
-# Bezpieczeństwo HOMMM
+# Bezpieczenstwo HOMMM
 
-## Security Headers
+## Zakres
 
-Konfiguracja w `next.config.ts`, aplikowana na wszystkie ścieżki:
+Dokument opisuje biezace zabezpieczenia po Fazie 1 oraz miejsca, ktore sa dopiero przygotowane pod dalsze wdrozenia.
 
-| Header | Wartość | Cel |
+## Security headers
+
+Naglowki sa ustawiane globalnie w `next.config.ts`.
+
+| Header | Wartosc | Cel |
 |--------|---------|-----|
-| `X-Content-Type-Options` | `nosniff` | Zapobiega MIME type sniffing |
-| `X-Frame-Options` | `DENY` | Zapobiega clickjacking (iframe) |
-| `X-XSS-Protection` | `1; mode=block` | Ochrona XSS w starszych przeglądarkach |
-| `Referrer-Policy` | `strict-origin-when-cross-origin` | Kontrola nagłówka Referer |
-| `Permissions-Policy` | `camera=(), microphone=(), geolocation=()` | Blokuje dostęp do kamery/mikrofonu/GPS |
-| `Strict-Transport-Security` | `max-age=63072000; includeSubDomains; preload` | Wymusza HTTPS (HSTS) |
+| `X-Content-Type-Options` | `nosniff` | ogranicza MIME sniffing |
+| `X-Frame-Options` | `SAMEORIGIN` | ogranicza osadzanie strony w obcych frame'ach |
+| `X-XSS-Protection` | `1; mode=block` | wsparcie dla starszych przegladarek |
+| `Referrer-Policy` | `strict-origin-when-cross-origin` | ogranicza wycieki naglowka referer |
+| `Permissions-Policy` | `camera=(), microphone=(), geolocation=()` | blokuje wybrane API przegladarki |
+| `Strict-Transport-Security` | `max-age=63072000; includeSubDomains; preload` | wymusza HTTPS po stronie przegladarki |
 
-## Autentykacja
+## Sekrety i konfiguracja
 
-- **httpOnly cookies** — JWT niedostępny z JavaScript (ochrona przed XSS)
-- **secure flag** — cookie wysyłany tylko po HTTPS (produkcja)
-- **sameSite: lax** — ochrona CSRF
-- **Sesje w DB** — możliwość natychmiastowego unieważnienia
-- **Czyszczenie sesji** — wygasłe sesje usuwane przy każdym logowaniu
+Sekrety nie sa zaszyte w kodzie. Runtime pobiera je z `.env` przez `lib/env.ts`.
+
+Wymagania walidowane przy starcie:
+
+- `JWT_SECRET` musi miec co najmniej 32 znaki,
+- `ADMIN_SECRET_CODE` musi miec co najmniej 12 znakow.
+
+## Sesja admina
+
+### Co chroni system
+
+- cookie `admin_session` jest `httpOnly`,
+- `secure` wlacza sie w produkcji,
+- `sameSite=lax` zmniejsza ryzyko prostych scenariuszy CSRF,
+- sesja ma odporny na manipulacje podpis JWT,
+- rekord `Session` w DB pozwala uniewaznic sesje po stronie serwera.
+
+### Granice ochrony
+
+| Warstwa | Co sprawdza |
+|--------|-------------|
+| `middleware.ts` | obecnosci cookie, podpis JWT, wygasniecie |
+| `verifySession()` | JWT + rekord `Session` + aktywnosc admina |
 
 ## Walidacja danych
 
-- **Zod** — walidacja na serwerze dla wszystkich inputów
-- Schematy współdzielone front/back (single source of truth)
+Aktualnie aktywna jest walidacja Zod dla logowania:
 
-## Baza danych
+- `email` musi byc prawidlowym adresem email,
+- `secretCode` musi byc przekazany w payloadzie.
 
-- **Prisma** — parametryzowane zapytania (ochrona SQL injection)
-- **Railway PostgreSQL** — szyfrowanie w tranzycie (SSL)
+To jest jeszcze waski zakres - kolejne publiczne formularze nie sa wdrozone.
 
-## HTTPS
+## Ochrona warstwy danych
 
-- Railway zapewnia automatyczne certyfikaty Let's Encrypt
-- HSTS header wymusza HTTPS po pierwszym połączeniu
+| Obszar | Stan |
+|--------|------|
+| ORM | Prisma ogranicza ryzyko SQL injection przez parametryzacje |
+| Lokalna baza | runtime korzysta z SQLite `dev.db` |
+| Sesje | zapisywane w tabeli `Session`, z mozliwoscia kasowania wygaslych rekordow |
 
-## Ochrona endpointów
+## Ochrona tras i mutacji
 
-- `/admin/*` — chronione middleware (JWT verification)
-- `/api/auth/*` — publiczne (login/logout)
-- `/api/reservations` — publiczne (docelowo z rate limiting)
+| Obszar | Stan |
+|--------|------|
+| `/admin/*` | chronione przez middleware |
+| `actions/content.updateContent()` | wymaga `verifySession()` |
+| `/api/auth/*` | publiczne endpointy auth |
+| `/api/content/sections` | publiczny endpoint pomocniczy dla sidebara admina |
 
-## TODO (przyszłe fazy)
+## Dostepnosc jako element bezpieczenstwa operacyjnego
 
-- Rate limiting na API (in-memory, Faza 3)
-- CSP header (Content Security Policy) — wymaga audytu inline styles
-- CSRF token dla Server Actions
+W praktyce wdrozone zostaly tez dwa elementy zmniejszajace ryzyko bledow obslugi:
+
+- skip link do tresci,
+- prosty i czytelny panel admina bez zbednych sciezek.
+
+To nie sa zabezpieczenia kryptograficzne, ale ograniczaja przypadkowe bledy uzytkownika i poprawiaja przewidywalnosc interfejsu.
+
+## Luki i elementy jeszcze niewdrozone
+
+| Obszar | Stan obecny | Plan |
+|--------|-------------|------|
+| CSP | brak | do dodania po audycie stylow i assetow |
+| Rate limiting | brak | planowany dla logowania i przyszlych endpointow publicznych |
+| Sanitization warstwy CMS | brak dedykowanej sanityzacji inputow | do rozwazenia przy bogatszych polach i uploadach |
+| CSRF tokeny | brak osobnej implementacji | na razie tylko `sameSite` i mechanika server actions |
+| Audyt automatyczny | brak | faza testow i security audit |
+| Monitoring logowan | brak | mozliwy dalszy etap administracyjny |
+
+## Wnioski
+
+Na obecnym etapie bezpieczenstwo jest wystarczajace dla prostego panelu admina i lokalnego developmentu: sa sekrety w env, podpisywane JWT, sesje w DB i podstawowe naglowki HTTP. Najwieksze braki wzgledem pelnego planu to brak CSP, brak rate limitingu i brak rozszerzonej walidacji dla kolejnych flow, ktore dopiero beda wdrazane.
