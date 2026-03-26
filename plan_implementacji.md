@@ -64,7 +64,7 @@ Ponizej mapowanie wymagan formalnych na konkretne fazy i elementy planu:
 ### Zaleznosci produkcyjne (nowe)
 
 ```
-prisma @prisma/client jose zod resend @react-email/components sharp @vercel/analytics
+prisma @prisma/client jose zod resend @react-email/components sharp @vercel/analytics @xyflow/react
 ```
 
 ### Zaleznosci dev
@@ -111,10 +111,11 @@ HOMMM Site
 |-- Database (Neon PostgreSQL)
     |-- admins ............. Whitelist adminow
     |-- sessions ........... Sesje logowania
-    |-- sections ........... Sekcje strony (JSON content PL/ENG)
+    |-- pages .............. Drzewo stron (hierarchia parent → child)
+    |-- sections ........... Sekcje stron (JSON content PL/ENG, powiazane z Page)
     |-- reservations ....... Rezerwacje
     |-- gallery_images ..... Galeria
-    |-- seo_settings ....... Ustawienia SEO
+    |-- seo_settings ....... Ustawienia SEO (per strona)
     |-- site_settings ...... Ustawienia globalne
 ```
 
@@ -141,9 +142,27 @@ model Session {
   createdAt DateTime @default(now())
 }
 
+model Page {
+  id          String   @id @default(cuid())
+  slug        String   @unique          // URL slug (np. "oferta", "oferta/apartament-1")
+  parentId    String?                    // null = strona glowna / top-level
+  parent      Page?    @relation("PageTree", fields: [parentId], references: [id])
+  children    Page[]   @relation("PageTree")
+  title       String                     // Tytul wewnetrzny (widoczny w grafie)
+  order       Int      @default(0)       // Kolejnosc wsrod rodzenstwa
+  isVisible   Boolean  @default(true)    // Widocznosc na stronie
+  isHome      Boolean  @default(false)   // Czy to strona glowna (max 1)
+  sections    Section[]
+  seo         SeoSettings?
+  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now())
+}
+
 model Section {
   id          String   @id @default(cuid())
-  slug        String   @unique          // "hero", "sec2", "sec3", "sec4"
+  pageId      String                     // Strona do ktorej nalezy sekcja
+  page        Page     @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  slug        String                     // "hero", "koncept", "miejsce", "kontakt"
   order       Int
   isVisible   Boolean  @default(true)
   titlePl     String?
@@ -155,6 +174,8 @@ model Section {
   tags        String[]                   // Tagi sekcji
   updatedAt   DateTime @updatedAt
   createdAt   DateTime @default(now())
+
+  @@unique([pageId, slug])               // Slug unikalny w ramach strony
 }
 
 model Reservation {
@@ -197,7 +218,8 @@ model GalleryImage {
 
 model SeoSettings {
   id              String  @id @default(cuid())
-  page            String  @unique @default("home")
+  pageId          String  @unique              // Powiazanie z Page
+  page            Page    @relation(fields: [pageId], references: [id])
   titlePl         String?
   titleEn         String?
   descriptionPl   String?
@@ -455,23 +477,91 @@ model SiteSettings {
    - Dane strukturalne JSON-LD (LocalBusiness, LodgingBusiness)
    - Robots.txt (`app/robots.ts`)
 
-**Rezultat:** SEO zarzadzane z panelu, KPI sledzone w dashboardzie, sitemap i dane strukturalne.
+5. **SEO pod modele LLM i boty AI (Generative Engine Optimization)**
+   - **llms.txt** — plik `/public/llms.txt` z opisem obiektu w formacie czytelnym dla LLM:
+     - Nazwa, lokalizacja, typ obiektu, oferta, cennik, kontakt
+     - Kluczowe USP (cisza, natura, prywatnosc)
+     - Link do rezerwacji i danych kontaktowych
+     - Aktualizowany z panelu admina (Server Action `updateLlmsTxt()`)
+   - **llms-full.txt** — rozszerzona wersja z pelna trescia wszystkich sekcji PL/ENG (`/public/llms-full.txt`)
+     - Generowany automatycznie z tresci sekcji w DB
+   - **Dane strukturalne rozszerzone**
+     - Schema.org `LodgingBusiness` wzbogacony o: `amenityFeature`, `checkinTime`, `checkoutTime`, `numberOfRooms`, `priceRange`, `geo` (lat/lng), `aggregateRating` (gdy dostepne)
+     - `FAQPage` schema (jesli sekcja FAQ zostanie dodana)
+     - `BreadcrumbList` dla nawigacji wewnetrznej
+   - **Optymalizacja tresci pod AI Overview / AI Search**
+     - Jasne, zwiezle odpowiedzi na pytania (format Q&A) w tresci sekcji
+     - Naglowki H1-H3 z konkretnymi frazami (nie generyczne "O nas")
+     - Atrybut `lang` na tresci PL i ENG — pomaga LLM rozpoznac jezyk
+   - **Kontrola dostepu botow AI**
+     - Rozszerzenie `robots.txt` o reguly dla crawlerow AI:
+       ```
+       # AI Crawlers — zezwol na indeksowanie
+       User-agent: GPTBot
+       Allow: /
+       User-agent: Google-Extended
+       Allow: /
+       User-agent: anthropic-ai
+       Allow: /
+       User-agent: ClaudeBot
+       Allow: /
+       User-agent: PerplexityBot
+       Allow: /
+       User-agent: Applebot-Extended
+       Allow: /
+       ```
+     - Mozliwosc zarzadzania regulami z panelu admina (pole w SeoSettings)
+   - **Meta tagi dla AI**
+     - `<meta name="robots" content="max-snippet:-1">` — pelne snippety dla AI
+     - Canonical URL na kazdej stronie
+
+**Rezultat:** SEO zarzadzane z panelu, KPI sledzone w dashboardzie, sitemap, dane strukturalne. Strona czytelna dla LLM i botow AI (llms.txt, rozszerzone schema, kontrola crawlerow).
 
 ---
 
-### FAZA 6: Ustawienia globalne i finalizacja
+### FAZA 6: Struktura serwisu, ustawienia globalne i finalizacja
 
-**Cel:** Konfiguracja globalna, zabezpieczenia, deploy.
+**Cel:** Wizualny edytor struktury serwisu, konfiguracja globalna, zabezpieczenia, deploy.
 
 **Zadania:**
 
-1. **Ustawienia globalne** (`/admin/settings/page.tsx`)
+1. **Wizualizacja i zarzadzanie struktura serwisu** (`/admin/site-structure/page.tsx`)
+   - **Graficzny edytor struktury** (React Flow / xyflow):
+     - Widok grafu wezlow — kazdy wezel = strona (`Page`)
+     - Polaczenia miedzy wezlami = relacje parent → child
+     - Kolory wezlow wg statusu: zielony (widoczna), szary (ukryta), niebieski (strona glowna)
+     - Podglad liczby sekcji na kazdym wezle
+   - **Operacje na wezlach**:
+     - Dodaj podstrone (klik prawym / przycisk "+") — tworzy `Page` z `parentId`
+     - Usun strone (z potwierdzeniem; kaskadowo usuwa sekcje i dzieci lub przenosi dzieci do rodzica)
+     - Przeciagnij wezel na innego rodzica (zmiana `parentId`)
+     - Zmien kolejnosc rodzenstwa (drag & drop)
+     - Klik na wezel → panel boczny z edycja: tytul, slug, widocznosc
+     - Dwuklik na wezel → przejscie do edycji sekcji strony (`/admin/content/[slug]`)
+   - **Generowanie nawigacji**:
+     - Automatyczne budowanie menu na podstawie drzewa stron
+     - Mozliwosc oznaczenia strony "ukryta w menu" (widoczna pod URL, ale nie w nawigacji)
+   - **Server Actions** (`actions/pages.ts`):
+     - `getPageTree()` — pelne drzewo stron z relacjami
+     - `createPage(data)` — nowa strona
+     - `updatePage(id, data)` — edycja (tytul, slug, parentId, order, isVisible)
+     - `deletePage(id)` — usun z kaskada
+     - `reorderPages(updates[])` — batch update kolejnosci
+   - **Dynamiczny routing**:
+     - `app/[...slug]/page.tsx` — catch-all route dla podstron
+     - Strona glowna (`isHome: true`) → `app/page.tsx` (bez zmian)
+     - Kazda podstrona renderuje swoje sekcje wg kolejnosci z DB
+     - 404 gdy slug nie istnieje lub strona ukryta
+   - **Dokumentacja**:
+     - `docs/site-structure.md` — jak dziala drzewo stron, jak dodac podstrone, jak zmienia sie routing i nawigacja
+
+2. **Ustawienia globalne** (`/admin/settings/page.tsx`)
    - Cena za noc (obecnie hardcoded 204.5 PLN)
    - Maksymalna liczba gosci
    - Dane kontaktowe (email, telefon, social media)
    - Whitelist adminow (dodaj/usun email)
 
-2. **Zabezpieczenia (rozszerzone)**
+3. **Zabezpieczenia (rozszerzone)**
    - Rate limiting na `/api/auth/login` i `/api/reservations` (prosty in-memory counter lub middleware)
    - Walidacja Zod na wszystkich endpointach
    - httpOnly cookies (juz z Fazy 1)
@@ -484,20 +574,20 @@ model SiteSettings {
      - Security Misconfiguration (CSP, headers z Fazy 1)
    - Szyfrowanie danych w tranzycie: HTTPS (Vercel) + TLS do Neon PostgreSQL
 
-3. **Deploy na Vercel**
+4. **Deploy na Vercel**
    - Konfiguracja zmiennych srodowiskowych
    - Polaczenie z Neon PostgreSQL
    - Konfiguracja domeny
    - Seed bazy danych
 
-4. **Finalizacja dokumentacji technicznej**
+5. **Finalizacja dokumentacji technicznej**
    - `docs/deploy.md` — jak deployowac (Vercel + Neon), zmienne srodowiskowe, domena, seed
    - `docs/admin-guide.md` — poradnik dla admina (logowanie, edycja tresci, rezerwacje, galeria, SEO)
    - `docs/security.md` — aktualizacja: pelna polityka bezpieczenstwa, audyt OWASP, headers
    - Przeglad i aktualizacja wszystkich plikow `docs/` — upewnienie sie ze sa spójne z kodem
    - `README.md` — krotki opis projektu + linki do dokumentacji w `docs/`
 
-5. **Pakiet przekazania**
+6. **Pakiet przekazania**
    - Kompletna dokumentacja techniczna (architektura, API, schemat DB, deploy)
    - Dokumentacja uzytkownika (admin-guide)
    - Instrukcja utrzymania i aktualizacji
@@ -559,6 +649,7 @@ model SiteSettings {
 |-- app/
 |   |-- layout.tsx                 // Root layout + Vercel Analytics
 |   |-- page.tsx                   // Strona glowna (Server Component, dane z DB)
+|   |-- [...slug]/page.tsx         // Dynamiczny routing podstron
 |   |-- not-found.tsx
 |   |
 |   |-- admin/
@@ -573,6 +664,7 @@ model SiteSettings {
 |   |   |   |-- [id]/page.tsx      // Szczegoly rezerwacji
 |   |   |-- calendar/page.tsx
 |   |   |-- gallery/page.tsx
+|   |   |-- site-structure/page.tsx // Wizualny edytor struktury serwisu (React Flow)
 |   |   |-- seo/page.tsx
 |   |   |-- settings/page.tsx
 |   |
@@ -587,6 +679,7 @@ model SiteSettings {
 |
 |-- actions/
 |   |-- content.ts                 // Server Actions: CRUD sekcji
+|   |-- pages.ts                   // Server Actions: CRUD stron, drzewo, reorder
 |   |-- reservations.ts            // Server Actions: zarzadzanie rezerwacjami (admin)
 |   |-- gallery.ts                 // Server Actions: upload, edycja, usuwanie
 |   |-- seo.ts                     // Server Actions: ustawienia SEO
@@ -604,6 +697,7 @@ model SiteSettings {
 |   |   |-- ContentEditor.tsx
 |   |   |-- CalendarView.tsx
 |   |   |-- ImageUploader.tsx
+|   |   |-- SiteStructureGraph.tsx  // React Flow — graf wezlow struktury serwisu
 |
 |-- lib/
 |   |-- db.ts                      // Prisma client singleton
@@ -635,6 +729,7 @@ model SiteSettings {
 |   |-- reservations.md            // Obieg rezerwacji, statusy, flow emaili
 |   |-- api.md                     // Publiczne endpointy: request/response/bledy
 |   |-- gallery.md                 // Obrazy: formaty, warianty, Sharp pipeline
+|   |-- site-structure.md          // Drzewo stron, routing, nawigacja, React Flow
 |   |-- testing.md                 // Scenariusze testowe, Lighthouse, checklist
 |   |-- deploy.md                  // Deploy: Vercel + Neon, env vars, domena
 |   |-- admin-guide.md             // Poradnik dla admina (non-tech)
@@ -679,7 +774,7 @@ NEXT_PUBLIC_BASE_URL="https://hommm.eu"
 | 3 (wysoki) | Faza 2 - CMS + i18n | Edycja tresci PL/ENG |
 | 4 (sredni) | Faza 4 - Galeria | Upload + optymalizacja WebP |
 | 5 (sredni) | Faza 5 - SEO/Stats/KPI | Analytics + dashboard + KPI + sitemap |
-| 6 (niski) | Faza 6 - Finalizacja | Ustawienia + zabezpieczenia OWASP + deploy + przekazanie |
+| 6 (niski) | Faza 6 - Struktura + Finalizacja | Wizualny edytor struktury serwisu + ustawienia + deploy + przekazanie |
 | 7 (koncowy) | Faza 7 - Testowanie | Testy uzytecznosci, Lighthouse, bezpieczenstwo, odbiór |
 
 > Faza 0 jest wstepna — dokumentacja UX/IA powstaje przed implementacja.
@@ -720,3 +815,5 @@ NEXT_PUBLIC_BASE_URL="https://hommm.eu"
 14. **Integracje zewnetrzne** — Platnosci (Stripe/Przelewy24) i CRM sa poza zakresem obecnego planu. Moga byc realizowane jako osobny etap po MVP. Schemat DB zachowuje pola `isPaid` i statusy `DEPOSIT_PAID`/`PAID` na przyszlosc, ale nie implementujemy integracji platniczej.
 
 15. **Przekazanie projektu** — Na zakonczenie Fazy 6 przygotowywany jest pelny pakiet: dokumentacja techniczna, poradnik admina, dane dostepu, instrukcja utrzymania. Calosc przekazywana zleceniodawcy.
+
+16. **Struktura serwisu (drzewo stron)** — Model `Page` z self-relacja `parentId` tworzy drzewo hierarchiczne. Kazda strona ma unikaly `slug` (pelna sciezka URL, np. `oferta/apartament-1`). Sekcje (`Section`) naleza do stron (`pageId`). Strona glowna ma `isHome: true`. Routing: `app/[...slug]/page.tsx` (catch-all) pobiera strone z DB po slug, renderuje jej sekcje. Nawigacja generowana automatycznie z drzewa stron. Wizualizacja: React Flow (xyflow) — jedyna nowa zaleznosc, uzasadniona brakiem rozsadnej alternatywy dla grafow wezlow.
