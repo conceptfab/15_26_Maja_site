@@ -10,11 +10,11 @@ Ponizej mapowanie wymagan formalnych na konkretne fazy i elementy planu:
 | **Customer Journey** | Faza 0 | Mapa punktow kontaktu: strona → rezerwacja → email → potwierdzenie → pobyt |
 | **Architektura informacji** | Faza 0 + Faza 2 | Struktura nawigacji, hierarchia tresci, taxonomia sekcji |
 | **Zarzadzanie trescia (CMS)** | Faza 2 | Panel admina: edycja sekcji PL/ENG, strategia tresci, SEO w Fazie 5 |
-| **Integracja z systemami zewnetrznymi** | Faza 1, 3, 5 | Neon PostgreSQL (DB), Resend (email), Vercel Analytics. Platnosci i CRM — poza zakresem obecnego planu (przyszly etap) |
+| **Integracja z systemami zewnetrznymi** | Faza 1, 3, 5 | Railway PostgreSQL (DB), Railway Redis (rate limiting), Resend (email), Umami/Plausible (analytics). Platnosci i CRM — poza zakresem obecnego planu (przyszly etap) |
 | **Responsywnosc i dostepnosc** | Faza 0 + ciagle | Istniejacy responsywny design + audyt WCAG 2.1 AA, atrybuty ARIA, focus management |
 | **Testowanie i optymalizacja** | Faza 7 | Testy uzytecznosci, scenariusze manualne, Lighthouse, zbieranie opinii |
-| **Bezpieczenstwo** | Faza 1, 6 | JWT httpOnly, CSP headers, rate limiting, walidacja Zod, HTTPS (Vercel), sanityzacja |
-| **Analiza danych i metryk** | Faza 5 | Vercel Analytics, KPI (rezerwacje, konwersja, oblozenosc), GA4 opcjonalnie |
+| **Bezpieczenstwo** | Faza 1, 6 | JWT httpOnly, CSP headers, rate limiting, walidacja Zod, HTTPS (Railway custom domain), sanityzacja |
+| **Analiza danych i metryk** | Faza 5 | Umami (self-hosted na Railway) lub Plausible, KPI (rezerwacje, konwersja, oblozenosc), GA4 opcjonalnie |
 | **Dokumentacja techniczna** | Kazda faza | Przyrostowa dokumentacja w `docs/`, przekazanie pelnego pakietu na koniec |
 
 ---
@@ -50,22 +50,27 @@ Ponizej mapowanie wymagan formalnych na konkretne fazy i elementy planu:
 | Warstwa | Technologia | Uzasadnienie |
 |---------|-------------|--------------|
 | Framework | **Next.js 15 App Router** | Juz uzywany; zero migracji |
-| Baza danych | **Neon PostgreSQL** | Serverless, darmowy tier, branching |
+| Baza danych | **Railway PostgreSQL** | Wbudowany w Railway, zero zewnetrznych serwisow |
 | ORM | **Prisma** | Typowany schemat, migracje, integracja z Next.js |
 | Autentykacja | **Custom (jose + httpOnly cookie)** | Whitelist emaili + secret code; `jose` jest lekki i ESM-native |
 | Email | **Resend + React Email** | Prosty API, 100 maili/dzien free, szablony w JSX |
 | i18n | **Custom hook + JSON** | Dla 1 strony wystarczy; zero dodatkowych zaleznosci |
 | Walidacja | **Zod** | Jeden schemat na front i back |
 | UI admina | **shadcn/ui + Tailwind CSS** | Gotowe komponenty (Table, Form, Dialog, Card), pelna kontrola, zero vendor lock-in |
-| Optymalizacja grafik | **Sharp + next/image** | Konwersja do WebP przy uploadzie, serwowanie przez CDN |
-| Analytics | **Vercel Analytics** | Zero konfiguracji, wbudowane. GA4 opcjonalnie pozniej |
-| Hosting | **Vercel** (frontend + API) + **Neon** (DB) | Darmowy tier, natywna integracja |
+| Optymalizacja grafik | **Sharp + next/image** | Konwersja do WebP przy uploadzie, serwowanie z Railway |
+| Storage grafik | **Railway Volume** | Persistent storage, writeable filesystem, montowany do kontenera |
+| Rate limiting | **In-memory (express-rate-limit lub custom)** | Railway = always-on container, in-memory dziala poprawnie |
+| Analytics | **Umami (self-hosted)** | Open-source, self-hosted na Railway (osobny serwis), GDPR-friendly. GA4 opcjonalnie |
+| Hosting | **Railway** (frontend + API + DB + Redis) | ~$5/mies., wszystko w jednym, dozwolone uzycie komercyjne |
 
 ### Zaleznosci produkcyjne (nowe)
 
 ```
-prisma @prisma/client jose zod resend @react-email/components sharp @vercel/analytics @xyflow/react
+prisma @prisma/client jose zod resend @react-email/components sharp
 ```
+
+> **Uwaga:** `@xyflow/react` instalowany w Fazie 6 (edytor struktury serwisu), nie wczesniej (YAGNI).
+> Brak zaleznosci od `@vercel/*` i `@upstash/*` — Railway zastepuje te serwisy wbudowanymi rozwiazaniami.
 
 ### Zaleznosci dev
 
@@ -108,7 +113,7 @@ HOMMM Site
 |   |-- actions/seo ........ Ustawienia SEO
 |   |-- actions/settings ... Ustawienia globalne
 |
-|-- Database (Neon PostgreSQL)
+|-- Database (Railway PostgreSQL)
     |-- admins ............. Whitelist adminow
     |-- sessions ........... Sesje logowania
     |-- pages .............. Drzewo stron (hierarchia parent → child)
@@ -172,6 +177,7 @@ model Section {
   bgImage     String?                    // Sciezka do tla
   bgColor     String?
   tags        String[]                   // Tagi sekcji
+  galleryImages GalleryImage[]            // Grafiki przypisane do sekcji
   updatedAt   DateTime @updatedAt
   createdAt   DateTime @default(now())
 
@@ -186,14 +192,17 @@ model Reservation {
   checkIn     DateTime
   checkOut    DateTime
   guests      Int
-  nights      Int
-  totalPrice  Decimal
+  nights      Int                        // Denormalizacja: wyliczalne z dat, ale przechowywane dla wygody
+  totalPrice  Decimal                    // Denormalizacja: cena z momentu rezerwacji (cena/noc moze sie zmienic)
   comment     String?                    // Komentarz od goscia
   status      ReservationStatus @default(PENDING)
   adminNote   String?                    // Notatka admina
   isPaid      Boolean           @default(false)
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
+
+  @@index([checkIn, checkOut])            // Szybkie zapytania o dostepnosc
+  @@index([status])                       // Filtrowanie wg statusu
 }
 
 enum ReservationStatus {
@@ -204,12 +213,22 @@ enum ReservationStatus {
   COMPLETED    // Zakonczona (po pobycie)
 }
 
+model BlockedDate {
+  id      String   @id @default(cuid())
+  date    DateTime
+  reason  String?                        // Powod blokady (np. "remont", "prywatne")
+  createdAt DateTime @default(now())
+
+  @@index([date])
+}
+
 model GalleryImage {
   id          String   @id @default(cuid())
   sectionId   String?
-  originalUrl String                     // Oryginalny plik
-  webpUrl     String                     // Zoptymalizowany WebP
-  thumbUrl    String?                    // Miniatura
+  section     Section? @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+  originalUrl String                     // Oryginalny plik (Railway Volume path)
+  webpUrl     String                     // Zoptymalizowany WebP (Railway Volume path)
+  thumbUrl    String?                    // Miniatura (Railway Volume path)
   altPl       String?
   altEn       String?
   order       Int      @default(0)
@@ -219,7 +238,7 @@ model GalleryImage {
 model SeoSettings {
   id              String  @id @default(cuid())
   pageId          String  @unique              // Powiazanie z Page
-  page            Page    @relation(fields: [pageId], references: [id])
+  page            Page    @relation(fields: [pageId], references: [id], onDelete: Cascade)
   titlePl         String?
   titleEn         String?
   descriptionPl   String?
@@ -282,21 +301,24 @@ model SiteSettings {
 
 1. **Instalacja zaleznosci**
    ```
-   prisma @prisma/client jose zod resend sharp @vercel/analytics
+   npm install tailwindcss @tailwindcss/postcss postcss
+   prisma @prisma/client jose zod resend sharp
    npx shadcn@latest init (komponenty: button, input, card, table, dialog, form, sheet, tabs)
    ```
+   > **Uwaga:** Tailwind CSS musi byc zainstalowany PRZED shadcn/ui (shadcn go wymaga).
 
-2. **Konfiguracja Prisma + Neon PostgreSQL**
+2. **Konfiguracja Prisma + Railway PostgreSQL**
    - Plik `prisma/schema.prisma` z pelnym schematem
-   - Konfiguracja `.env` (DATABASE_URL, JWT_SECRET, ADMIN_SECRET_CODE)
+   - Konfiguracja `.env` (`DATABASE_URL` z Railway, JWT_SECRET, ADMIN_SECRET_CODE)
    - Migracja inicjalna + seed (konto admina, poczatkowe sekcje)
 
 3. **System autentykacji admina**
    - `POST /api/auth/login` — email + secret code → JWT (jose) w httpOnly cookie
    - `POST /api/auth/logout` — usun cookie + sesje z DB
    - `GET /api/auth/me` — sprawdz aktualna sesje
-   - Middleware sprawdzajacy JWT na `/admin/*`
+   - `middleware.ts` (root) sprawdzajacy JWT na `/admin/*`
    - Whitelist emaili w tabeli `Admin`
+   - Czyszczenie wygaslych sesji przy kazdym logowaniu (`deleteMany where expiresAt < now()`)
 
 4. **Layout panelu admina (shadcn/ui)**
    - `/admin/layout.tsx` — sidebar (Sheet na mobile), topbar, nawigacja
@@ -308,9 +330,9 @@ model SiteSettings {
 
 6. **Bazowe zabezpieczenia (Security Headers)**
    - Content Security Policy (CSP) w `next.config.ts` lub middleware
-   - Strict-Transport-Security (HSTS) — wymuszenie HTTPS
+   - Strict-Transport-Security (HSTS) — wymuszenie HTTPS (Railway custom domain z Let's Encrypt)
    - X-Content-Type-Options, X-Frame-Options, Referrer-Policy
-   - HTTPS zapewnione przez Vercel (automatyczne certyfikaty SSL)
+   - HTTPS zapewnione przez Railway (automatyczne certyfikaty Let's Encrypt dla custom domain)
 
 7. **Dostepnosc — poprawki bazowe (z audytu Fazy 0)**
    - Semantyczny HTML: `<nav>`, `<main>`, `<section>`, `<header>`, `<footer>`
@@ -320,7 +342,7 @@ model SiteSettings {
 
 8. **Dokumentacja**
    - `docs/setup.md` — jak uruchomic projekt lokalnie (env, DB, seed, dev server)
-   - `docs/architecture.md` — opis architektury: warstwy, flow danych, decyzje techniczne
+   - `docs/architecture.md` — opis architektury: warstwy, flow danych, decyzje techniczne, Railway setup
    - `docs/auth.md` — jak dziala auth (secret code + JWT + whitelist), jak dodac admina
    - `docs/security.md` — polityka bezpieczenstwa: headers, szyfrowanie, ochrona endpointow
 
@@ -419,7 +441,7 @@ model SiteSettings {
 **Zadania:**
 
 1. **Server Actions galerii** (`actions/gallery.ts`)
-   - `uploadImage(formData)` — upload + Sharp (resize, WebP, thumb)
+   - `uploadImage(formData)` — upload do Railway Volume + Sharp (resize, WebP, thumb)
    - `deleteImage(id)` — usun grafike
    - `updateImageOrder(ids[])` — zmien kolejnosc
    - `updateImageAlt(id, altPl, altEn)` — edycja alt text
@@ -432,11 +454,12 @@ model SiteSettings {
    - Przypisanie do sekcji
 
 3. **Integracja z frontem**
-   - Tla sekcji ladowane z DB
+   - Tla sekcji ladowane z DB (URL-e do plikow na Railway Volume)
    - next/image z automatycznym WebP
+   - Statyczny endpoint `/api/uploads/[...path]` serwujacy pliki z Volume
 
 4. **Dokumentacja**
-   - `docs/gallery.md` — formaty obrazow, warianty (original/webp/thumb), limity, jak dziala Sharp pipeline
+   - `docs/gallery.md` — formaty obrazow, warianty (original/webp/thumb), limity, Sharp pipeline, Railway Volume mount
 
 **Rezultat:** Admin uploaduje grafiki → optymalizacja → wyswietlanie na stronie.
 
@@ -456,9 +479,10 @@ model SiteSettings {
      - Custom head tags
    - Dynamiczne `<head>` w layout na podstawie DB (`generateMetadata`)
 
-2. **Vercel Analytics**
-   - `@vercel/analytics` w layout.tsx — zero konfiguracji
-   - GA4 opcjonalnie: pole w SeoSettings, komponent `<GoogleAnalytics />` ladowany warunkowo
+2. **Analytics (Umami self-hosted lub Plausible)**
+   - Umami: deploy jako osobny serwis na Railway (open-source, GDPR-friendly, ~0 dodatkowego kosztu)
+   - Alternatywnie: Plausible Cloud ($9/mies.) lub GA4 (darmowe)
+   - Skrypt trackujacy w layout.tsx, dane w osobnej bazie Umami
 
 3. **Dashboard statystyk rezerwacji i KPI**
    - `/admin/dashboard/page.tsx` — rozbudowany:
@@ -466,7 +490,7 @@ model SiteSettings {
      - Dane agregowane przez Server Actions (`getStats()`)
      - Wykresy dodane pozniej jesli potrzebne (recharts)
    - **KPI (Key Performance Indicators):**
-     - Wskaznik konwersji: odwiedziny strony → wyslane rezerwacje (Vercel Analytics + DB)
+     - Wskaznik konwersji: odwiedziny strony → wyslane rezerwacje (Umami + DB)
      - Sredni czas odpowiedzi admina na rezerwacje
      - Oblozenosc miesieczna/roczna (% zajetych nocy)
      - Przychod miesieczny/roczny
@@ -562,7 +586,7 @@ model SiteSettings {
    - Whitelist adminow (dodaj/usun email)
 
 3. **Zabezpieczenia (rozszerzone)**
-   - Rate limiting na `/api/auth/login` i `/api/reservations` (prosty in-memory counter lub middleware)
+   - Rate limiting na `/api/auth/login` i `/api/reservations` (in-memory Map — Railway to always-on container, state persists)
    - Walidacja Zod na wszystkich endpointach
    - httpOnly cookies (juz z Fazy 1)
    - Sanityzacja inputow (XSS prevention)
@@ -572,16 +596,19 @@ model SiteSettings {
      - Broken Authentication (JWT expiry, session invalidation)
      - Sensitive Data Exposure (brak sekretow w repo, HTTPS)
      - Security Misconfiguration (CSP, headers z Fazy 1)
-   - Szyfrowanie danych w tranzycie: HTTPS (Vercel) + TLS do Neon PostgreSQL
+   - Szyfrowanie danych w tranzycie: HTTPS (Railway custom domain + Let's Encrypt) + internal networking do PostgreSQL
 
-4. **Deploy na Vercel**
-   - Konfiguracja zmiennych srodowiskowych
-   - Polaczenie z Neon PostgreSQL
-   - Konfiguracja domeny
+4. **Deploy na Railway**
+   - Utworzenie projektu Railway z serwisami: Next.js app + PostgreSQL + Volume (uploads)
+   - Konfiguracja zmiennych srodowiskowych (Railway dashboard)
+   - Polaczenie z Railway PostgreSQL (internal URL)
+   - Konfiguracja domeny (Railway custom domain + SSL automatyczny)
+   - Railway Volume mount na `/app/uploads` (persistent storage dla grafik)
    - Seed bazy danych
+   - `railway.json` / `Dockerfile` (opcjonalnie, Railway auto-detects Next.js)
 
 5. **Finalizacja dokumentacji technicznej**
-   - `docs/deploy.md` — jak deployowac (Vercel + Neon), zmienne srodowiskowe, domena, seed
+   - `docs/deploy.md` — jak deployowac (Railway), zmienne srodowiskowe, Railway Volume, domena, seed
    - `docs/admin-guide.md` — poradnik dla admina (logowanie, edycja tresci, rezerwacje, galeria, SEO)
    - `docs/security.md` — aktualizacja: pelna polityka bezpieczenstwa, audyt OWASP, headers
    - Przeglad i aktualizacja wszystkich plikow `docs/` — upewnienie sie ze sa spójne z kodem
@@ -592,7 +619,7 @@ model SiteSettings {
    - Dokumentacja uzytkownika (admin-guide)
    - Instrukcja utrzymania i aktualizacji
    - Lista zmiennych srodowiskowych z opisami
-   - Dane dostepu do Vercel, Neon, Resend (przekazanie kont lub dokumentacja jak uzyskac)
+   - Dane dostepu do Railway, Resend (przekazanie kont lub dokumentacja jak uzyskac)
 
 **Rezultat:** Gotowa aplikacja na produkcji z pelna dokumentacja i pakietem przekazania.
 
@@ -625,7 +652,7 @@ model SiteSettings {
    - SSL Labs test (ssllabs.com) — ocena A+
 
 4. **Zbieranie opinii i poprawki**
-   - Feedback od zleceniodawcy na podstawie wersji preview (Vercel Preview URL)
+   - Feedback od zleceniodawcy na podstawie wersji preview (Railway preview deployment)
    - Iteracyjne poprawki UX na podstawie uwag
    - Finalne zatwierdzenie przed przejsciem na produkcje
 
@@ -647,7 +674,7 @@ model SiteSettings {
 |   |-- migrations/
 |
 |-- app/
-|   |-- layout.tsx                 // Root layout + Vercel Analytics
+|   |-- layout.tsx                 // Root layout + Umami Analytics script
 |   |-- page.tsx                   // Strona glowna (Server Component, dane z DB)
 |   |-- [...slug]/page.tsx         // Dynamiczny routing podstron
 |   |-- not-found.tsx
@@ -705,7 +732,9 @@ model SiteSettings {
 |   |-- mail.ts                    // Resend client
 |   |-- image.ts                   // Sharp processing
 |   |-- i18n.ts                    // Custom hook useLocale() + helper t()
-|   |-- validations.ts             // Zod schemas
+|   |-- validations.ts             // Zod schemas (w tym walidacja slug: regex + ochrona /admin, /api)
+|
+|-- middleware.ts                      // Auth middleware: JWT check na /admin/*, rate limiting
 |
 |-- emails/
 |   |-- ReservationConfirmation.tsx
@@ -731,7 +760,7 @@ model SiteSettings {
 |   |-- gallery.md                 // Obrazy: formaty, warianty, Sharp pipeline
 |   |-- site-structure.md          // Drzewo stron, routing, nawigacja, React Flow
 |   |-- testing.md                 // Scenariusze testowe, Lighthouse, checklist
-|   |-- deploy.md                  // Deploy: Vercel + Neon, env vars, domena
+|   |-- deploy.md                  // Deploy: Railway, env vars, Volume, domena
 |   |-- admin-guide.md             // Poradnik dla admina (non-tech)
 |
 |-- data/
@@ -739,7 +768,11 @@ model SiteSettings {
 |
 |-- public/
 |   |-- assets/                    // Istniejace grafiki
-|   |-- uploads/                   // Uploadowane grafiki
+|
+|-- uploads/                           // Railway Volume mount — persistent storage dla uploadowanych grafik
+|   |-- original/                      // Oryginaly
+|   |-- webp/                          // Zoptymalizowane WebP
+|   |-- thumbs/                        // Miniatury
 ```
 
 ---
@@ -747,7 +780,7 @@ model SiteSettings {
 ## Zmienne srodowiskowe (.env)
 
 ```env
-# Database (Neon)
+# Database (Railway PostgreSQL — ustawiane automatycznie przez Railway)
 DATABASE_URL="postgresql://user:pass@host:5432/hommm"
 
 # Auth
@@ -758,9 +791,15 @@ ADMIN_SECRET_CODE="tajny-kod-dostepu-dla-adminow"
 RESEND_API_KEY="re_..."
 ADMIN_EMAIL="hommm@hommm.eu"
 
+# Storage (Railway Volume — sciezka montowania)
+UPLOADS_DIR="/app/uploads"
+
 # App
 NEXT_PUBLIC_BASE_URL="https://hommm.eu"
+PORT="3000"
 ```
+
+> Railway automatycznie ustawia `DATABASE_URL` po dodaniu serwisu PostgreSQL. `UPLOADS_DIR` wskazuje na zamontowany Railway Volume.
 
 ---
 
@@ -804,7 +843,7 @@ NEXT_PUBLIC_BASE_URL="https://hommm.eu"
 
 9. **Wykresy** — Na start karty statystyk (shadcn Card). Recharts dodany pozniej gdy beda dane.
 
-10. **Rate limiting** — Prosty in-memory counter w middleware na `/api/auth/login` i `/api/reservations`. Bez dodatkowych bibliotek.
+10. **Rate limiting** — Prosty in-memory counter (Map) w middleware na `/api/auth/login` i `/api/reservations`. Railway to always-on container (nie serverless) — in-memory state persists miedzy requestami. Bez dodatkowych zaleznosci.
 
 11. **Dokumentacja** — Tworzona przyrostowo z kazdą fazą (nie na koniec). Kazdy plik w `docs/` opisuje jedno zagadnienie. Format: krotki opis → jak to dziala → jak zmodyfikowac/rozszerzyc → przyklady. `admin-guide.md` jest pisany dla osoby nietechnicznej. Dokumentacja aktualizowana przy kazdej zmianie kodu, ktora zmienia zachowanie opisane w docs.
 
