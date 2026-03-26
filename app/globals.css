@@ -246,11 +246,7 @@ body {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
   gap: clamp(10px, 1.5vw, 24px);
-  align-items: start;
-}
-
-.reservation-system--panel-only {
-  /* identyczny jak standardowy */
+  align-items: end;
 }
 
 .reservation-system__calendar-col {
