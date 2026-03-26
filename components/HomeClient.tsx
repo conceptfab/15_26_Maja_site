@@ -453,7 +453,7 @@ export function HomeClient({ sections: initialSections }: { sections: SectionCon
           type="button"
           className="reservation-system__clear"
           onClick={handleReservationClear}
-          style={{ gridColumn: 2, justifySelf: 'end' }}
+          style={{ justifySelf: 'end' }}
         >
           <EraserIcon />
           <span>{r('clear')}</span>

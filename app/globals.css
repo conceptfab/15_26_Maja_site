@@ -28,7 +28,7 @@
   --container-gutter: 40px;
   --floating-logo-top: 12px;
   --floating-logo-width: min(500px, 48vw);
-  --floating-logo-menu-offset: 28px;
+  --floating-logo-menu-offset: -20px;
 }
 
 * {
@@ -73,7 +73,7 @@ body {
 .reservation-layout {
   display: flex;
   flex-direction: column;
-  padding: 9vh var(--container-gutter) 0;
+  padding: clamp(140px, 18vh, 200px) var(--container-gutter) 0;
   box-shadow: none;
   overflow: hidden;
   z-index: 50;
@@ -246,7 +246,7 @@ body {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  padding-top: 1vh;
+  padding-top: clamp(24px, 4vh, 48px);
   padding-bottom: 1vh;
 }
 
@@ -288,6 +288,8 @@ body {
   font-size: 0.82rem;
   margin-top: 4px;
   margin-left: auto;
+  grid-column: 2;
+  justify-self: end;
 }
 
 .reservation-system__clear:hover {
@@ -602,7 +604,7 @@ body {
 }
 
 .h1-brand {
-  margin: 5vh 0 0;
+  margin: 8vh 0 0;
   font-family: 'blackcurrant', sans-serif;
   font-weight: 400;
   font-style: normal;
@@ -1185,7 +1187,7 @@ body {
   }
 
   .story-container {
-    padding-top: 16vh;
+    padding-top: 20vh;
     padding-bottom: 24px;
   }
 
@@ -1296,6 +1298,8 @@ body {
     width: 100%;
     max-width: none;
     margin: 0 auto;
+    display: flex !important;
+    flex-direction: column;
   }
 
   .reservation-system__clear {
@@ -1318,10 +1322,9 @@ body {
   }
 
   .reservation-datepicker .react-datepicker__navigation {
-    width: 72px;
-    height: 72px;
-    top: 50%;
-    transform: translateY(-50%);
+    width: 48px;
+    height: 48px;
+    top: -4px;
   }
 
   .reservation-datepicker .react-datepicker__navigation--previous {
