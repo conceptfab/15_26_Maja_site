@@ -318,7 +318,7 @@ export default function Home() {
     });
 
     window.location.href = `mailto:hommm@hommm.eu?subject=${encodeURIComponent('Rezerwacja HOMMM')}&body=${encodeURIComponent(
-      `Zameldowanie: ${checkInLabel}\nWymeldowanie: ${checkOutLabel}\nGoscie: ${reservationGuests}\nLiczba nocy: ${nights}\nCena: ${totalPrice} zl\n\n${params.toString()}`
+      `Zameldowanie: ${checkInLabel}\nWymeldowanie: ${checkOutLabel}\nGoście: ${reservationGuests}\nLiczba nocy: ${nights}\nCena: ${totalPrice} zł\n\n${params.toString()}`
     )}`;
   };
 
@@ -392,18 +392,18 @@ export default function Home() {
             </div>
 
             <label className="reservation-summary-card__guests">
-              <span>Goscie</span>
+              <span>Goście</span>
               <select
                 name="guests"
                 value={reservationGuests}
                 onChange={(event) => setReservationGuests(event.target.value)}
               >
                 <option value="1">1 gosc</option>
-                <option value="2">2 gosci</option>
-                <option value="3">3 gosci</option>
-                <option value="4">4 gosci</option>
-                <option value="5">5 gosci</option>
-                <option value="6">6 gosci</option>
+                <option value="2">2 gości</option>
+                <option value="3">3 gości</option>
+                <option value="4">4 gości</option>
+                <option value="5">5 gości</option>
+                <option value="6">6 gości</option>
               </select>
             </label>
           </div>
@@ -418,7 +418,7 @@ export default function Home() {
           </button>
 
           <p className="reservation-summary-card__note">
-            Platnosc nie zostanie jeszcze naliczona
+            Płatność nie zostanie jeszcze naliczona
           </p>
 
         </aside>
@@ -430,12 +430,12 @@ export default function Home() {
           style={{ gridColumn: 2, justifySelf: 'end' }}
         >
           <EraserIcon />
-          <span>Wyczysc daty</span>
+          <span>Wyczyść daty</span>
         </button>
       </div>
 
       <div className="reservation-info">
-        <p>Rezerwacja zostanie potwierdzona w ciagu 24h od zlozenia. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
+        <p>Rezerwacja zostanie potwierdzona w ciągu 24h od złożenia. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
       </div>
     </div>
   );
@@ -521,17 +521,17 @@ export default function Home() {
 
                 <div className="reservation-promo reservation-promo--places">
                   <h2 className="reservation-promo__title">
-                    Zarezerwuj swoj czas
+                    Zarezerwuj swój czas
                   </h2>
                   <p className="reservation-promo__text">
-                    Wybierz daty i poczuj spokoj Hommm. Nasz kalendarz pokazuje
-                    aktualna dostepnosc apartamentow i pozwala szybko sprawdzic
+                    Wybierz daty i poczuj spokój Hommm. Nasz kalendarz pokazuje
+                    aktualną dostępność apartamentów i pozwala szybko sprawdzić
                     najlepszy termin pobytu.
                   </p>
                   <p className="reservation-promo__text reservation-promo__text--secondary">
-                    Zaplanuj pobyt w miejscu, gdzie natura spotyka sie z
+                    Zaplanuj pobyt w miejscu, gdzie natura spotyka się z
                     komfortem, a galeria od razu pokazuje rytm przestrzeni i
-                    najwazniejsze detale.
+                    najważniejsze detale.
                   </p>
                 </div>
 
@@ -539,7 +539,7 @@ export default function Home() {
                   <figure className="reservation-visual-item reservation-visual-item--wide">
                     <Image
                       src="/assets/gal_00.webp"
-                      alt="Zewnetrzny widok Hommm"
+                      alt="Zewnętrzny widok Hommm"
                       fill
                       priority
                       sizes="(max-width: 768px) 92vw, 34vw"
@@ -548,7 +548,7 @@ export default function Home() {
                   <figure className="reservation-visual-item reservation-visual-item--tall reservation-visual-item--tall-left">
                     <Image
                       src="/assets/gal_01.webp"
-                      alt="Wnetrze Hommm"
+                      alt="Wnętrze Hommm"
                       fill
                       priority
                       sizes="(max-width: 768px) 44vw, 16vw"
@@ -557,7 +557,7 @@ export default function Home() {
                   <figure className="reservation-visual-item reservation-visual-item--tall reservation-visual-item--tall-right">
                     <Image
                       src="/assets/gal_02.webp"
-                      alt="Lazienka Hommm"
+                      alt="Łazienka Hommm"
                       fill
                       priority
                       sizes="(max-width: 768px) 44vw, 16vw"
@@ -594,13 +594,13 @@ export default function Home() {
 
             <div className="story-text-block">
               <p>
-                To przykladowy blok tresci, ktory opisuje charakter miejsca i
-                spokojny rytm wypoczynku. W tym obszarze mozesz dodac dowolne
-                informacje: koncept, wartosci, klimat i doswiadczenie goscia.
-                Moze to byc miejsce na opis dnia goscia: od porannej kawy, przez
-                strefe relaksu, po wieczorne chwile przy swietle. Dzieki temu
-                sekcja jest pelniejsza i daje wiecej kontekstu, zanim uzytkownik
-                przejdzie do kolejnych fragmentow strony.
+                To przykładowy blok treści, który opisuje charakter miejsca i
+                spokojny rytm wypoczynku. W tym obszarze możesz dodać dowolne
+                informacje: koncept, wartości, klimat i doświadczenie gościa.
+                Może to być miejsce na opis dnia gościa: od porannej kawy, przez
+                strefę relaksu, po wieczorne chwile przy świetle. Dzięki temu
+                sekcja jest pełniejsza i daje więcej kontekstu, zanim użytkownik
+                przejdzie do kolejnych fragmentów strony.
               </p>
             </div>
 
@@ -609,7 +609,7 @@ export default function Home() {
               className="story-read-more"
               onClick={() => handleReadMoreClick('sec2')}
             >
-              CZYTAJ WIECEJ
+              CZYTAJ WIĘCEJ
             </button>
           </div>
         )}
@@ -627,18 +627,18 @@ export default function Home() {
           <div className="container story-container">
             <h2 className="h1-brand">YOUR SPECIAL PLACE</h2>
             <h3 className="heading-secondary story-subtitle">
-              CHCESZ WYPOCZAC W CISZY I OTOCZENIU NATURY?
+              CHCESZ WYPOCZĄĆ W CISZY I OTOCZENIU NATURY?
             </h3>
 
             <div className="story-text-block">
               <p>
-                To przykladowy tekst do sekcji miejsca - podkresla kameralnosc,
-                nature i oddech od codziennego tempa. Dodatkowe akapity moga
-                opisywac przestrzen, udogodnienia, rytualy i to, co buduje
-                wyjatkowy klimat pobytu. Mozesz tez dopisac informacje o
-                apartamentach, prywatnych strefach i detalach, ktore podkreslaja
-                komfort pobytu. Taki rozszerzony opis pomaga lepiej wyobrazic
-                sobie miejsce i zwieksza szanse, ze odwiedzajacy kliknie dalej.
+                To przykładowy tekst do sekcji miejsca — podkreśla kameralność,
+                naturę i oddech od codziennego tempa. Dodatkowe akapity mogą
+                opisywać przestrzeń, udogodnienia, rytuały i to, co buduje
+                wyjątkowy klimat pobytu. Możesz też dopisać informacje o
+                apartamentach, prywatnych strefach i detalach, które podkreślają
+                komfort pobytu. Taki rozszerzony opis pomaga lepiej wyobrazić
+                sobie miejsce i zwiększa szansę, że odwiedzający kliknie dalej.
               </p>
             </div>
 
@@ -647,7 +647,7 @@ export default function Home() {
               className="story-read-more"
               onClick={() => handleReadMoreClick('sec3')}
             >
-              CZYTAJ WIECEJ
+              CZYTAJ WIĘCEJ
             </button>
           </div>
         )}
@@ -660,6 +660,52 @@ export default function Home() {
         data-menu-logo="#ffffff"
       >
         <div className="container footer-container">
+          <div className="footer-brand reveal reveal--scale">
+            <a
+              href="#hero-start"
+              onClick={handleFloatingLogoClick}
+              className="footer-logo-link"
+            >
+              <img
+                src="/assets/hommm.svg"
+                alt="HOMMM"
+                className="footer-logo"
+              />
+            </a>
+
+            <div className="footer-nav-group">
+              <a
+                href="#sec2-wrapper"
+                className="footer-nav-link"
+                onClick={(event) => handleFooterNavClick(event, 'sec2-wrapper')}
+              >
+                KONCEPT
+              </a>
+
+              <button
+                type="button"
+                className="footer-nav-link"
+                onClick={() => {
+                  navigateTo('miejsca');
+                  scrollToHeroStart();
+                }}
+              >
+                MIEJSCA
+              </button>
+
+              <button
+                type="button"
+                className="footer-nav-link"
+                onClick={() => {
+                  navigateTo('rezerwuj');
+                  scrollToHeroStart();
+                }}
+              >
+                REZERWUJ
+              </button>
+            </div>
+          </div>
+
           <div className="footer-grid">
             <div
               className="footer-column footer-column--corporate reveal reveal--up"
@@ -669,63 +715,9 @@ export default function Home() {
               <div className="footer-column__content">
                 <p>Banana Gun Design Maria Budner</p>
                 <p>ul. Sanocka 39 m 5</p>
-                <p>93-038 Lodz</p>
+                <p>93-038 Łódź</p>
                 <p>NIP 7292494164</p>
               </div>
-            </div>
-
-            <div className="footer-column footer-column--center footer-column--spacer">
-              {/* Pusta kolumna 2 */}
-            </div>
-
-            <div className="footer-column footer-column--center footer-column--brand reveal reveal--scale">
-              <a
-                href="#hero-start"
-                onClick={handleFloatingLogoClick}
-                className="footer-logo-link"
-              >
-                <img
-                  src="/assets/hommm.svg"
-                  alt="HOMMM"
-                  className="footer-logo"
-                />
-              </a>
-
-              <div className="footer-nav-group">
-                <a
-                  href="#sec2-wrapper"
-                  className="footer-nav-link"
-                  onClick={(event) => handleFooterNavClick(event, 'sec2-wrapper')}
-                >
-                  KONCEPT
-                </a>
-
-                <button
-                  type="button"
-                  className="footer-nav-link"
-                  onClick={() => {
-                    navigateTo('miejsca');
-                    scrollToHeroStart();
-                  }}
-                >
-                  MIEJSCA
-                </button>
-
-                <button
-                  type="button"
-                  className="footer-nav-link"
-                  onClick={() => {
-                    navigateTo('rezerwuj');
-                    scrollToHeroStart();
-                  }}
-                >
-                  REZERWUJ
-                </button>
-              </div>
-            </div>
-
-            <div className="footer-column footer-column--center footer-column--spacer">
-              {/* Pusta kolumna 4 */}
             </div>
 
             <div

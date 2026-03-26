@@ -11,30 +11,30 @@ export const EXPANDED_SECTION_CONTENT: Record<
 > = {
   sec2: {
     heading: "KONCEPT HOMMM",
-    intro: "Rozszerzona tresc konceptu widoczna bez opuszczania tej sekcji i bez zmiany rytmu strony.",
+    intro: "Rozszerzona treść konceptu widoczna bez opuszczania tej sekcji i bez zmiany rytmu strony.",
     body: [
-      "To miejsce buduje spokojny, wyciszony klimat pobytu i prowadzi goscia przez naturalny rytm dnia od porannego swiatla po wieczorne wyhamowanie. Architektura, materialy i otoczenie pracuja razem, dzieki czemu kazdy element przestrzeni jest czytelny, prosty i funkcjonalny, a jednoczesnie pozostaje przytulny oraz naturalny w odbiorze.",
-      "W tej sekcji mozna pokazac pelniejszy opis doswiadczenia: jak wyglada poczatek dnia, gdzie znajduje sie strefa relaksu, jak zorganizowane sa miejsca wspolne i prywatne oraz co sprawia, ze pobyt jest komfortowy nawet przy dluzszym wypoczynku. Taki opis pomaga gosciowi szybciej zrozumiec charakter miejsca i wyobrazic sobie pobyt krok po kroku.",
-      "Dodatkowa tresc moze obejmowac szczegoly oferty, mozliwe scenariusze pobytu, sezonowe warianty, a takze praktyczne informacje o dostepie i udogodnieniach. Dzieki temu sekcja nie jest jedynie haslem wizerunkowym, tylko konkretnym, uporzadkowanym opisem tego, czego gosc moze realnie oczekiwac na miejscu.",
+      "To miejsce buduje spokojny, wyciszony klimat pobytu i prowadzi gościa przez naturalny rytm dnia od porannego światła po wieczorne wyhamowanie. Architektura, materiały i otoczenie pracują razem, dzięki czemu każdy element przestrzeni jest czytelny, prosty i funkcjonalny, a jednocześnie pozostaje przytulny oraz naturalny w odbiorze.",
+      "W tej sekcji można pokazać pełniejszy opis doświadczenia: jak wygląda początek dnia, gdzie znajduje się strefa relaksu, jak zorganizowane są miejsca wspólne i prywatne oraz co sprawia, że pobyt jest komfortowy nawet przy dłuższym wypoczynku. Taki opis pomaga gościowi szybciej zrozumieć charakter miejsca i wyobrazić sobie pobyt krok po kroku.",
+      "Dodatkowa treść może obejmować szczegóły oferty, możliwe scenariusze pobytu, sezonowe warianty, a także praktyczne informacje o dostępie i udogodnieniach. Dzięki temu sekcja nie jest jedynie hasłem wizerunkowym, tylko konkretnym, uporządkowanym opisem tego, czego gość może realnie oczekiwać na miejscu.",
     ],
     gallery: [
       { src: "/assets/gal_00.webp", alt: "Strefa relaksu i natura" },
-      { src: "/assets/gal_01.webp", alt: "Widok glownej przestrzeni" },
+      { src: "/assets/gal_01.webp", alt: "Widok głównej przestrzeni" },
       { src: "/assets/gal_02.webp", alt: "Detale miejsca" },
     ],
   },
   sec3: {
     heading: "YOUR SPECIAL PLACE",
-    intro: "Rozszerzona tresc miejsca widoczna w tej samej sekcji po kliknieciu, w bardziej zwartym ukladzie.",
+    intro: "Rozszerzona treść miejsca widoczna w tej samej sekcji po kliknięciu, w bardziej zwartym układzie.",
     body: [
-      "Opis tej czesci powinien jasno pokazywac, jak wyglada przestrzen, jakie sa jej najmocniejsze strony oraz dlaczego pobyt tutaj daje realne poczucie oddechu od codziennosci. Zamiast pojedynczych hasel mozna przedstawic spojną narracje o komforcie, prywatnosci i bliskosci natury, tak aby gosc od razu wiedzial, czego sie spodziewac.",
-      "Warto dopisac konkretne informacje o strefach wypoczynku, standardzie apartamentow, elementach wyposazenia oraz o tym, jak zaplanowany jest przeplyw pomiedzy wspolnymi i prywatnymi fragmentami miejsca. Taka forma jest czytelniejsza i pozwala szybciej podjac decyzje, bo pokazuje faktyczne korzysci i praktyczne aspekty pobytu.",
-      "Na koncu tej narracji dobrze jest zostawic przestrzen na szczegoly organizacyjne: terminy, zasady rezerwacji, opcje dodatkowe i dalszy kontakt. Dzieki temu uzytkownik przechodzi plynnie od inspiracji do konkretu, bez potrzeby szukania informacji po innych podstronach.",
+      "Opis tej części powinien jasno pokazywać, jak wygląda przestrzeń, jakie są jej najmocniejsze strony oraz dlaczego pobyt tutaj daje realne poczucie oddechu od codzienności. Zamiast pojedynczych haseł można przedstawić spójną narrację o komforcie, prywatności i bliskości natury, tak aby gość od razu wiedział, czego się spodziewać.",
+      "Warto dopisać konkretne informacje o strefach wypoczynku, standardzie apartamentów, elementach wyposażenia oraz o tym, jak zaplanowany jest przepływ pomiędzy wspólnymi i prywatnymi fragmentami miejsca. Taka forma jest czytelniejsza i pozwala szybciej podjąć decyzję, bo pokazuje faktyczne korzyści i praktyczne aspekty pobytu.",
+      "Na końcu tej narracji dobrze jest zostawić przestrzeń na szczegóły organizacyjne: terminy, zasady rezerwacji, opcje dodatkowe i dalszy kontakt. Dzięki temu użytkownik przechodzi płynnie od inspiracji do konkretu, bez potrzeby szukania informacji po innych podstronach.",
     ],
     gallery: [
       { src: "/assets/gal_01.webp", alt: "Kadr przestrzeni pobytu" },
-      { src: "/assets/gal_00.webp", alt: "Strefa na zewnatrz" },
-      { src: "/assets/gal_02.webp", alt: "Ujecie klimatu miejsca" },
+      { src: "/assets/gal_00.webp", alt: "Strefa na zewnątrz" },
+      { src: "/assets/gal_02.webp", alt: "Ujęcie klimatu miejsca" },
     ],
   },
 };

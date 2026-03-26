@@ -1,4 +1,23 @@
-# Plan implementacji backendu - HOMMM Admin Panel
+# Plan implementacji - HOMMM Site & Admin Panel
+
+## Wymagania formalne (mapowanie)
+
+Ponizej mapowanie wymagan formalnych na konkretne fazy i elementy planu:
+
+| Wymaganie formalne | Faza | Realizacja |
+|--------------------|------|------------|
+| **UX (User Experience)** | Faza 0 + ciagle | Analiza sciezki uzytkownika, optymalizacja flow rezerwacji, spójnosc nawigacji |
+| **Customer Journey** | Faza 0 | Mapa punktow kontaktu: strona → rezerwacja → email → potwierdzenie → pobyt |
+| **Architektura informacji** | Faza 0 + Faza 2 | Struktura nawigacji, hierarchia tresci, taxonomia sekcji |
+| **Zarzadzanie trescia (CMS)** | Faza 2 | Panel admina: edycja sekcji PL/ENG, strategia tresci, SEO w Fazie 5 |
+| **Integracja z systemami zewnetrznymi** | Faza 1, 3, 5 | Neon PostgreSQL (DB), Resend (email), Vercel Analytics. Platnosci i CRM — poza zakresem obecnego planu (przyszly etap) |
+| **Responsywnosc i dostepnosc** | Faza 0 + ciagle | Istniejacy responsywny design + audyt WCAG 2.1 AA, atrybuty ARIA, focus management |
+| **Testowanie i optymalizacja** | Faza 7 | Testy uzytecznosci, scenariusze manualne, Lighthouse, zbieranie opinii |
+| **Bezpieczenstwo** | Faza 1, 6 | JWT httpOnly, CSP headers, rate limiting, walidacja Zod, HTTPS (Vercel), sanityzacja |
+| **Analiza danych i metryk** | Faza 5 | Vercel Analytics, KPI (rezerwacje, konwersja, oblozenosc), GA4 opcjonalnie |
+| **Dokumentacja techniczna** | Kazda faza | Przyrostowa dokumentacja w `docs/`, przekazanie pelnego pakietu na koniec |
+
+---
 
 ## Stan obecny
 
@@ -198,6 +217,41 @@ model SiteSettings {
 
 ## Fazy implementacji
 
+### FAZA 0: UX, Customer Journey i Architektura Informacji
+
+**Cel:** Dokumentacja UX, mapa podrozy klienta i architektura informacji przed implementacja.
+
+**Zadania:**
+
+1. **Analiza UX i sciezka uzytkownika**
+   - Zdefiniowanie glownych person (gosc szukajacy noclegu, admin zarzadzajacy obiektem)
+   - Optymalizacja sciezki: landing → przeglad sekcji → formularz rezerwacji → potwierdzenie
+   - Identyfikacja punktow tarcia (obecnie: mailto: zamiast formularza, brak EN)
+
+2. **Customer Journey Map**
+   - Punkty kontaktu: strona glowna → sekcje informacyjne → formularz rezerwacji → email potwierdzenia → email zatwierdzenia → pobyt → follow-up
+   - Kanaly: strona WWW, email (Resend), telefon (dane kontaktowe)
+   - Momenty krytyczne: pierwszy kontakt (hero), decyzja o rezerwacji (cena + dostepnosc), potwierdzenie (email)
+
+3. **Architektura informacji**
+   - Hierarchia tresci: Hero → O obiekcie → Galeria → Cennik/Dostepnosc → Rezerwacja → Kontakt
+   - Nawigacja: TopMenu (istniejace) + anchor links do sekcji + przelacznik PL/ENG
+   - Taxonomia sekcji w CMS (slug: hero, about, gallery, pricing, reservation, contact)
+   - Mapa strony (sitemap.xml) dla SEO
+
+4. **Audyt dostepnosci (WCAG 2.1 AA)**
+   - Przeglad istniejacego frontendu pod katem: kontrast kolorow, alt text grafik, nawigacja klawiatura, focus visible
+   - Lista poprawek do wdrozenia w kolejnych fazach
+   - Atrybuty ARIA na komponentach interaktywnych (formularz, menu, przelaczniki)
+
+5. **Dokumentacja**
+   - `docs/ux-customer-journey.md` — persony, customer journey map, punkty tarcia, rekomendacje
+   - `docs/information-architecture.md` — hierarchia tresci, nawigacja, taxonomia sekcji, sitemap
+
+**Rezultat:** Udokumentowana strategia UX i IA. Jasna mapa podrozy klienta. Lista poprawek dostepnosci.
+
+---
+
 ### FAZA 1: Fundament (baza danych, auth, struktura projektu)
 
 **Cel:** Dzialajacy backend z autentykacja i podstawowa struktura admina.
@@ -230,12 +284,25 @@ model SiteSettings {
 
 5. **Prisma client singleton** (`lib/db.ts`)
 
-6. **Dokumentacja**
+6. **Bazowe zabezpieczenia (Security Headers)**
+   - Content Security Policy (CSP) w `next.config.ts` lub middleware
+   - Strict-Transport-Security (HSTS) — wymuszenie HTTPS
+   - X-Content-Type-Options, X-Frame-Options, Referrer-Policy
+   - HTTPS zapewnione przez Vercel (automatyczne certyfikaty SSL)
+
+7. **Dostepnosc — poprawki bazowe (z audytu Fazy 0)**
+   - Semantyczny HTML: `<nav>`, `<main>`, `<section>`, `<header>`, `<footer>`
+   - Focus visible na elementach interaktywnych
+   - Skip-to-content link
+   - `lang="pl"` / `lang="en"` na `<html>` wg aktywnego jezyka
+
+8. **Dokumentacja**
    - `docs/setup.md` — jak uruchomic projekt lokalnie (env, DB, seed, dev server)
    - `docs/architecture.md` — opis architektury: warstwy, flow danych, decyzje techniczne
    - `docs/auth.md` — jak dziala auth (secret code + JWT + whitelist), jak dodac admina
+   - `docs/security.md` — polityka bezpieczenstwa: headers, szyfrowanie, ochrona endpointow
 
-**Rezultat:** Admin moze sie zalogowac i zobaczyc pusty dashboard. Nowy developer moze uruchomic projekt w <15 min.
+**Rezultat:** Admin moze sie zalogowac i zobaczyc pusty dashboard. Nowy developer moze uruchomic projekt w <15 min. Bazowe zabezpieczenia wdrozone.
 
 ---
 
@@ -371,13 +438,24 @@ model SiteSettings {
    - `@vercel/analytics` w layout.tsx — zero konfiguracji
    - GA4 opcjonalnie: pole w SeoSettings, komponent `<GoogleAnalytics />` ladowany warunkowo
 
-3. **Dashboard statystyk rezerwacji**
+3. **Dashboard statystyk rezerwacji i KPI**
    - `/admin/dashboard/page.tsx` — rozbudowany:
      - Karty: rezerwacje wg statusu, przychod, oblozenosc (shadcn Card)
      - Dane agregowane przez Server Actions (`getStats()`)
      - Wykresy dodane pozniej jesli potrzebne (recharts)
+   - **KPI (Key Performance Indicators):**
+     - Wskaznik konwersji: odwiedziny strony → wyslane rezerwacje (Vercel Analytics + DB)
+     - Sredni czas odpowiedzi admina na rezerwacje
+     - Oblozenosc miesieczna/roczna (% zajetych nocy)
+     - Przychod miesieczny/roczny
+     - Najpopularniejsze okresy (heatmapa kalendarza)
 
-**Rezultat:** SEO zarzadzane z panelu, podstawowe statystyki.
+4. **Sitemap i dane strukturalne**
+   - Automatyczny `sitemap.xml` (Next.js `app/sitemap.ts`)
+   - Dane strukturalne JSON-LD (LocalBusiness, LodgingBusiness)
+   - Robots.txt (`app/robots.ts`)
+
+**Rezultat:** SEO zarzadzane z panelu, KPI sledzone w dashboardzie, sitemap i dane strukturalne.
 
 ---
 
@@ -393,11 +471,18 @@ model SiteSettings {
    - Dane kontaktowe (email, telefon, social media)
    - Whitelist adminow (dodaj/usun email)
 
-2. **Zabezpieczenia**
+2. **Zabezpieczenia (rozszerzone)**
    - Rate limiting na `/api/auth/login` i `/api/reservations` (prosty in-memory counter lub middleware)
    - Walidacja Zod na wszystkich endpointach
    - httpOnly cookies (juz z Fazy 1)
-   - Sanityzacja inputow
+   - Sanityzacja inputow (XSS prevention)
+   - CSRF protection na Server Actions (wbudowane w Next.js)
+   - Audyt OWASP Top 10 — checklist:
+     - Injection (SQL — Prisma parametryzuje; XSS — sanityzacja)
+     - Broken Authentication (JWT expiry, session invalidation)
+     - Sensitive Data Exposure (brak sekretow w repo, HTTPS)
+     - Security Misconfiguration (CSP, headers z Fazy 1)
+   - Szyfrowanie danych w tranzycie: HTTPS (Vercel) + TLS do Neon PostgreSQL
 
 3. **Deploy na Vercel**
    - Konfiguracja zmiennych srodowiskowych
@@ -405,13 +490,60 @@ model SiteSettings {
    - Konfiguracja domeny
    - Seed bazy danych
 
-4. **Finalizacja dokumentacji**
+4. **Finalizacja dokumentacji technicznej**
    - `docs/deploy.md` — jak deployowac (Vercel + Neon), zmienne srodowiskowe, domena, seed
    - `docs/admin-guide.md` — poradnik dla admina (logowanie, edycja tresci, rezerwacje, galeria, SEO)
+   - `docs/security.md` — aktualizacja: pelna polityka bezpieczenstwa, audyt OWASP, headers
    - Przeglad i aktualizacja wszystkich plikow `docs/` — upewnienie sie ze sa spójne z kodem
    - `README.md` — krotki opis projektu + linki do dokumentacji w `docs/`
 
-**Rezultat:** Gotowa aplikacja na produkcji z pelna dokumentacja.
+5. **Pakiet przekazania**
+   - Kompletna dokumentacja techniczna (architektura, API, schemat DB, deploy)
+   - Dokumentacja uzytkownika (admin-guide)
+   - Instrukcja utrzymania i aktualizacji
+   - Lista zmiennych srodowiskowych z opisami
+   - Dane dostepu do Vercel, Neon, Resend (przekazanie kont lub dokumentacja jak uzyskac)
+
+**Rezultat:** Gotowa aplikacja na produkcji z pelna dokumentacja i pakietem przekazania.
+
+---
+
+### FAZA 7: Testowanie, optymalizacja i odbiór
+
+**Cel:** Weryfikacja jakosci, wydajnosci i uzytecznosci przed odbiorem.
+
+**Zadania:**
+
+1. **Testy uzytecznosci**
+   - Scenariusze manualne dla glownych flow:
+     - Gosc: wejscie na strone → przeglad sekcji → rezerwacja → potwierdzenie email
+     - Admin: logowanie → przeglad rezerwacji → zatwierdzenie → edycja tresci
+   - Testy na urzadzeniach: desktop, tablet, mobile (min. 3 rozdzielczosci)
+   - Testy przegladarek: Chrome, Firefox, Safari, Edge
+
+2. **Audyt wydajnosci (Lighthouse)**
+   - Performance score > 90
+   - Accessibility score > 90 (WCAG 2.1 AA)
+   - Best Practices score > 90
+   - SEO score > 90
+   - Core Web Vitals: LCP < 2.5s, FID < 100ms, CLS < 0.1
+
+3. **Testy bezpieczenstwa**
+   - Weryfikacja CSP headers (csp-evaluator.withgoogle.com)
+   - Test rate limitingu (manualne obciazenie endpointow)
+   - Sprawdzenie ze brak sekretow w kodzie i repo
+   - SSL Labs test (ssllabs.com) — ocena A+
+
+4. **Zbieranie opinii i poprawki**
+   - Feedback od zleceniodawcy na podstawie wersji preview (Vercel Preview URL)
+   - Iteracyjne poprawki UX na podstawie uwag
+   - Finalne zatwierdzenie przed przejsciem na produkcje
+
+5. **Dokumentacja testow**
+   - `docs/testing.md` — scenariusze testowe, wyniki Lighthouse, checklist bezpieczenstwa
+   - Raport z audytu dostepnosci (WCAG 2.1 AA compliance)
+
+**Rezultat:** Przetestowana, zoptymalizowana aplikacja gotowa do odbioru. Udokumentowane wyniki testow.
 
 ---
 
@@ -495,11 +627,15 @@ model SiteSettings {
 |   |-- setup.md                   // Uruchomienie lokalne (env, DB, seed, dev)
 |   |-- architecture.md            // Warstwy, flow danych, decyzje techniczne
 |   |-- auth.md                    // Auth: secret code + JWT + whitelist
+|   |-- security.md                // Polityka bezpieczenstwa: headers, OWASP, szyfrowanie
+|   |-- ux-customer-journey.md     // Persony, mapa podrozy klienta, punkty tarcia
+|   |-- information-architecture.md // Hierarchia tresci, nawigacja, taxonomia
 |   |-- content.md                 // Struktura JSON sekcji, dodawanie nowej sekcji
 |   |-- i18n.md                    // System tlumaczen, dodawanie jezyka
 |   |-- reservations.md            // Obieg rezerwacji, statusy, flow emaili
 |   |-- api.md                     // Publiczne endpointy: request/response/bledy
 |   |-- gallery.md                 // Obrazy: formaty, warianty, Sharp pipeline
+|   |-- testing.md                 // Scenariusze testowe, Lighthouse, checklist
 |   |-- deploy.md                  // Deploy: Vercel + Neon, env vars, domena
 |   |-- admin-guide.md             // Poradnik dla admina (non-tech)
 |
@@ -537,15 +673,19 @@ NEXT_PUBLIC_BASE_URL="https://hommm.eu"
 
 | Priorytet | Faza | Zakres |
 |-----------|------|--------|
-| 1 (krytyczny) | Faza 1 - Fundament | DB + Auth + Layout admina |
+| 0 (wstepny) | Faza 0 - UX/IA/CJ | Analiza UX, Customer Journey, Architektura Informacji, audyt dostepnosci |
+| 1 (krytyczny) | Faza 1 - Fundament | DB + Auth + Layout admina + Security Headers + poprawki a11y |
 | 2 (krytyczny) | Faza 3 - Rezerwacje | Caly obieg rezerwacji |
 | 3 (wysoki) | Faza 2 - CMS + i18n | Edycja tresci PL/ENG |
 | 4 (sredni) | Faza 4 - Galeria | Upload + optymalizacja WebP |
-| 5 (sredni) | Faza 5 - SEO/Stats | Analytics + dashboard |
-| 6 (niski) | Faza 6 - Finalizacja | Ustawienia + deploy |
+| 5 (sredni) | Faza 5 - SEO/Stats/KPI | Analytics + dashboard + KPI + sitemap |
+| 6 (niski) | Faza 6 - Finalizacja | Ustawienia + zabezpieczenia OWASP + deploy + przekazanie |
+| 7 (koncowy) | Faza 7 - Testowanie | Testy uzytecznosci, Lighthouse, bezpieczenstwo, odbiór |
 
+> Faza 0 jest wstepna — dokumentacja UX/IA powstaje przed implementacja.
 > Fazy 1 i 3 sa krytyczne — bez nich strona nie ma podstawowej funkcjonalnosci backendu.
 > Faza 2 (CMS) moze byc czesciowo realizowana rownolegle z Faza 3.
+> Faza 7 jest koncowa — testowanie i odbiór po wdrozeniu wszystkich funkcjonalnosci.
 
 ---
 
@@ -572,3 +712,11 @@ NEXT_PUBLIC_BASE_URL="https://hommm.eu"
 10. **Rate limiting** — Prosty in-memory counter w middleware na `/api/auth/login` i `/api/reservations`. Bez dodatkowych bibliotek.
 
 11. **Dokumentacja** — Tworzona przyrostowo z kazdą fazą (nie na koniec). Kazdy plik w `docs/` opisuje jedno zagadnienie. Format: krotki opis → jak to dziala → jak zmodyfikowac/rozszerzyc → przyklady. `admin-guide.md` jest pisany dla osoby nietechnicznej. Dokumentacja aktualizowana przy kazdej zmianie kodu, ktora zmienia zachowanie opisane w docs.
+
+12. **Dostepnosc (WCAG 2.1 AA)** — Semantyczny HTML, atrybuty ARIA na komponentach interaktywnych (formularz rezerwacji, menu, przelaczniki), focus management, kontrast kolorow min. 4.5:1, alt text na wszystkich grafikach. Audyt Lighthouse Accessibility > 90.
+
+13. **Customer Journey** — Glowny flow: odkrycie (SEO/direct) → landing page (hero) → eksploracja sekcji → decyzja (cennik + dostepnosc) → rezerwacja (formularz) → potwierdzenie (email) → zatwierdzenie admina (email) → pobyt → opcjonalnie: follow-up. Kazdy punkt kontaktu musi byc przejrzysty i dzialac na mobile.
+
+14. **Integracje zewnetrzne** — Platnosci (Stripe/Przelewy24) i CRM sa poza zakresem obecnego planu. Moga byc realizowane jako osobny etap po MVP. Schemat DB zachowuje pola `isPaid` i statusy `DEPOSIT_PAID`/`PAID` na przyszlosc, ale nie implementujemy integracji platniczej.
+
+15. **Przekazanie projektu** — Na zakonczenie Fazy 6 przygotowywany jest pelny pakiet: dokumentacja techniczna, poradnik admina, dane dostepu, instrukcja utrzymania. Calosc przekazywana zleceniodawcy.
