@@ -18,9 +18,9 @@ export const EXPANDED_SECTION_CONTENT: Record<
       "Dodatkowa tresc moze obejmowac szczegoly oferty, mozliwe scenariusze pobytu, sezonowe warianty, a takze praktyczne informacje o dostepie i udogodnieniach. Dzieki temu sekcja nie jest jedynie haslem wizerunkowym, tylko konkretnym, uporzadkowanym opisem tego, czego gosc moze realnie oczekiwac na miejscu.",
     ],
     gallery: [
-      { src: "/assets/sec_2.jpg", alt: "Strefa relaksu i natura" },
-      { src: "/assets/hero.jpg", alt: "Widok glownej przestrzeni" },
-      { src: "/assets/sec_3.jpg", alt: "Detale miejsca" },
+      { src: "/assets/gal_00.webp", alt: "Strefa relaksu i natura" },
+      { src: "/assets/gal_01.webp", alt: "Widok glownej przestrzeni" },
+      { src: "/assets/gal_02.webp", alt: "Detale miejsca" },
     ],
   },
   sec3: {
@@ -32,9 +32,9 @@ export const EXPANDED_SECTION_CONTENT: Record<
       "Na koncu tej narracji dobrze jest zostawic przestrzen na szczegoly organizacyjne: terminy, zasady rezerwacji, opcje dodatkowe i dalszy kontakt. Dzieki temu uzytkownik przechodzi plynnie od inspiracji do konkretu, bez potrzeby szukania informacji po innych podstronach.",
     ],
     gallery: [
-      { src: "/assets/sec_3.jpg", alt: "Kadr przestrzeni pobytu" },
-      { src: "/assets/sec_2.jpg", alt: "Strefa na zewnatrz" },
-      { src: "/assets/hero.jpg", alt: "Ujecie klimatu miejsca" },
+      { src: "/assets/gal_01.webp", alt: "Kadr przestrzeni pobytu" },
+      { src: "/assets/gal_00.webp", alt: "Strefa na zewnatrz" },
+      { src: "/assets/gal_02.webp", alt: "Ujecie klimatu miejsca" },
     ],
   },
 };

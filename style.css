@@ -102,7 +102,7 @@ html {
 /* ----- KLASY DO PERSONALIZACJI TŁA ----- */
 .bg-slider {
   background-color: #8e44ad;
-  background-image: url('assets/top.jpg');
+  background-image: url('public/assets/hero.webp');
   background-position: center;
   background-size: cover;
   background-repeat: no-repeat;
@@ -110,7 +110,7 @@ html {
 }
 .bg-dark {
   background-color: #2c3e50;
-  background-image: url('assets/sec_2.jpg');
+  background-image: url('public/assets/sec_2.webp');
   background-position: center;
   background-size: cover;
   background-repeat: no-repeat;
@@ -118,14 +118,14 @@ html {
 }
 .bg-light {
   background-color: #ecf0f1;
-  background-image: url('assets/footer.jpg');
+  background-image: url('public/assets/footer.webp');
   background-position: center;
   background-size: cover;
   background-repeat: no-repeat;
 }
 .bg-secondary {
   background-color: #2ecc71;
-  background-image: url('assets/sec_1.jpg');
+  background-image: url('public/assets/gal_00.webp');
   background-position: center;
   background-size: cover;
   background-repeat: no-repeat;
@@ -271,19 +271,19 @@ html {
 .photo-house {
   grid-area: house;
   min-height: 286px;
-  background-image: url('assets/sec_1.jpg');
+  background-image: url('public/assets/gal_00.webp');
 }
 
 .photo-living {
   grid-area: living;
   min-height: 245px;
-  background-image: url('assets/sec_2.jpg');
+  background-image: url('public/assets/gal_01.webp');
 }
 
 .photo-bath {
   grid-area: bath;
   min-height: 245px;
-  background-image: url('assets/top.jpg');
+  background-image: url('public/assets/gal_02.webp');
 }
 
 .rezerwuj-price {

@@ -60,6 +60,8 @@ export default function Home() {
   const showReservationGallery = activeView === 'miejsca';
   const isExpandedContentVisible = expandedSection !== null;
   const isRedMenuMode = isReservationView || isExpandedContentVisible;
+  const showFloatingMenuLogo =
+    (hasScrolled || isRedMenuMode) && activeView !== 'miejsca';
   const lastScrollYRef = useRef(0);
   const isMobileRef = useRef(false);
   const navGuardRef = useRef(false);
@@ -276,6 +278,34 @@ export default function Home() {
     event.preventDefault();
   };
 
+  const handlePlacesLogoMouseMove = (event: MouseEvent<HTMLDivElement>) => {
+    if (isMobileRef.current) {
+      return;
+    }
+
+    const rect = event.currentTarget.getBoundingClientRect();
+    if (!rect.width || !rect.height) {
+      return;
+    }
+
+    const offsetX = (event.clientX - rect.left) / rect.width - 0.5;
+    const offsetY = (event.clientY - rect.top) / rect.height - 0.5;
+
+    event.currentTarget.style.setProperty(
+      '--places-logo-mouse-x',
+      offsetX.toFixed(3),
+    );
+    event.currentTarget.style.setProperty(
+      '--places-logo-mouse-y',
+      offsetY.toFixed(3),
+    );
+  };
+
+  const handlePlacesLogoMouseLeave = (event: MouseEvent<HTMLDivElement>) => {
+    event.currentTarget.style.setProperty('--places-logo-mouse-x', '0');
+    event.currentTarget.style.setProperty('--places-logo-mouse-y', '0');
+  };
+
   const handleReservationSubmit = () => {
     if (!checkIn || !checkOut) {
       return;
@@ -301,7 +331,7 @@ export default function Home() {
             : 'reservation-system reservation-system--panel-only'
         }
       >
-        <div className="reservation-system__calendar-wrap">
+        <div className="reservation-system__calendar-col">
           <DatePicker
             selected={checkIn}
             onChange={(update) => setReservationRange(update)}
@@ -309,7 +339,7 @@ export default function Home() {
             endDate={checkOut}
             selectsRange
             inline
-            monthsShown={2}
+            monthsShown={1}
             locale={pl}
             minDate={today}
             formatWeekDay={(dayName) =>
@@ -320,14 +350,26 @@ export default function Home() {
           />
         </div>
 
-        <button
-          type="button"
-          className="reservation-system__clear"
-          onClick={handleReservationClear}
-          title="Wyczysc daty"
-        >
-          <EraserIcon />
-        </button>
+        <div className="reservation-system__calendar-col">
+          <DatePicker
+            selected={checkIn}
+            onChange={(update) => setReservationRange(update)}
+            startDate={checkIn}
+            endDate={checkOut}
+            selectsRange
+            inline
+            monthsShown={1}
+            locale={pl}
+            minDate={today}
+            openToDate={new Date(today.getFullYear(), today.getMonth() + 1, 1)}
+            formatWeekDay={(dayName) =>
+              dayName.replace('.', '').slice(0, 3).toLowerCase()
+            }
+            calendarClassName="reservation-datepicker"
+            fixedHeight
+          />
+
+        </div>
 
         <aside
           className="reservation-summary-card"
@@ -378,7 +420,22 @@ export default function Home() {
           <p className="reservation-summary-card__note">
             Platnosc nie zostanie jeszcze naliczona
           </p>
+
         </aside>
+
+        <button
+          type="button"
+          className="reservation-system__clear"
+          onClick={handleReservationClear}
+          style={{ gridColumn: 2, justifySelf: 'end' }}
+        >
+          <EraserIcon />
+          <span>Wyczysc daty</span>
+        </button>
+      </div>
+
+      <div className="reservation-info">
+        <p>Rezerwacja zostanie potwierdzona w ciagu 24h od zlozenia. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
       </div>
     </div>
   );
@@ -431,7 +488,7 @@ export default function Home() {
       />
 
       <div
-        className={`floating-menu-logo ${hasScrolled || isRedMenuMode ? 'is-visible' : ''} ${isRedMenuMode ? 'is-red' : ''}`}
+        className={`floating-menu-logo ${showFloatingMenuLogo ? 'is-visible' : ''} ${isRedMenuMode ? 'is-red' : ''}`}
       >
         <a
           className="floating-menu-logo__link"
@@ -455,42 +512,55 @@ export default function Home() {
             aria-label="Sekcja rezerwacji"
           >
             {showReservationGallery ? (
-              <div className="reservation-layout__top">
-                <div className="reservation-promo">
-                  <h2 className="heading-secondary">ZAREZERWUJ SWOJ CZAS</h2>
+              <div
+                className="reservation-layout__top reservation-layout__top--places"
+              >
+                <div className="places-gallery-logo" aria-hidden="true">
+                  <span className="places-gallery-logo__art" />
+                </div>
+
+                <div className="reservation-promo reservation-promo--places">
+                  <h2 className="reservation-promo__title">
+                    Zarezerwuj swoj czas
+                  </h2>
                   <p className="reservation-promo__text">
                     Wybierz daty i poczuj spokoj Hommm. Nasz kalendarz pokazuje
-                    aktualna dostepnosc apartamentow. Zaplanuj swoj pobyt w
-                    miejscu, gdzie natura spotyka sie z komfortem.
+                    aktualna dostepnosc apartamentow i pozwala szybko sprawdzic
+                    najlepszy termin pobytu.
+                  </p>
+                  <p className="reservation-promo__text reservation-promo__text--secondary">
+                    Zaplanuj pobyt w miejscu, gdzie natura spotyka sie z
+                    komfortem, a galeria od razu pokazuje rytm przestrzeni i
+                    najwazniejsze detale.
                   </p>
                 </div>
 
-                <div className="reservation-visual-gallery">
-                  <figure className="reservation-visual-item reservation-visual-item--large">
+                <div className="reservation-visual-gallery reservation-visual-gallery--places">
+                  <figure className="reservation-visual-item reservation-visual-item--wide">
                     <Image
-                      src="/assets/sec_2.jpg"
-                      alt="Widok Hommm"
+                      src="/assets/gal_00.webp"
+                      alt="Zewnetrzny widok Hommm"
                       fill
                       priority
-                      sizes="40vw"
+                      sizes="(max-width: 768px) 92vw, 34vw"
                     />
                   </figure>
-                  <figure className="reservation-visual-item">
+                  <figure className="reservation-visual-item reservation-visual-item--tall reservation-visual-item--tall-left">
                     <Image
-                      src="/assets/sec_3.jpg"
-                      alt="Detale Hommm"
+                      src="/assets/gal_01.webp"
+                      alt="Wnetrze Hommm"
                       fill
                       priority
-                      sizes="20vw"
+                      sizes="(max-width: 768px) 44vw, 16vw"
                     />
                   </figure>
-                  <figure className="reservation-visual-item">
+                  <figure className="reservation-visual-item reservation-visual-item--tall reservation-visual-item--tall-right">
                     <Image
-                      src="/assets/hero.jpg"
-                      alt="Klimat Hommm"
+                      src="/assets/gal_02.webp"
+                      alt="Lazienka Hommm"
                       fill
                       priority
-                      sizes="20vw"
+                      sizes="(max-width: 768px) 44vw, 16vw"
                     />
                   </figure>
                 </div>
@@ -584,7 +654,7 @@ export default function Home() {
       </section>
 
       <section
-        className="section h-40vh bg-light"
+        className="section bg-light"
         id="sec4-wrapper"
         data-menu-font="#ffffff"
         data-menu-logo="#ffffff"
@@ -715,7 +785,7 @@ export default function Home() {
 
         <div className="footer-banner">
           <Image
-            src="/assets/baner.jpg"
+            src="/assets/baner.webp"
             alt="Baner stopki"
             width={1920}
             height={400}
