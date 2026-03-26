@@ -31,3 +31,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+/lib/generated/prisma
+
+# Local assistant config
+.claude/settings.local.json
+
+# SQLite dev database
+dev.db
+prisma/dev.db

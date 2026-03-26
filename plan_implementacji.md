@@ -784,8 +784,8 @@ model SiteSettings {
 DATABASE_URL="postgresql://user:pass@host:5432/hommm"
 
 # Auth
-JWT_SECRET="random-secret-min-32-chars"
-ADMIN_SECRET_CODE="tajny-kod-dostepu-dla-adminow"
+JWT_SECRET="<set-a-real-secret-in-env>"
+ADMIN_SECRET_CODE="<set-a-real-admin-code-in-env>"
 
 # Email (Resend)
 RESEND_API_KEY="re_..."

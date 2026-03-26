@@ -25,7 +25,17 @@ export default function RootLayout({
         />
         <link rel="stylesheet" href="https://use.typekit.net/zpt0osi.css" />
       </head>
-      <body>{children}</body>
+      <body>
+        <a
+          href="#main-content"
+          className="skip-to-content"
+        >
+          Przejdź do treści
+        </a>
+        <div id="main-content">
+          {children}
+        </div>
+      </body>
     </html>
   );
 }
