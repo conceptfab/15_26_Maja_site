@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { Geist } from "next/font/google";
 import { cn } from "@/lib/utils";
+import { ClientProviders } from '@/components/ClientProviders';
 
 const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
@@ -33,7 +34,9 @@ export default function RootLayout({
           Przejdź do treści
         </a>
         <div id="main-content">
-          {children}
+          <ClientProviders>
+            {children}
+          </ClientProviders>
         </div>
       </body>
     </html>

@@ -1,0 +1,64 @@
+'use server';
+
+import { prisma } from '@/lib/db';
+import { verifySession } from '@/lib/auth';
+
+export async function getContent() {
+  const sections = await prisma.section.findMany({
+    where: { page: { isHome: true } },
+    orderBy: { order: 'asc' },
+    include: { page: { select: { slug: true } } },
+  });
+
+  return sections;
+}
+
+export async function getContentBySlug(slug: string) {
+  const section = await prisma.section.findFirst({
+    where: { slug, page: { isHome: true } },
+    include: { page: { select: { slug: true } } },
+  });
+
+  return section;
+}
+
+export type UpdateContentData = {
+  titlePl?: string | null;
+  titleEn?: string | null;
+  contentPl?: Record<string, string>;
+  contentEn?: Record<string, string>;
+  bgImage?: string | null;
+  bgColor?: string | null;
+  isVisible?: boolean;
+};
+
+export async function updateContent(slug: string, data: UpdateContentData) {
+  const session = await verifySession();
+  if (!session) {
+    return { error: 'Brak autoryzacji' };
+  }
+
+  const section = await prisma.section.findFirst({
+    where: { slug, page: { isHome: true } },
+  });
+
+  if (!section) {
+    return { error: 'Sekcja nie znaleziona' };
+  }
+
+  const updateData: Record<string, unknown> = {};
+  if (data.titlePl !== undefined) updateData.titlePl = data.titlePl;
+  if (data.titleEn !== undefined) updateData.titleEn = data.titleEn;
+  if (data.contentPl !== undefined) updateData.contentPl = data.contentPl as object;
+  if (data.contentEn !== undefined) updateData.contentEn = data.contentEn as object;
+  if (data.bgImage !== undefined) updateData.bgImage = data.bgImage;
+  if (data.bgColor !== undefined) updateData.bgColor = data.bgColor;
+  if (data.isVisible !== undefined) updateData.isVisible = data.isVisible;
+
+  const updated = await prisma.section.update({
+    where: { id: section.id },
+    data: updateData,
+  });
+
+  return { success: true, section: updated };
+}

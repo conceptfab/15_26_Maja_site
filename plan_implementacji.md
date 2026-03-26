@@ -10,7 +10,7 @@ Ponizej mapowanie wymagan formalnych na konkretne fazy i elementy planu:
 | **Customer Journey** | Faza 0 | Mapa punktow kontaktu: strona → rezerwacja → email → potwierdzenie → pobyt |
 | **Architektura informacji** | Faza 0 + Faza 2 | Struktura nawigacji, hierarchia tresci, taxonomia sekcji |
 | **Zarzadzanie trescia (CMS)** | Faza 2 | Panel admina: edycja sekcji PL/ENG, strategia tresci, SEO w Fazie 5 |
-| **Integracja z systemami zewnetrznymi** | Faza 1, 3, 5 | Railway PostgreSQL (DB), Railway Redis (rate limiting), Resend (email), Umami/Plausible (analytics). Platnosci i CRM — poza zakresem obecnego planu (przyszly etap) |
+| **Integracja z systemami zewnetrznymi** | Faza 1, 3, 5 | Railway PostgreSQL (DB), Railway Redis (rate limiting), email (Resend API lub wlasny SMTP/nodemailer — do wyboru), Umami/Plausible (analytics). Platnosci i CRM — poza zakresem obecnego planu (przyszly etap) |
 | **Responsywnosc i dostepnosc** | Faza 0 + ciagle | Istniejacy responsywny design + audyt WCAG 2.1 AA, atrybuty ARIA, focus management |
 | **Testowanie i optymalizacja** | Faza 7 | Testy uzytecznosci, scenariusze manualne, Lighthouse, zbieranie opinii |
 | **Bezpieczenstwo** | Faza 1, 6 | JWT httpOnly, CSP headers, rate limiting, walidacja Zod, HTTPS (Railway custom domain), sanityzacja |
@@ -53,7 +53,7 @@ Ponizej mapowanie wymagan formalnych na konkretne fazy i elementy planu:
 | Baza danych | **Railway PostgreSQL** | Wbudowany w Railway, zero zewnetrznych serwisow |
 | ORM | **Prisma** | Typowany schemat, migracje, integracja z Next.js |
 | Autentykacja | **Custom (jose + httpOnly cookie)** | Whitelist emaili + secret code; `jose` jest lekki i ESM-native |
-| Email | **Resend + React Email** | Prosty API, 100 maili/dzien free, szablony w JSX |
+| Email | **Resend API lub wlasny SMTP (nodemailer)** | Do wyboru w ustawieniach admina; React Email dla szablonow JSX |
 | i18n | **Custom hook + JSON** | Dla 1 strony wystarczy; zero dodatkowych zaleznosci |
 | Walidacja | **Zod** | Jeden schemat na front i back |
 | UI admina | **shadcn/ui + Tailwind CSS** | Gotowe komponenty (Table, Form, Dialog, Card), pelna kontrola, zero vendor lock-in |
@@ -66,7 +66,7 @@ Ponizej mapowanie wymagan formalnych na konkretne fazy i elementy planu:
 ### Zaleznosci produkcyjne (nowe)
 
 ```
-prisma @prisma/client jose zod resend @react-email/components sharp
+prisma @prisma/client jose zod resend @react-email/components nodemailer sharp
 ```
 
 > **Uwaga:** `@xyflow/react` instalowany w Fazie 6 (edytor struktury serwisu), nie wczesniej (YAGNI).
@@ -411,13 +411,30 @@ model SiteSettings {
    - Walidacja kliencka (Zod)
    - Wysylka do API zamiast mailto:
    - Wyswietlanie zajetych dat w kalendarzu
-   - Potwierdzenie po wyslaniu
+   - **Modal potwierdzenia po kliknieciu "REZERWUJ"** (shadcn Dialog):
+     - Podsumowanie: wybrane daty, liczba nocy, liczba gosci, cena
+     - Pola formularza:
+       - Imie i nazwisko (wymagane)
+       - Email (wymagany, walidacja formatu)
+       - Telefon (wymagany, walidacja formatu)
+       - Komentarz / dodatkowe informacje (opcjonalne, Textarea)
+     - Checkbox RODO: "Wyrazam zgode na przetwarzanie danych osobowych w celu realizacji rezerwacji" (wymagany)
+     - Link do pelnej polityki prywatnosci
+     - Przycisk "Wyslij rezerwacje" (disabled do zaakceptowania RODO)
+     - Stany: formularz → ladowanie → sukces / blad
+   - Potwierdzenie po wyslaniu (ekran sukcesu w modalu lub osobna strona)
 
-4. **Szablony email (React Email + Resend)**
-   - Email do goscia: "Otrzymalismy Twoja rezerwacje"
-   - Email do admina: "Nowa rezerwacja od [imie]"
-   - Email do goscia: "Rezerwacja potwierdzona"
-   - Email do goscia: "Rezerwacja anulowana"
+4. **System email (Resend API lub wlasny SMTP — do wyboru)**
+   - **Abstrakcja wysylki** (`lib/mail.ts`):
+     - Interface `sendEmail(to, subject, html)` — wspolny dla obu providerow
+     - Provider Resend: `resend.emails.send()` (wymaga `RESEND_API_KEY`)
+     - Provider SMTP: `nodemailer.createTransport()` (wymaga `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`)
+     - Wybor providera w `/admin/settings` lub przez zmienne srodowiskowe
+   - **Szablony email (React Email)**:
+     - Email do goscia: "Otrzymalismy Twoja rezerwacje"
+     - Email do admina: "Nowa rezerwacja od [imie]"
+     - Email do goscia: "Rezerwacja potwierdzona"
+     - Email do goscia: "Rezerwacja anulowana"
 
 5. **Panel admina — rezerwacje**
    - `/admin/reservations/page.tsx` — tabela (shadcn Table + filtry)
@@ -598,7 +615,28 @@ model SiteSettings {
      - Security Misconfiguration (CSP, headers z Fazy 1)
    - Szyfrowanie danych w tranzycie: HTTPS (Railway custom domain + Let's Encrypt) + internal networking do PostgreSQL
 
-4. **Deploy na Railway**
+4. **Automatyczne backupy**
+   - **Codzienny backup (retencja 14 dni)**:
+     - Dump bazy PostgreSQL (`pg_dump`) + spakowanie uploadeow (galeria)
+     - Cron job o 3:00 w nocy
+     - Rotacja: usuwanie backupow starszych niz 14 dni
+   - **Tygodniowy backup (retencja 8 tygodni)**:
+     - Pelny dump DB + uploads + konfiguracja (.env.example, schema Prisma)
+     - Cron job w niedziele o 4:00
+     - Rotacja: usuwanie backupow starszych niz 8 tygodni
+   - **Dostarczanie backupow (do wyboru)**:
+     - **Email**: wysylka spakowanego archiwum (.tar.gz) na wskazany adres (przez skonfigurowany provider email)
+     - **FTP/SFTP**: upload na zewnetrzny serwer (konfigurowalny host/port/sciezka)
+     - Konfiguracja metody w `/admin/settings` (email/FTP, dane dostepu)
+   - **Realizacja techniczna**:
+     - `lib/backup.ts` — logika tworzenia dumpa, pakowania, rotacji
+     - `app/api/cron/backup/route.ts` — endpoint wyzwalany przez cron
+     - Weryfikacja CRON_SECRET w ustawieniach
+     - Logi backupow widoczne w `/admin/settings` (data, rozmiar, status)
+   - **Dokumentacja**:
+     - `docs/backup.md` — konfiguracja, harmonogram, przywracanie z backupu, troubleshooting
+
+5. **Deploy na Railway**
    - Utworzenie projektu Railway z serwisami: Next.js app + PostgreSQL + Volume (uploads)
    - Konfiguracja zmiennych srodowiskowych (Railway dashboard)
    - Polaczenie z Railway PostgreSQL (internal URL)
@@ -607,19 +645,19 @@ model SiteSettings {
    - Seed bazy danych
    - `railway.json` / `Dockerfile` (opcjonalnie, Railway auto-detects Next.js)
 
-5. **Finalizacja dokumentacji technicznej**
+6. **Finalizacja dokumentacji technicznej**
    - `docs/deploy.md` — jak deployowac (Railway), zmienne srodowiskowe, Railway Volume, domena, seed
    - `docs/admin-guide.md` — poradnik dla admina (logowanie, edycja tresci, rezerwacje, galeria, SEO)
    - `docs/security.md` — aktualizacja: pelna polityka bezpieczenstwa, audyt OWASP, headers
    - Przeglad i aktualizacja wszystkich plikow `docs/` — upewnienie sie ze sa spójne z kodem
    - `README.md` — krotki opis projektu + linki do dokumentacji w `docs/`
 
-6. **Pakiet przekazania**
+7. **Pakiet przekazania**
    - Kompletna dokumentacja techniczna (architektura, API, schemat DB, deploy)
    - Dokumentacja uzytkownika (admin-guide)
    - Instrukcja utrzymania i aktualizacji
    - Lista zmiennych srodowiskowych z opisami
-   - Dane dostepu do Railway, Resend (przekazanie kont lub dokumentacja jak uzyskac)
+   - Dane dostepu do Railway, provider email (Resend lub SMTP — przekazanie kont/konfiguracji)
 
 **Rezultat:** Gotowa aplikacja na produkcji z pelna dokumentacja i pakietem przekazania.
 
@@ -645,11 +683,30 @@ model SiteSettings {
    - SEO score > 90
    - Core Web Vitals: LCP < 2.5s, FID < 100ms, CLS < 0.1
 
-3. **Testy bezpieczenstwa**
-   - Weryfikacja CSP headers (csp-evaluator.withgoogle.com)
-   - Test rate limitingu (manualne obciazenie endpointow)
-   - Sprawdzenie ze brak sekretow w kodzie i repo
-   - SSL Labs test (ssllabs.com) — ocena A+
+3. **Audyty bezpieczenstwa**
+   - **Audyt OWASP Top 10**:
+     - A01 Broken Access Control — weryfikacja auth na kazdym chronionym endpoincie
+     - A02 Cryptographic Failures — przeglag JWT, haszowania hasel, HTTPS
+     - A03 Injection — testy SQL injection (Prisma parametryzuje), XSS (sanityzacja inputow)
+     - A05 Security Misconfiguration — CSP headers (csp-evaluator.withgoogle.com), CORS, X-Frame-Options
+     - A07 Authentication Failures — brute-force login (rate limiting), session expiry, token rotation
+   - **Skanowanie automatyczne**:
+     - `npm audit` — znane podatnosci w zaleznosach
+     - OWASP ZAP lub Nikto — skan aplikacji webowej (XSS, CSRF, open redirects)
+     - SSL Labs test (ssllabs.com) — ocena A+
+     - Mozilla Observatory (observatory.mozilla.org) — ocena A+
+   - **Testy manualne**:
+     - Test rate limitingu (obciazenie endpointow login, rezerwacje)
+     - Sprawdzenie ze brak sekretow w kodzie i repo (`git log --all -p | grep -i secret`)
+     - Weryfikacja httpOnly/Secure/SameSite na cookies
+     - Test IDOR (proba dostepu do cudzych zasobow przez zmiane ID w URL)
+     - Test eskalacji uprawnien (niezalogowany → admin endpoints)
+   - **Cykliczny audyt (po deploymencie)**:
+     - Automatyczny `npm audit` w CI/CD pipeline (blokuje deploy przy krytycznych)
+     - Miesieczny przeglad zaleznosci (`npm outdated`)
+     - Kwartalny przeglad CSP i headers
+   - **Dokumentacja**:
+     - `docs/security-audit.md` — checklist audytu, wyniki, plan naprawczy, harmonogram cyklicznych przeglad
 
 4. **Zbieranie opinii i poprawki**
    - Feedback od zleceniodawcy na podstawie wersji preview (Railway preview deployment)
@@ -729,7 +786,7 @@ model SiteSettings {
 |-- lib/
 |   |-- db.ts                      // Prisma client singleton
 |   |-- auth.ts                    // jose helpers + middleware
-|   |-- mail.ts                    // Resend client
+|   |-- mail.ts                    // Abstrakcja email (Resend API lub SMTP/nodemailer)
 |   |-- image.ts                   // Sharp processing
 |   |-- i18n.ts                    // Custom hook useLocale() + helper t()
 |   |-- validations.ts             // Zod schemas (w tym walidacja slug: regex + ochrona /admin, /api)
@@ -787,8 +844,15 @@ DATABASE_URL="postgresql://user:pass@host:5432/hommm"
 JWT_SECRET="<set-a-real-secret-in-env>"
 ADMIN_SECRET_CODE="<set-a-real-admin-code-in-env>"
 
-# Email (Resend)
+# Email — opcja A: Resend API
 RESEND_API_KEY="re_..."
+# Email — opcja B: wlasny SMTP (nodemailer)
+SMTP_HOST="mail.example.com"
+SMTP_PORT="465"
+SMTP_USER="user@example.com"
+SMTP_PASS="..."
+# Wspolne
+EMAIL_PROVIDER="resend"          # "resend" lub "smtp"
 ADMIN_EMAIL="hommm@hommm.eu"
 
 # Storage (Railway Volume — sciezka montowania)

@@ -1,0 +1,340 @@
+'use client';
+
+import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { updateContent } from '@/actions/content';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { jsonToRecord } from '@/lib/json-utils';
+
+type SectionData = {
+  id: string;
+  slug: string;
+  order: number;
+  isVisible: boolean;
+  titlePl: string | null;
+  titleEn: string | null;
+  contentPl: unknown;
+  contentEn: unknown;
+  bgImage: string | null;
+  bgColor: string | null;
+};
+
+// Slug → anchor ID na stronie głównej (do scrollowania iframe)
+const SLUG_TO_ANCHOR: Record<string, string> = {
+  hero: 'hero-start',
+  rezerwacja: 'hero-start',
+  koncept: 'sec2-wrapper',
+  miejsce: 'sec3-wrapper',
+  kontakt: 'sec4-wrapper',
+};
+
+// Slug → czytelne nazwy pól
+const FIELD_LABELS: Record<string, Record<string, { label: string; description: string; multiline?: boolean }>> = {
+  hero: {
+    heading: { label: 'Nagłówek główny', description: 'Duży tekst na hero (np. YOUR SPECIAL TIME)' },
+    subheading: { label: 'Podtytuł', description: 'Tekst pod nagłówkiem (np. HOMMM)' },
+  },
+  koncept: {
+    heading: { label: 'Nagłówek sekcji', description: 'Główny tytuł (np. YOUR SPECIAL TIME)' },
+    subheading: { label: 'Podtytuł', description: 'Mniejszy tekst pod tytułem (np. KONCEPT HOMMM)' },
+    body: { label: 'Treść główna', description: 'Akapit widoczny na stronie (skrócony widok)', multiline: true },
+    intro: { label: 'Wstęp (rozwinięcie)', description: 'Krótki wstęp po kliknięciu "Czytaj więcej"', multiline: true },
+  },
+  miejsce: {
+    heading: { label: 'Nagłówek sekcji', description: 'Główny tytuł (np. YOUR SPECIAL PLACE)' },
+    subheading: { label: 'Podtytuł', description: 'Pytanie/hasło pod tytułem' },
+    body: { label: 'Treść główna', description: 'Akapit widoczny na stronie (skrócony widok)', multiline: true },
+    intro: { label: 'Wstęp (rozwinięcie)', description: 'Krótki wstęp po kliknięciu "Czytaj więcej"', multiline: true },
+  },
+  rezerwacja: {
+    title: { label: 'Tytuł sekcji', description: 'Nagłówek nad kalendarzem (np. "Zarezerwuj swój czas")' },
+    description: { label: 'Opis główny', description: 'Tekst zachęcający pod tytułem', multiline: true },
+    description2: { label: 'Opis dodatkowy', description: 'Drugi akapit opisu', multiline: true },
+    checkin: { label: 'Etykieta: zameldowanie', description: 'Tekst przy polu daty przyjazdu' },
+    checkout: { label: 'Etykieta: wymeldowanie', description: 'Tekst przy polu daty wyjazdu' },
+    guests_label: { label: 'Etykieta: goście', description: 'Tekst przy selektorze gości' },
+    submit: { label: 'Przycisk rezerwacji', description: 'Tekst na głównym przycisku' },
+    note: { label: 'Notatka pod przyciskiem', description: 'Informacja o płatności' },
+    clear: { label: 'Przycisk czyszczenia', description: 'Tekst przycisku "Wyczyść daty"' },
+    info: { label: 'Informacja o rezerwacji', description: 'Tekst pod systemem rezerwacji', multiline: true },
+    night_one: { label: 'Noc (1)', description: 'Odmiana: 1 noc' },
+    night_few: { label: 'Noce (2-4)', description: 'Odmiana: 2 noce' },
+    night_many: { label: 'Nocy (5+)', description: 'Odmiana: 5 nocy' },
+    guest_one: { label: 'Gość (1)', description: 'Odmiana: 1 gość' },
+    guest_few: { label: 'Gości (2+)', description: 'Odmiana: 2 gości' },
+  },
+  kontakt: {
+    email: { label: 'Email kontaktowy', description: 'Wyświetlany w stopce' },
+    phone: { label: 'Telefon', description: 'Z numerem kierunkowym (+48...)' },
+    company: { label: 'Nazwa firmy', description: 'Dane korporacyjne w stopce' },
+    address: { label: 'Adres', description: 'Pełny adres firmy' },
+    nip: { label: 'NIP', description: 'Numer identyfikacji podatkowej' },
+  },
+};
+
+export function SectionEditor({ section }: { section: SectionData }) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [activeLang, setActiveLang] = useState<'pl' | 'en'>('pl');
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [iframeKey, setIframeKey] = useState(0);
+
+  const [titlePl, setTitlePl] = useState(section.titlePl ?? '');
+  const [titleEn, setTitleEn] = useState(section.titleEn ?? '');
+  const [fieldsPl, setFieldsPl] = useState(() => jsonToRecord(section.contentPl));
+  const [fieldsEn, setFieldsEn] = useState(() => jsonToRecord(section.contentEn));
+  const [bgImage, setBgImage] = useState(section.bgImage ?? '');
+  const [bgColor, setBgColor] = useState(section.bgColor ?? '');
+  const [isVisible, setIsVisible] = useState(section.isVisible);
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const fieldMeta = FIELD_LABELS[section.slug] ?? {};
+  const allKeys = Array.from(
+    new Set([...Object.keys(fieldsPl), ...Object.keys(fieldsEn), ...Object.keys(fieldMeta)]),
+  );
+
+  // Wysyłaj live preview do iframe przy każdej zmianie pól
+  const sendLivePreview = useCallback(() => {
+    const iframe = iframeRef.current;
+    if (!iframe?.contentWindow) return;
+    iframe.contentWindow.postMessage({
+      type: 'cms-live-preview',
+      slug: section.slug,
+      titlePl,
+      titleEn,
+      contentPl: { ...fieldsPl },
+      contentEn: { ...fieldsEn },
+    }, '*');
+  }, [section.slug, titlePl, titleEn, fieldsPl, fieldsEn]);
+
+  useEffect(() => {
+    sendLivePreview();
+  }, [sendLivePreview]);
+
+  const anchor = SLUG_TO_ANCHOR[section.slug] ?? '';
+  const iframeSrc = `/#${anchor}`;
+
+  const reloadPreview = useCallback(() => {
+    setIframeKey((k) => k + 1);
+  }, []);
+
+  const handleSave = () => {
+    setMessage(null);
+    startTransition(async () => {
+      const result = await updateContent(section.slug, {
+        titlePl: titlePl || null,
+        titleEn: titleEn || null,
+        contentPl: { ...fieldsPl },
+        contentEn: { ...fieldsEn },
+        bgImage: bgImage || null,
+        bgColor: bgColor || null,
+        isVisible,
+      });
+
+      if ('error' in result) {
+        setMessage({ type: 'error', text: result.error as string });
+      } else {
+        setMessage({ type: 'success', text: 'Zapisano!' });
+        router.refresh();
+        // Przeładuj iframe żeby pokazać zaktualizowane dane z DB
+        setTimeout(reloadPreview, 300);
+      }
+    });
+  };
+
+  const renderFieldsForLang = (lang: 'pl' | 'en') => {
+    const fields = lang === 'pl' ? fieldsPl : fieldsEn;
+    const setFields = lang === 'pl' ? setFieldsPl : setFieldsEn;
+    const title = lang === 'pl' ? titlePl : titleEn;
+    const setTitle = lang === 'pl' ? setTitlePl : setTitleEn;
+
+    return (
+      <div className="space-y-4">
+        <div className="space-y-1.5">
+          <Label htmlFor={`title-${lang}`}>
+            {lang === 'pl' ? 'Nazwa sekcji' : 'Section name'}
+          </Label>
+          <Input
+            id={`title-${lang}`}
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder={lang === 'pl' ? 'Nazwa w panelu' : 'Name in admin'}
+          />
+        </div>
+        <Separator />
+        {allKeys.map((key) => {
+          const meta = fieldMeta[key];
+          const value = fields[key] ?? '';
+          return (
+            <div key={key} className="space-y-1.5">
+              <Label htmlFor={`${lang}-${key}`}>
+                {meta?.label ?? key}
+              </Label>
+              {meta?.description && (
+                <p className="text-xs text-muted-foreground">{meta.description}</p>
+              )}
+              {meta?.multiline ? (
+                <Textarea
+                  id={`${lang}-${key}`}
+                  value={value}
+                  onChange={(e) => setFields((prev) => ({ ...prev, [key]: e.target.value }))}
+                  rows={5}
+                />
+              ) : (
+                <Input
+                  id={`${lang}-${key}`}
+                  value={value}
+                  onChange={(e) => setFields((prev) => ({ ...prev, [key]: e.target.value }))}
+                />
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Link
+            href="/admin/content"
+            className="text-sm text-muted-foreground hover:text-foreground"
+          >
+            &larr; Treści
+          </Link>
+          <Separator orientation="vertical" className="h-5" />
+          <h1 className="text-xl font-bold">{section.slug}</h1>
+          <Badge variant={isVisible ? 'default' : 'secondary'}>
+            {isVisible ? 'Widoczna' : 'Ukryta'}
+          </Badge>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="isVisible"
+              checked={isVisible}
+              onChange={(e) => setIsVisible(e.target.checked)}
+              className="h-4 w-4 rounded border-input"
+            />
+            <Label htmlFor="isVisible" className="text-sm">Widoczna</Label>
+          </div>
+          <Button variant="outline" size="sm" onClick={sendLivePreview}>
+            Odśwież podgląd
+          </Button>
+          <Button onClick={handleSave} disabled={isPending}>
+            {isPending ? 'Zapisywanie...' : 'Zapisz zmiany'}
+          </Button>
+        </div>
+      </div>
+
+      {message && (
+        <div
+          className={`rounded-md px-4 py-3 text-sm ${
+            message.type === 'success'
+              ? 'bg-green-500/10 text-green-500'
+              : 'bg-destructive/10 text-destructive'
+          }`}
+        >
+          {message.text}
+        </div>
+      )}
+
+      {/* Split: Editor left, Preview right */}
+      <div className="grid grid-cols-1 xl:grid-cols-[minmax(380px,1fr)_1.5fr] gap-6">
+        {/* LEFT: Edit form */}
+        <div className="space-y-4 max-h-[calc(100vh-140px)] overflow-y-auto pr-1">
+          <Tabs value={activeLang} onValueChange={(v) => setActiveLang(v as 'pl' | 'en')}>
+            <TabsList>
+              <TabsTrigger value="pl">PL</TabsTrigger>
+              <TabsTrigger value="en">EN</TabsTrigger>
+            </TabsList>
+
+            <Card className="mt-3">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">
+                  Treść ({activeLang === 'pl' ? 'Polski' : 'English'})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <TabsContent value="pl" className="mt-0">
+                  {renderFieldsForLang('pl')}
+                </TabsContent>
+                <TabsContent value="en" className="mt-0">
+                  {renderFieldsForLang('en')}
+                </TabsContent>
+              </CardContent>
+            </Card>
+          </Tabs>
+
+          {/* Appearance */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Wygląd</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="bgImage">Obraz tła (URL)</Label>
+                <Input
+                  id="bgImage"
+                  value={bgImage}
+                  onChange={(e) => setBgImage(e.target.value)}
+                  placeholder="/assets/bg.webp"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="bgColor">Kolor tła</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="bgColor"
+                    value={bgColor}
+                    onChange={(e) => setBgColor(e.target.value)}
+                    placeholder="#1a1a1a"
+                  />
+                  {bgColor && (
+                    <div
+                      className="h-9 w-9 rounded border border-input shrink-0"
+                      style={{ backgroundColor: bgColor }}
+                    />
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* RIGHT: Real page preview in iframe */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium text-muted-foreground">
+              Podgląd strony
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Zapisz zmiany &rarr; podgląd odświeży się automatycznie
+            </p>
+          </div>
+          <div className="rounded-lg border border-border overflow-hidden bg-black" style={{ height: 'calc(100vh - 180px)' }}>
+            <iframe
+              ref={iframeRef}
+              key={iframeKey}
+              src={iframeSrc}
+              className="w-full h-full border-0"
+              title="Podgląd strony"
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

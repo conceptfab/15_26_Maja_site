@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties, MouseEvent } from "react";
+import { useLocale } from "@/lib/i18n";
 
 export type MenuView = "home" | "koncept" | "miejsca" | "rezerwuj";
 
@@ -28,6 +29,7 @@ const MENU_ITEMS: Array<{ id: Exclude<MenuView, "home">; label: string }> = [
 ];
 
 export function TopMenu({ activeView = "home", onNavigate, forceColors = null }: TopMenuProps) {
+  const { locale, setLocale, t } = useLocale();
   const [isCompact, setIsCompact] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [sectionColors, setSectionColors] = useState<MenuColors>(DEFAULT_COLORS);
@@ -154,8 +156,9 @@ export function TopMenu({ activeView = "home", onNavigate, forceColors = null }:
     setIsMobileMenuOpen(false);
   };
 
-  const handleLangClick = (event: MouseEvent<HTMLAnchorElement>) => {
+  const handleLangClick = (event: MouseEvent<HTMLAnchorElement>, lang: 'pl' | 'en') => {
     event.preventDefault();
+    setLocale(lang);
   };
 
   const navStyle = useMemo(
@@ -201,16 +204,28 @@ export function TopMenu({ activeView = "home", onNavigate, forceColors = null }:
                 onClick={(event) => handleMenuClick(event, item.id)}
                 className={activeView === item.id ? "is-current" : undefined}
               >
-                {item.label}
+                {t(`menu.${item.id}`)}
               </a>
             ))}
           </div>
 
           <div className="menu-langs">
-            <a href="#" className="is-active" lang="pl" aria-label="Polski" onClick={handleLangClick}>
+            <a
+              href="#"
+              className={locale === "pl" ? "is-active" : undefined}
+              lang="pl"
+              aria-label="Polski"
+              onClick={(e) => handleLangClick(e, "pl")}
+            >
               PL
             </a>
-            <a href="#" lang="en" aria-label="English" onClick={handleLangClick}>
+            <a
+              href="#"
+              className={locale === "en" ? "is-active" : undefined}
+              lang="en"
+              aria-label="English"
+              onClick={(e) => handleLangClick(e, "en")}
+            >
               EN
             </a>
           </div>
