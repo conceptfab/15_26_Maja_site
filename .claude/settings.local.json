@@ -28,7 +28,9 @@
       "Bash(echo \"$APPDATA\")",
       "Read(//c/Users/micz/AppData/Roaming/TimeFlow//**)",
       "Bash(tasklist:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(npx shadcn@latest init -d --base-color zinc)",
+      "Bash(npx shadcn@latest init -d)"
     ]
   }
 }
