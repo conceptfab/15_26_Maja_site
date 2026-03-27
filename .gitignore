@@ -40,3 +40,6 @@ next-env.d.ts
 # SQLite dev database
 dev.db
 prisma/dev.db
+
+# Uploaded images
+/uploads

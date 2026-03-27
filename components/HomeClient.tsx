@@ -34,8 +34,8 @@ const DISMISS_KEYS = new Set([
 
 type ExpandableSection = 'sec2' | 'sec3';
 
-// Galeria statyczna (niezależna od DB — zdjęcia z /assets)
-const GALLERY_IMAGES = {
+// Galeria statyczna — fallback gdy brak zdjęć z DB
+const GALLERY_FALLBACK: Record<string, { src: string; altPl: string; altEn: string }[]> = {
   sec2: [
     { src: '/assets/gal_00.webp', altPl: 'Strefa relaksu i natura', altEn: 'Relaxation zone and nature' },
     { src: '/assets/gal_01.webp', altPl: 'Widok głównej przestrzeni', altEn: 'Main space view' },
@@ -495,7 +495,10 @@ export function HomeClient({ sections: initialSections }: { sections: SectionCon
 
   const renderExpandedContent = (section: ExpandableSection) => {
     const dbSection = section === 'sec2' ? konceptSection : miejsceSection;
-    const gallery = GALLERY_IMAGES[section];
+    const dbGallery = dbSection?.galleryImages;
+    const gallery = dbGallery && dbGallery.length > 0
+      ? dbGallery.map((img) => ({ src: img.src, altPl: img.altPl || '', altEn: img.altEn || '' }))
+      : GALLERY_FALLBACK[section] || [];
     const heading = c(dbSection, 'heading') || (section === 'sec2' ? 'KONCEPT HOMMM' : 'YOUR SPECIAL PLACE');
     const intro = c(dbSection, 'intro');
     const body = c(dbSection, 'body');

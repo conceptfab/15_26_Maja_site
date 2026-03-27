@@ -2,6 +2,12 @@ import { prisma } from './db';
 import { jsonToRecord } from './json-utils';
 import { EXPANDED_SECTION_CONTENT } from '@/data/content';
 
+export type GalleryImageData = {
+  src: string;
+  altPl: string | null;
+  altEn: string | null;
+};
+
 export type SectionContent = {
   slug: string;
   titlePl: string | null;
@@ -9,6 +15,7 @@ export type SectionContent = {
   contentPl: Record<string, string>;
   contentEn: Record<string, string>;
   isVisible: boolean;
+  galleryImages?: GalleryImageData[];
 };
 
 export async function getHomeContent(): Promise<SectionContent[]> {
@@ -16,6 +23,12 @@ export async function getHomeContent(): Promise<SectionContent[]> {
     const sections = await prisma.section.findMany({
       where: { page: { isHome: true } },
       orderBy: { order: 'asc' },
+      include: {
+        galleryImages: {
+          orderBy: { order: 'asc' },
+          select: { webpUrl: true, altPl: true, altEn: true },
+        },
+      },
     });
 
     if (sections.length === 0) {
@@ -29,6 +42,13 @@ export async function getHomeContent(): Promise<SectionContent[]> {
       contentPl: jsonToRecord(s.contentPl),
       contentEn: jsonToRecord(s.contentEn),
       isVisible: s.isVisible,
+      galleryImages: s.galleryImages.length > 0
+        ? s.galleryImages.map((img) => ({
+            src: img.webpUrl,
+            altPl: img.altPl,
+            altEn: img.altEn,
+          }))
+        : undefined,
     }));
   } catch {
     return getFallbackContent();
