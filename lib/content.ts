@@ -15,6 +15,8 @@ export type SectionContent = {
   contentPl: Record<string, string>;
   contentEn: Record<string, string>;
   isVisible: boolean;
+  bgImage?: string | null;
+  bgColor?: string | null;
   galleryImages?: GalleryImageData[];
 };
 
@@ -42,6 +44,8 @@ export async function getHomeContent(): Promise<SectionContent[]> {
       contentPl: jsonToRecord(s.contentPl),
       contentEn: jsonToRecord(s.contentEn),
       isVisible: s.isVisible,
+      bgImage: s.bgImage,
+      bgColor: s.bgColor,
       galleryImages: s.galleryImages.length > 0
         ? s.galleryImages.map((img) => ({
             src: img.webpUrl,

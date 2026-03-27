@@ -19,7 +19,7 @@ export default async function ContentEditPage({ params }: Props) {
 
   return (
     <AdminShell>
-      <SectionEditor section={section} />
+      <SectionEditor key={section.id} section={section} />
     </AdminShell>
   );
 }

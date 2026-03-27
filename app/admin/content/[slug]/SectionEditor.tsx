@@ -34,7 +34,8 @@ const SLUG_TO_ANCHOR: Record<string, string> = {
   rezerwacja: 'hero-start',
   koncept: 'sec2-wrapper',
   miejsce: 'sec3-wrapper',
-  kontakt: 'sec4-wrapper',
+  menu: 'hero-start',
+  stopka: 'sec4-wrapper',
 };
 
 // Slug → czytelne nazwy pól
@@ -72,10 +73,20 @@ const FIELD_LABELS: Record<string, Record<string, { label: string; description: 
     guest_one: { label: 'Gość (1)', description: 'Odmiana: 1 gość' },
     guest_few: { label: 'Gości (2+)', description: 'Odmiana: 2 gości' },
   },
-  kontakt: {
+  menu: {
+    koncept_label: { label: 'Link: Koncept', description: 'Nazwa pozycji menu nawigacyjnego' },
+    miejsca_label: { label: 'Link: Miejsca', description: 'Nazwa pozycji menu nawigacyjnego' },
+    rezerwuj_label: { label: 'Link: Rezerwuj', description: 'Nazwa pozycji menu nawigacyjnego' },
+  },
+  stopka: {
+    koncept_label: { label: 'Link: Koncept', description: 'Nazwa linku w stopce' },
+    miejsca_label: { label: 'Link: Miejsca', description: 'Nazwa linku w stopce' },
+    rezerwuj_label: { label: 'Link: Rezerwuj', description: 'Nazwa linku w stopce' },
+    corporate_title: { label: 'Tytuł: Dane korporacyjne', description: 'Nagłówek sekcji firm' },
+    contact_title: { label: 'Tytuł: Kontakt', description: 'Nagłówek sekcji kontaktu' },
     email: { label: 'Email kontaktowy', description: 'Wyświetlany w stopce' },
     phone: { label: 'Telefon', description: 'Z numerem kierunkowym (+48...)' },
-    company: { label: 'Nazwa firmy', description: 'Dane korporacyjne w stopce' },
+    company: { label: 'Nazwa firmy', description: 'Dane korporacyjne' },
     address: { label: 'Adres', description: 'Pełny adres firmy' },
     nip: { label: 'NIP', description: 'Numer identyfikacji podatkowej' },
   },
@@ -126,6 +137,13 @@ export function SectionEditor({ section }: { section: SectionData }) {
   const iframeSrc = `/#${anchor}`;
 
   const reloadPreview = useCallback(() => {
+    const iframe = iframeRef.current;
+    if (iframe?.contentWindow) {
+      try {
+        iframe.contentWindow.location.reload();
+        return;
+      } catch { /* cross-origin — fallback to key change */ }
+    }
     setIframeKey((k) => k + 1);
   }, []);
 
@@ -145,10 +163,20 @@ export function SectionEditor({ section }: { section: SectionData }) {
       if ('error' in result) {
         setMessage({ type: 'error', text: result.error as string });
       } else {
+        // Sync local state with what was actually saved in DB
+        const saved = (result as { section: SectionData }).section;
+        if (saved) {
+          setBgImage(saved.bgImage ?? '');
+          setBgColor(saved.bgColor ?? '');
+          setTitlePl(saved.titlePl ?? '');
+          setTitleEn(saved.titleEn ?? '');
+          if (saved.contentPl) setFieldsPl(jsonToRecord(saved.contentPl));
+          if (saved.contentEn) setFieldsEn(jsonToRecord(saved.contentEn));
+          setIsVisible(saved.isVisible);
+        }
         setMessage({ type: 'success', text: 'Zapisano!' });
         router.refresh();
-        // Przeładuj iframe żeby pokazać zaktualizowane dane z DB
-        setTimeout(reloadPreview, 300);
+        setTimeout(reloadPreview, 800);
       }
     });
   };
@@ -233,8 +261,8 @@ export function SectionEditor({ section }: { section: SectionData }) {
             />
             <Label htmlFor="isVisible" className="text-sm">Widoczna</Label>
           </div>
-          <Button variant="outline" size="sm" onClick={sendLivePreview}>
-            Odśwież podgląd
+          <Button variant="outline" size="sm" onClick={reloadPreview}>
+            Przeładuj podgląd
           </Button>
           <Button onClick={handleSave} disabled={isPending}>
             {isPending ? 'Zapisywanie...' : 'Zapisz zmiany'}
@@ -289,12 +317,67 @@ export function SectionEditor({ section }: { section: SectionData }) {
             <CardContent className="space-y-3">
               <div className="space-y-1.5">
                 <Label htmlFor="bgImage">Obraz tła (URL)</Label>
-                <Input
-                  id="bgImage"
-                  value={bgImage}
-                  onChange={(e) => setBgImage(e.target.value)}
-                  placeholder="/assets/bg.webp"
-                />
+                <div className="flex gap-2">
+                  <Input
+                    id="bgImage"
+                    value={bgImage}
+                    onChange={(e) => setBgImage(e.target.value)}
+                    placeholder="/assets/bg.webp"
+                    className="flex-1"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      if (!showImagePicker) {
+                        const thumbs = await getGalleryThumbs();
+                        setGalleryThumbs(thumbs);
+                      }
+                      setShowImagePicker(!showImagePicker);
+                    }}
+                  >
+                    {showImagePicker ? 'Ukryj' : 'Galeria'}
+                  </Button>
+                </div>
+                {bgImage && (
+                  <div className="mt-2 rounded border border-border overflow-hidden">
+                    <img
+                      src={bgImage}
+                      alt="Podgląd tła"
+                      className="w-full h-24 object-cover"
+                    />
+                  </div>
+                )}
+                {showImagePicker && (
+                  <div className="grid grid-cols-4 gap-2 mt-2 max-h-48 overflow-y-auto rounded border border-border p-2">
+                    {galleryThumbs.length === 0 && (
+                      <p className="col-span-4 text-xs text-muted-foreground text-center py-4">
+                        Brak obrazów w galerii
+                      </p>
+                    )}
+                    {galleryThumbs.map((img) => (
+                      <button
+                        key={img.id}
+                        type="button"
+                        className={`relative aspect-square rounded overflow-hidden border-2 transition-colors ${
+                          bgImage === img.webpUrl ? 'border-primary' : 'border-transparent hover:border-muted-foreground/40'
+                        }`}
+                        onClick={() => {
+                          setBgImage(img.webpUrl);
+                          setShowImagePicker(false);
+                        }}
+                        title={img.altPl ?? ''}
+                      >
+                        <img
+                          src={img.thumbUrl ?? img.webpUrl}
+                          alt={img.altPl ?? ''}
+                          className="w-full h-full object-cover"
+                        />
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="bgColor">Kolor tła</Label>

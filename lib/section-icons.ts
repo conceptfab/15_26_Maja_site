@@ -3,5 +3,6 @@ export const SECTION_ICONS: Record<string, string> = {
   koncept: '💡',
   miejsce: '📍',
   rezerwacja: '📅',
-  kontakt: '📞',
+  stopka: '📞',
+  menu: '☰',
 };

@@ -745,7 +745,7 @@ body {
 
 /* ----- KLASY DO PERSONALIZACJI TLA ----- */
 .bg-slider {
-  background-image: url('/assets/hero.webp');
+  background-image: var(--section-bg, url('/assets/hero.webp'));
   background-size: cover;
   background-position: center 70%;
   background-repeat: no-repeat;
@@ -884,7 +884,7 @@ body {
 }
 
 .bg-dark {
-  background-image: url('/assets/sec_3.webp');
+  background-image: var(--section-bg, url('/assets/sec_3.webp'));
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -892,7 +892,7 @@ body {
 }
 
 .bg-light {
-  background-image: url('/assets/footer.webp');
+  background-image: var(--section-bg, url('/assets/footer.webp'));
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -900,7 +900,7 @@ body {
 }
 
 .bg-secondary {
-  background-image: url('/assets/sec_2.webp');
+  background-image: var(--section-bg, url('/assets/sec_2.webp'));
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;

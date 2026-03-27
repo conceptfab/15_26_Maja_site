@@ -120,11 +120,32 @@ async function main() {
       },
     },
     {
-      slug: 'kontakt',
-      order: 4,
-      titlePl: 'Kontakt',
-      titleEn: 'Contact',
+      slug: 'menu',
+      order: 6,
+      titlePl: 'Menu nawigacyjne',
+      titleEn: 'Navigation menu',
       contentPl: {
+        koncept_label: 'KONCEPT',
+        miejsca_label: 'MIEJSCA',
+        rezerwuj_label: 'REZERWUJ',
+      },
+      contentEn: {
+        koncept_label: 'CONCEPT',
+        miejsca_label: 'PLACES',
+        rezerwuj_label: 'BOOK',
+      },
+    },
+    {
+      slug: 'stopka',
+      order: 5,
+      titlePl: 'Stopka',
+      titleEn: 'Footer',
+      contentPl: {
+        koncept_label: 'KONCEPT',
+        miejsca_label: 'MIEJSCA',
+        rezerwuj_label: 'REZERWUJ',
+        corporate_title: 'DANE KORPORACYJNE:',
+        contact_title: 'KONTAKT:',
         email: 'hommm@hommm.eu',
         phone: '+48 608 259 945',
         company: 'Banana Gun Design Maria Budner',
@@ -132,6 +153,11 @@ async function main() {
         nip: '7292494164',
       },
       contentEn: {
+        koncept_label: 'CONCEPT',
+        miejsca_label: 'PLACES',
+        rezerwuj_label: 'BOOK',
+        corporate_title: 'CORPORATE:',
+        contact_title: 'CONTACT:',
         email: 'hommm@hommm.eu',
         phone: '+48 608 259 945',
         company: 'Banana Gun Design Maria Budner',
@@ -144,7 +170,7 @@ async function main() {
   for (const section of sections) {
     await prisma.section.upsert({
       where: { pageId_slug: { pageId: homePage.id, slug: section.slug } },
-      update: {},
+      update: { order: section.order },
       create: {
         pageId: homePage.id,
         ...section,

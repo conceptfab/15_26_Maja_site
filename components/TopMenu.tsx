@@ -15,6 +15,7 @@ type TopMenuProps = {
   activeView?: MenuView;
   onNavigate?: (view: MenuView) => void;
   forceColors?: MenuColors | null;
+  menuLabels?: Record<string, string>;
 };
 
 const DEFAULT_COLORS: MenuColors = {
@@ -28,7 +29,7 @@ const MENU_ITEMS: Array<{ id: Exclude<MenuView, "home">; label: string }> = [
   { id: "rezerwuj", label: "rezerwuj" },
 ];
 
-export function TopMenu({ activeView = "home", onNavigate, forceColors = null }: TopMenuProps) {
+export function TopMenu({ activeView = "home", onNavigate, forceColors = null, menuLabels }: TopMenuProps) {
   const { locale, setLocale, t } = useLocale();
   const [isCompact, setIsCompact] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -204,7 +205,7 @@ export function TopMenu({ activeView = "home", onNavigate, forceColors = null }:
                 onClick={(event) => handleMenuClick(event, item.id)}
                 className={activeView === item.id ? "is-current" : undefined}
               >
-                {t(`menu.${item.id}`)}
+                {menuLabels?.[`${item.id}_label`] || t(`menu.${item.id}`)}
               </a>
             ))}
           </div>

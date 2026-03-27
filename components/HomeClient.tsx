@@ -125,7 +125,17 @@ export function HomeClient({ sections: initialSections }: { sections: SectionCon
   const konceptSection = getSectionBySlug(sections, 'koncept');
   const miejsceSection = getSectionBySlug(sections, 'miejsce');
   const rezerwacjaSection = getSectionBySlug(sections, 'rezerwacja');
-  const kontaktSection = getSectionBySlug(sections, 'kontakt');
+  const menuSection = getSectionBySlug(sections, 'menu');
+  const stopkaSection = getSectionBySlug(sections, 'stopka');
+
+  const bgStyle = (section: SectionContent | undefined): React.CSSProperties => {
+    const style: React.CSSProperties = {};
+    if (section?.bgImage) {
+      (style as Record<string, string>)['--section-bg'] = `url(${section.bgImage})`;
+    }
+    if (section?.bgColor) style.backgroundColor = section.bgColor;
+    return style;
+  };
 
   // Shortcut for reservation texts — DB first, i18n fallback
   const r = (field: string): string => {
@@ -563,6 +573,7 @@ export function HomeClient({ sections: initialSections }: { sections: SectionCon
         activeView={activeView}
         onNavigate={navigateTo}
         forceColors={forcedMenuColors}
+        menuLabels={menuSection ? (locale === 'pl' ? menuSection.contentPl : menuSection.contentEn) : undefined}
       />
 
       <div
@@ -581,6 +592,7 @@ export function HomeClient({ sections: initialSections }: { sections: SectionCon
       <section
         className="section h-100vh bg-slider"
         id="hero-start"
+        style={bgStyle(heroSection)}
         data-menu-font={isReservationView ? BRAND_COLOR : '#ffffff'}
         data-menu-logo={isReservationView ? BRAND_COLOR : '#ffffff'}
       >
@@ -654,6 +666,7 @@ export function HomeClient({ sections: initialSections }: { sections: SectionCon
       <section
         className={`section h-100vh bg-secondary ${expandedSection === 'sec2' ? '' : 'section-story'}`}
         id="sec2-wrapper"
+        style={bgStyle(konceptSection)}
         data-menu-font={expandedSection === 'sec2' ? BRAND_COLOR : '#ffffff'}
         data-menu-logo={expandedSection === 'sec2' ? BRAND_COLOR : '#ffffff'}
       >
@@ -684,6 +697,7 @@ export function HomeClient({ sections: initialSections }: { sections: SectionCon
       <section
         className={`section h-100vh bg-dark ${expandedSection === 'sec3' ? '' : 'section-story'}`}
         id="sec3-wrapper"
+        style={bgStyle(miejsceSection)}
         data-menu-font={expandedSection === 'sec3' ? BRAND_COLOR : '#ffffff'}
         data-menu-logo={expandedSection === 'sec3' ? BRAND_COLOR : '#ffffff'}
       >
@@ -714,6 +728,7 @@ export function HomeClient({ sections: initialSections }: { sections: SectionCon
       <section
         className="section bg-light"
         id="sec4-wrapper"
+        style={bgStyle(stopkaSection)}
         data-menu-font="#ffffff"
         data-menu-logo="#ffffff"
       >
@@ -737,7 +752,7 @@ export function HomeClient({ sections: initialSections }: { sections: SectionCon
                 className="footer-nav-link"
                 onClick={(event) => handleFooterNavClick(event, 'sec2-wrapper')}
               >
-                {t('menu.koncept').toUpperCase()}
+                {c(stopkaSection, 'koncept_label') || t('menu.koncept').toUpperCase()}
               </a>
 
               <button
@@ -748,7 +763,7 @@ export function HomeClient({ sections: initialSections }: { sections: SectionCon
                   scrollToHeroStart();
                 }}
               >
-                {t('menu.miejsca').toUpperCase()}
+                {c(stopkaSection, 'miejsca_label') || t('menu.miejsca').toUpperCase()}
               </button>
 
               <button
@@ -759,7 +774,7 @@ export function HomeClient({ sections: initialSections }: { sections: SectionCon
                   scrollToHeroStart();
                 }}
               >
-                {t('menu.rezerwuj').toUpperCase()}
+                {c(stopkaSection, 'rezerwuj_label') || t('menu.rezerwuj').toUpperCase()}
               </button>
             </div>
           </div>
@@ -769,11 +784,11 @@ export function HomeClient({ sections: initialSections }: { sections: SectionCon
               className="footer-column footer-column--corporate reveal reveal--up"
               style={{ '--reveal-delay': '100ms' } as React.CSSProperties}
             >
-              <h3 className="footer-column__title">{t('footer.corporate')}</h3>
+              <h3 className="footer-column__title">{c(stopkaSection, 'corporate_title') || t('footer.corporate')}</h3>
               <div className="footer-column__content">
-                <p>{c(kontaktSection, 'company')}</p>
-                <p>{c(kontaktSection, 'address')}</p>
-                <p>NIP {c(kontaktSection, 'nip')}</p>
+                <p>{c(stopkaSection, 'company')}</p>
+                <p>{c(stopkaSection, 'address')}</p>
+                <p>NIP {c(stopkaSection, 'nip')}</p>
               </div>
             </div>
 
@@ -781,19 +796,19 @@ export function HomeClient({ sections: initialSections }: { sections: SectionCon
               className="footer-column footer-column--contact reveal reveal--up"
               style={{ '--reveal-delay': '200ms' } as React.CSSProperties}
             >
-              <h3 className="footer-column__title">{t('footer.contact')}</h3>
+              <h3 className="footer-column__title">{c(stopkaSection, 'contact_title') || t('footer.contact')}</h3>
               <div className="footer-column__content footer-contact">
                 <a
-                  href={`mailto:${c(kontaktSection, 'email')}`}
+                  href={`mailto:${c(stopkaSection, 'email')}`}
                   className="footer-contact__link"
                 >
                   <MailIcon />
-                  <span>{c(kontaktSection, 'email')}</span>
+                  <span>{c(stopkaSection, 'email')}</span>
                 </a>
 
-                <a href={`tel:${c(kontaktSection, 'phone')}`} className="footer-contact__link">
+                <a href={`tel:${c(stopkaSection, 'phone')}`} className="footer-contact__link">
                   <PhoneIcon />
-                  <span>{c(kontaktSection, 'phone')?.replace('+48 ', '')}</span>
+                  <span>{c(stopkaSection, 'phone')?.replace('+48 ', '')}</span>
                 </a>
 
                 <div className="footer-socials">
