@@ -385,44 +385,61 @@ export function HomeClient({ sections: initialSections }: { sections: SectionCon
             : 'reservation-system reservation-system--panel-only'
         }
       >
-        <div className="reservation-system__calendar-col">
+        <div className="reservation-system__calendar-col reservation-system__calendar-col--wide">
           <DatePicker
-            selected={checkIn}
+            selected={today}
             onChange={(update) => setReservationRange(update)}
             startDate={checkIn}
             endDate={checkOut}
             selectsRange
             inline
-            monthsShown={1}
+            monthsShown={2}
             locale={dateLocale}
             minDate={today}
+            openToDate={today}
             formatWeekDay={(dayName) =>
               dayName.replace('.', '').slice(0, 3).toLowerCase()
             }
             calendarClassName="reservation-datepicker"
             fixedHeight
             excludeDates={unavailableDates}
-          />
-        </div>
-
-        <div className="reservation-system__calendar-col">
-          <DatePicker
-            selected={checkIn}
-            onChange={(update) => setReservationRange(update)}
-            startDate={checkIn}
-            endDate={checkOut}
-            selectsRange
-            inline
-            monthsShown={1}
-            locale={dateLocale}
-            minDate={today}
-            openToDate={new Date(today.getFullYear(), today.getMonth() + 1, 1)}
-            formatWeekDay={(dayName) =>
-              dayName.replace('.', '').slice(0, 3).toLowerCase()
-            }
-            calendarClassName="reservation-datepicker"
-            fixedHeight
-            excludeDates={unavailableDates}
+            renderCustomHeader={({
+              monthDate,
+              decreaseMonth,
+              increaseMonth,
+              prevMonthButtonDisabled,
+              customHeaderCount,
+            }) => (
+              <div className="reservation-datepicker__header">
+                {customHeaderCount === 0 && (
+                  <button
+                    type="button"
+                    className="reservation-datepicker__nav reservation-datepicker__nav--prev"
+                    onClick={decreaseMonth}
+                    disabled={prevMonthButtonDisabled}
+                    aria-label="Poprzedni miesiąc"
+                  >
+                    &#x276E;
+                  </button>
+                )}
+                <span className="reservation-datepicker__month-name">
+                  {monthDate.toLocaleDateString(locale === 'pl' ? 'pl-PL' : 'en-US', {
+                    month: 'long',
+                    year: 'numeric',
+                  })}
+                </span>
+                {customHeaderCount === 1 && (
+                  <button
+                    type="button"
+                    className="reservation-datepicker__nav reservation-datepicker__nav--next"
+                    onClick={increaseMonth}
+                    aria-label="Następny miesiąc"
+                  >
+                    &#x276F;
+                  </button>
+                )}
+              </div>
+            )}
           />
         </div>
 

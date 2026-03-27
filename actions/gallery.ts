@@ -143,3 +143,11 @@ export async function getGalleryImages() {
     include: { section: { select: { slug: true, titlePl: true } } },
   });
 }
+
+/** Zwraca listę miniaturek do pickera obrazków */
+export async function getGalleryThumbs() {
+  return prisma.galleryImage.findMany({
+    orderBy: { order: 'asc' },
+    select: { id: true, webpUrl: true, thumbUrl: true, altPl: true },
+  });
+}

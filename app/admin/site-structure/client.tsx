@@ -3,17 +3,18 @@
 import { useRouter } from 'next/navigation';
 import { useCallback } from 'react';
 import { SiteStructureGraph } from '@/components/admin/SiteStructureGraph';
-import type { PageNode } from '@/actions/pages';
+import type { PageNode, SectionNode } from '@/actions/pages';
 
 type Props = {
   initialPages: PageNode[];
+  initialSections: SectionNode[];
   createPage: (data: { title: string; slug: string; parentId: string | null; isVisible?: boolean }) => Promise<{ error?: string; success?: boolean }>;
   updatePage: (id: string, data: Record<string, unknown>) => Promise<{ error?: string; success?: boolean }>;
   deletePage: (id: string) => Promise<{ error?: string; success?: boolean }>;
   reorderPages: (updates: { id: string; order: number; parentId: string | null }[]) => Promise<{ error?: string; success?: boolean }>;
 };
 
-export function SiteStructureClient({ initialPages, createPage, updatePage, deletePage, reorderPages }: Props) {
+export function SiteStructureClient({ initialPages, initialSections, createPage, updatePage, deletePage, reorderPages }: Props) {
   const router = useRouter();
 
   const refresh = useCallback(() => {
@@ -59,6 +60,7 @@ export function SiteStructureClient({ initialPages, createPage, updatePage, dele
   return (
     <SiteStructureGraph
       pages={initialPages}
+      sections={initialSections}
       onCreatePage={handleCreate}
       onUpdatePage={handleUpdate}
       onDeletePage={handleDelete}

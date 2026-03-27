@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { updateContent } from '@/actions/content';
+import { getGalleryThumbs } from '@/actions/gallery';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -95,6 +96,8 @@ export function SectionEditor({ section }: { section: SectionData }) {
   const [bgColor, setBgColor] = useState(section.bgColor ?? '');
   const [isVisible, setIsVisible] = useState(section.isVisible);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [showImagePicker, setShowImagePicker] = useState(false);
+  const [galleryThumbs, setGalleryThumbs] = useState<{ id: string; webpUrl: string; thumbUrl: string | null; altPl: string | null }[]>([]);
 
   const fieldMeta = FIELD_LABELS[section.slug] ?? {};
   const allKeys = Array.from(

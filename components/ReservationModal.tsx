@@ -1,14 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useLocale } from '@/lib/i18n';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '@/components/ui/dialog';
+import { XIcon } from 'lucide-react';
 
 type ReservationModalProps = {
   open: boolean;
@@ -56,12 +50,25 @@ export function ReservationModal({
     setRodo(false);
   };
 
-  const handleClose = (isOpen: boolean) => {
-    if (!isOpen) {
-      resetForm();
-    }
-    onOpenChange(isOpen);
-  };
+  const handleClose = useCallback(() => {
+    resetForm();
+    onOpenChange(false);
+  }, [onOpenChange]);
+
+  // Escape key closes modal
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') handleClose();
+    };
+    document.addEventListener('keydown', onKey);
+    // Block body scroll
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = '';
+    };
+  }, [open, handleClose]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -103,31 +110,49 @@ export function ReservationModal({
 
   const isValid = name.length >= 2 && email.includes('@') && phone.length >= 9 && rodo;
 
+  if (!open) return null;
+
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
+    <div className="reservation-modal-overlay" onClick={handleClose}>
+      <div
+        className="reservation-modal-panel"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label={t('reservation.modal.title')}
+      >
+        {/* Close button */}
+        <button
+          type="button"
+          className="reservation-modal-panel__close"
+          onClick={handleClose}
+          aria-label="Close"
+        >
+          <XIcon size={20} />
+        </button>
+
         {formState === 'success' ? (
           <div className="text-center py-6">
             <div className="text-4xl mb-4">✓</div>
-            <DialogHeader>
-              <DialogTitle className="text-center">{t('reservation.modal.success_title')}</DialogTitle>
-              <DialogDescription className="text-center">
-                {t('reservation.modal.success_text')}
-              </DialogDescription>
-            </DialogHeader>
+            <h2 className="font-heading text-base font-medium mb-2">
+              {t('reservation.modal.success_title')}
+            </h2>
+            <p className="text-sm text-muted-foreground mb-6">
+              {t('reservation.modal.success_text')}
+            </p>
             <button
               type="button"
-              className="reservation-modal__btn reservation-modal__btn--secondary mt-6"
-              onClick={() => handleClose(false)}
+              className="reservation-modal__btn reservation-modal__btn--secondary"
+              onClick={handleClose}
             >
               {t('reservation.modal.close')}
             </button>
           </div>
         ) : (
           <>
-            <DialogHeader>
-              <DialogTitle>{t('reservation.modal.title')}</DialogTitle>
-            </DialogHeader>
+            <h2 className="font-heading text-base font-medium mb-4">
+              {t('reservation.modal.title')}
+            </h2>
 
             {/* Podsumowanie */}
             <div className="reservation-modal__summary">
@@ -223,7 +248,7 @@ export function ReservationModal({
             </form>
           </>
         )}
-      </DialogContent>
-    </Dialog>
+      </div>
+    </div>
   );
 }

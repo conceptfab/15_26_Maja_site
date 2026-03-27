@@ -63,6 +63,8 @@ function emailLayout(content: string) {
 
 type ReservationEmailData = {
   guestName: string;
+  guestEmail: string;
+  guestPhone: string;
   checkIn: string;
   checkOut: string;
   nights: number;
@@ -85,11 +87,15 @@ export function buildGuestConfirmationEmail(data: ReservationEmailData) {
         <tr><td style="padding: 8px 0; color: #666;">Cena</td><td style="padding: 8px 0; font-weight: bold;">${data.totalPrice} zł</td></tr>
       </table>
       ${data.comment ? `<p style="color: #666;"><strong>Komentarz:</strong> ${data.comment}</p>` : ''}
+      <div style="margin-top: 16px; padding: 12px; background: #f5f5f5; border-radius: 6px; font-size: 13px; color: #666;">
+        <strong>Twoje dane kontaktowe:</strong><br/>
+        ${data.guestEmail} &bull; ${data.guestPhone}
+      </div>
     `),
   };
 }
 
-export function buildAdminNotificationEmail(data: ReservationEmailData & { guestEmail: string; guestPhone: string }) {
+export function buildAdminNotificationEmail(data: ReservationEmailData) {
   return {
     subject: `Nowa rezerwacja od ${data.guestName}`,
     html: emailLayout(`

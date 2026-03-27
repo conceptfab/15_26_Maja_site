@@ -71,6 +71,22 @@ export async function getPageTree(): Promise<PageNode[]> {
   return buildTree(pages as unknown as PageNode[]);
 }
 
+export type SectionNode = {
+  id: string;
+  slug: string;
+  titlePl: string | null;
+  order: number;
+  isVisible: boolean;
+  pageId: string;
+};
+
+export async function getSectionsForGraph(): Promise<SectionNode[]> {
+  return prisma.section.findMany({
+    orderBy: { order: 'asc' },
+    select: { id: true, slug: true, titlePl: true, order: true, isVisible: true, pageId: true },
+  });
+}
+
 export async function getPageFlat() {
   return prisma.page.findMany({
     orderBy: { order: 'asc' },
