@@ -10,11 +10,11 @@ Ponizej mapowanie wymagan formalnych na konkretne fazy i elementy planu:
 | **Customer Journey** | Faza 0 | Mapa punktow kontaktu: strona → rezerwacja → email → potwierdzenie → pobyt |
 | **Architektura informacji** | Faza 0 + Faza 2 | Struktura nawigacji, hierarchia tresci, taxonomia sekcji |
 | **Zarzadzanie trescia (CMS)** | Faza 2 | Panel admina: edycja sekcji PL/ENG, strategia tresci, SEO w Fazie 5 |
-| **Integracja z systemami zewnetrznymi** | Faza 1, 3, 5 | Railway PostgreSQL (DB), Railway Redis (rate limiting), email (Resend API lub wlasny SMTP/nodemailer — do wyboru), Umami/Plausible (analytics). Platnosci i CRM — poza zakresem obecnego planu (przyszly etap) |
+| **Integracja z systemami zewnetrznymi** | Faza 1, 3, 5 | Neon Postgres (DB, Vercel Marketplace), Upstash Redis (rate limiting, Vercel Marketplace), email (Resend API lub wlasny SMTP/nodemailer — do wyboru), Umami/Plausible (analytics). Platnosci i CRM — poza zakresem obecnego planu (przyszly etap) |
 | **Responsywnosc i dostepnosc** | Faza 0 + ciagle | Istniejacy responsywny design + audyt WCAG 2.1 AA, atrybuty ARIA, focus management |
 | **Testowanie i optymalizacja** | Faza 7 | Testy uzytecznosci, scenariusze manualne, Lighthouse, zbieranie opinii |
-| **Bezpieczenstwo** | Faza 1, 6 | JWT httpOnly, CSP headers, rate limiting, walidacja Zod, HTTPS (Railway custom domain), sanityzacja |
-| **Analiza danych i metryk** | Faza 5 | Umami (self-hosted na Railway) lub Plausible, KPI (rezerwacje, konwersja, oblozenosc), GA4 opcjonalnie |
+| **Bezpieczenstwo** | Faza 1, 6 | JWT httpOnly, CSP headers, rate limiting, walidacja Zod, HTTPS (Vercel automatyczny SSL), sanityzacja |
+| **Analiza danych i metryk** | Faza 5 | Umami (self-hosted) lub Plausible lub Vercel Analytics, KPI (rezerwacje, konwersja, oblozenosc), GA4 opcjonalnie |
 | **Dokumentacja techniczna** | Kazda faza | Przyrostowa dokumentacja w `docs/`, przekazanie pelnego pakietu na koniec |
 
 ---
@@ -50,18 +50,18 @@ Ponizej mapowanie wymagan formalnych na konkretne fazy i elementy planu:
 | Warstwa | Technologia | Uzasadnienie |
 |---------|-------------|--------------|
 | Framework | **Next.js 15 App Router** | Juz uzywany; zero migracji |
-| Baza danych | **Railway PostgreSQL** | Wbudowany w Railway, zero zewnetrznych serwisow |
+| Baza danych | **Neon Postgres (Vercel Marketplace)** | Serverless Postgres, auto-provisioning przez Vercel, branching |
 | ORM | **Prisma** | Typowany schemat, migracje, integracja z Next.js |
 | Autentykacja | **Custom (jose + httpOnly cookie)** | Whitelist emaili + secret code; `jose` jest lekki i ESM-native |
 | Email | **Resend API lub wlasny SMTP (nodemailer)** | Do wyboru w ustawieniach admina; React Email dla szablonow JSX |
 | i18n | **Custom hook + JSON** | Dla 1 strony wystarczy; zero dodatkowych zaleznosci |
 | Walidacja | **Zod** | Jeden schemat na front i back |
 | UI admina | **shadcn/ui + Tailwind CSS** | Gotowe komponenty (Table, Form, Dialog, Card), pelna kontrola, zero vendor lock-in |
-| Optymalizacja grafik | **Sharp + next/image** | Konwersja do WebP przy uploadzie, serwowanie z Railway |
-| Storage grafik | **Railway Volume** | Persistent storage, writeable filesystem, montowany do kontenera |
-| Rate limiting | **In-memory (express-rate-limit lub custom)** | Railway = always-on container, in-memory dziala poprawnie |
-| Analytics | **Umami (self-hosted)** | Open-source, self-hosted na Railway (osobny serwis), GDPR-friendly. GA4 opcjonalnie |
-| Hosting | **Railway** (frontend + API + DB + Redis) | ~$5/mies., wszystko w jednym, dozwolone uzycie komercyjne |
+| Optymalizacja grafik | **Sharp + next/image** | Konwersja do WebP przy uploadzie, serwowanie z Vercel Blob |
+| Storage grafik | **Vercel Blob** | Managed file storage, do 5TB, client uploads |
+| Rate limiting | **Upstash Redis + @upstash/ratelimit** | Serverless-compatible, auto-provisioning przez Vercel Marketplace |
+| Analytics | **Umami (self-hosted) lub Vercel Analytics** | Umami: open-source, GDPR-friendly. Vercel Analytics: zero-config, first-party. GA4 opcjonalnie |
+| Hosting | **Vercel** (frontend + API + Neon DB + Upstash Redis + Blob) | Zero-config Next.js deploy, preview deployments, automatyczny SSL |
 
 ### Zaleznosci produkcyjne (nowe)
 
@@ -70,7 +70,7 @@ prisma @prisma/client jose zod resend @react-email/components nodemailer sharp
 ```
 
 > **Uwaga:** `@xyflow/react` instalowany w Fazie 6 (edytor struktury serwisu), nie wczesniej (YAGNI).
-> Brak zaleznosci od `@vercel/*` i `@upstash/*` — Railway zastepuje te serwisy wbudowanymi rozwiazaniami.
+> Zaleznosci Vercel: `@vercel/blob` (storage grafik), `@upstash/redis` + `@upstash/ratelimit` (rate limiting) — oba przez Vercel Marketplace.
 
 ### Zaleznosci dev
 
@@ -113,7 +113,7 @@ HOMMM Site
 |   |-- actions/seo ........ Ustawienia SEO
 |   |-- actions/settings ... Ustawienia globalne
 |
-|-- Database (Railway PostgreSQL)
+|-- Database (Neon Postgres)
     |-- admins ............. Whitelist adminow
     |-- sessions ........... Sesje logowania
     |-- pages .............. Drzewo stron (hierarchia parent → child)
@@ -226,9 +226,9 @@ model GalleryImage {
   id          String   @id @default(cuid())
   sectionId   String?
   section     Section? @relation(fields: [sectionId], references: [id], onDelete: SetNull)
-  originalUrl String                     // Oryginalny plik (Railway Volume path)
-  webpUrl     String                     // Zoptymalizowany WebP (Railway Volume path)
-  thumbUrl    String?                    // Miniatura (Railway Volume path)
+  originalUrl String                     // Oryginalny plik (Vercel Blob URL)
+  webpUrl     String                     // Zoptymalizowany WebP (Vercel Blob URL)
+  thumbUrl    String?                    // Miniatura (Vercel Blob URL)
   altPl       String?
   altEn       String?
   order       Int      @default(0)
@@ -307,9 +307,9 @@ model SiteSettings {
    ```
    > **Uwaga:** Tailwind CSS musi byc zainstalowany PRZED shadcn/ui (shadcn go wymaga).
 
-2. **Konfiguracja Prisma + Railway PostgreSQL**
+2. **Konfiguracja Prisma + Neon Postgres**
    - Plik `prisma/schema.prisma` z pelnym schematem
-   - Konfiguracja `.env` (`DATABASE_URL` z Railway, JWT_SECRET, ADMIN_SECRET_CODE)
+   - Konfiguracja `.env` (`DATABASE_URL` z Neon/Vercel, JWT_SECRET, ADMIN_SECRET_CODE)
    - Migracja inicjalna + seed (konto admina, poczatkowe sekcje)
 
 3. **System autentykacji admina**
@@ -330,9 +330,9 @@ model SiteSettings {
 
 6. **Bazowe zabezpieczenia (Security Headers)**
    - Content Security Policy (CSP) w `next.config.ts` lub middleware
-   - Strict-Transport-Security (HSTS) — wymuszenie HTTPS (Railway custom domain z Let's Encrypt)
+   - Strict-Transport-Security (HSTS) — wymuszenie HTTPS (Vercel automatyczny SSL)
    - X-Content-Type-Options, X-Frame-Options, Referrer-Policy
-   - HTTPS zapewnione przez Railway (automatyczne certyfikaty Let's Encrypt dla custom domain)
+   - HTTPS zapewnione przez Vercel (automatyczne certyfikaty SSL dla custom domain)
 
 7. **Dostepnosc — poprawki bazowe (z audytu Fazy 0)**
    - Semantyczny HTML: `<nav>`, `<main>`, `<section>`, `<header>`, `<footer>`
@@ -342,7 +342,7 @@ model SiteSettings {
 
 8. **Dokumentacja**
    - `docs/setup.md` — jak uruchomic projekt lokalnie (env, DB, seed, dev server)
-   - `docs/architecture.md` — opis architektury: warstwy, flow danych, decyzje techniczne, Railway setup
+   - `docs/architecture.md` — opis architektury: warstwy, flow danych, decyzje techniczne, Vercel setup
    - `docs/auth.md` — jak dziala auth (secret code + JWT + whitelist), jak dodac admina
    - `docs/security.md` — polityka bezpieczenstwa: headers, szyfrowanie, ochrona endpointow
 
@@ -458,7 +458,7 @@ model SiteSettings {
 **Zadania:**
 
 1. **Server Actions galerii** (`actions/gallery.ts`)
-   - `uploadImage(formData)` — upload do Railway Volume + Sharp (resize, WebP, thumb)
+   - `uploadImage(formData)` — upload do Vercel Blob + Sharp (resize, WebP, thumb)
    - `deleteImage(id)` — usun grafike
    - `updateImageOrder(ids[])` — zmien kolejnosc
    - `updateImageAlt(id, altPl, altEn)` — edycja alt text
@@ -471,12 +471,12 @@ model SiteSettings {
    - Przypisanie do sekcji
 
 3. **Integracja z frontem**
-   - Tla sekcji ladowane z DB (URL-e do plikow na Railway Volume)
+   - Tla sekcji ladowane z DB (URL-e do plikow na Vercel Blob)
    - next/image z automatycznym WebP
    - Statyczny endpoint `/api/uploads/[...path]` serwujacy pliki z Volume
 
 4. **Dokumentacja**
-   - `docs/gallery.md` — formaty obrazow, warianty (original/webp/thumb), limity, Sharp pipeline, Railway Volume mount
+   - `docs/gallery.md` — formaty obrazow, warianty (original/webp/thumb), limity, Sharp pipeline, Vercel Blob storage
 
 **Rezultat:** Admin uploaduje grafiki → optymalizacja → wyswietlanie na stronie.
 
@@ -497,7 +497,7 @@ model SiteSettings {
    - Dynamiczne `<head>` w layout na podstawie DB (`generateMetadata`)
 
 2. **Analytics (Umami self-hosted lub Plausible)**
-   - Umami: deploy jako osobny serwis na Railway (open-source, GDPR-friendly, ~0 dodatkowego kosztu)
+   - Umami Cloud (hosted, GDPR-friendly) lub Vercel Analytics (zero-config, first-party)
    - Alternatywnie: Plausible Cloud ($9/mies.) lub GA4 (darmowe)
    - Skrypt trackujacy w layout.tsx, dane w osobnej bazie Umami
 
@@ -603,7 +603,7 @@ model SiteSettings {
    - Whitelist adminow (dodaj/usun email)
 
 3. **Zabezpieczenia (rozszerzone)**
-   - Rate limiting na `/api/auth/login` i `/api/reservations` (in-memory Map — Railway to always-on container, state persists)
+   - Rate limiting na `/api/auth/login` i `/api/reservations` (Upstash Redis przez Vercel Marketplace — serverless-compatible, `@upstash/ratelimit`)
    - Walidacja Zod na wszystkich endpointach
    - httpOnly cookies (juz z Fazy 1)
    - Sanityzacja inputow (XSS prevention)
@@ -613,40 +613,28 @@ model SiteSettings {
      - Broken Authentication (JWT expiry, session invalidation)
      - Sensitive Data Exposure (brak sekretow w repo, HTTPS)
      - Security Misconfiguration (CSP, headers z Fazy 1)
-   - Szyfrowanie danych w tranzycie: HTTPS (Railway custom domain + Let's Encrypt) + internal networking do PostgreSQL
+   - Szyfrowanie danych w tranzycie: HTTPS (Vercel automatyczny SSL) + szyfrowane polaczenie do Neon Postgres (SSL domyslnie)
 
-4. **Automatyczne backupy**
-   - **Codzienny backup (retencja 14 dni)**:
-     - Dump bazy PostgreSQL (`pg_dump`) + spakowanie uploadeow (galeria)
-     - Cron job o 3:00 w nocy
-     - Rotacja: usuwanie backupow starszych niz 14 dni
-   - **Tygodniowy backup (retencja 8 tygodni)**:
-     - Pelny dump DB + uploads + konfiguracja (.env.example, schema Prisma)
-     - Cron job w niedziele o 4:00
-     - Rotacja: usuwanie backupow starszych niz 8 tygodni
-   - **Dostarczanie backupow (do wyboru)**:
-     - **Email**: wysylka spakowanego archiwum (.tar.gz) na wskazany adres (przez skonfigurowany provider email)
-     - **FTP/SFTP**: upload na zewnetrzny serwer (konfigurowalny host/port/sciezka)
-     - Konfiguracja metody w `/admin/settings` (email/FTP, dane dostepu)
-   - **Realizacja techniczna**:
-     - `lib/backup.ts` — logika tworzenia dumpa, pakowania, rotacji
-     - `app/api/cron/backup/route.ts` — endpoint wyzwalany przez cron
-     - Weryfikacja CRON_SECRET w ustawieniach
-     - Logi backupow widoczne w `/admin/settings` (data, rozmiar, status)
+4. **Backupy**
+   - **Baza danych**: Neon Postgres ma wbudowane automatyczne backupy (Point-in-Time Recovery, retencja wg planu Neon)
+   - **Pliki (galeria)**: Vercel Blob — dane przechowywane z redundancja, brak potrzeby recznych backupow
+   - **Opcjonalny eksport danych**: endpoint `/api/cron/export/route.ts` (Vercel Cron) do eksportu danych rezerwacji/tresci jako JSON na email admina (np. raz w tygodniu)
+   - Weryfikacja `CRON_SECRET` w ustawieniach
    - **Dokumentacja**:
-     - `docs/backup.md` — konfiguracja, harmonogram, przywracanie z backupu, troubleshooting
+     - `docs/backup.md` — opis backupow Neon, Vercel Blob, opcjonalny eksport, przywracanie
 
-5. **Deploy na Railway**
-   - Utworzenie projektu Railway z serwisami: Next.js app + PostgreSQL + Volume (uploads)
-   - Konfiguracja zmiennych srodowiskowych (Railway dashboard)
-   - Polaczenie z Railway PostgreSQL (internal URL)
-   - Konfiguracja domeny (Railway custom domain + SSL automatyczny)
-   - Railway Volume mount na `/app/uploads` (persistent storage dla grafik)
-   - Seed bazy danych
-   - `railway.json` / `Dockerfile` (opcjonalnie, Railway auto-detects Next.js)
+5. **Deploy na Vercel**
+   - Utworzenie projektu na Vercel (`vercel link` lub dashboard)
+   - Konfiguracja zmiennych srodowiskowych (`vercel env add` lub dashboard)
+   - Baza danych: Neon Postgres przez Vercel Marketplace (`vercel integration add neon`) — auto-provisioning `DATABASE_URL`
+   - Storage dla uploadow: Vercel Blob (`@vercel/blob`) — pliki grafik zamiast lokalnego Volume
+   - Konfiguracja domeny (Vercel dashboard + SSL automatyczny)
+   - Seed bazy danych (`npx prisma db seed`)
+   - Deploy: `vercel deploy` (preview) → `vercel --prod` (produkcja)
+   - Zero-config dla Next.js — brak potrzeby Dockerfile
 
 6. **Finalizacja dokumentacji technicznej**
-   - `docs/deploy.md` — jak deployowac (Railway), zmienne srodowiskowe, Railway Volume, domena, seed
+   - `docs/deploy.md` — jak deployowac (Vercel), zmienne srodowiskowe, Neon Postgres, Vercel Blob, domena, seed
    - `docs/admin-guide.md` — poradnik dla admina (logowanie, edycja tresci, rezerwacje, galeria, SEO)
    - `docs/security.md` — aktualizacja: pelna polityka bezpieczenstwa, audyt OWASP, headers
    - Przeglad i aktualizacja wszystkich plikow `docs/` — upewnienie sie ze sa spójne z kodem
@@ -657,7 +645,7 @@ model SiteSettings {
    - Dokumentacja uzytkownika (admin-guide)
    - Instrukcja utrzymania i aktualizacji
    - Lista zmiennych srodowiskowych z opisami
-   - Dane dostepu do Railway, provider email (Resend lub SMTP — przekazanie kont/konfiguracji)
+   - Dane dostepu do Vercel, Neon Postgres, provider email (Resend lub SMTP — przekazanie kont/konfiguracji)
 
 **Rezultat:** Gotowa aplikacja na produkcji z pelna dokumentacja i pakietem przekazania.
 
@@ -709,7 +697,7 @@ model SiteSettings {
      - `docs/security-audit.md` — checklist audytu, wyniki, plan naprawczy, harmonogram cyklicznych przeglad
 
 4. **Zbieranie opinii i poprawki**
-   - Feedback od zleceniodawcy na podstawie wersji preview (Railway preview deployment)
+   - Feedback od zleceniodawcy na podstawie wersji preview (Vercel Preview Deployment — automatycznie przy kazdym pushu)
    - Iteracyjne poprawki UX na podstawie uwag
    - Finalne zatwierdzenie przed przejsciem na produkcje
 
@@ -817,7 +805,7 @@ model SiteSettings {
 |   |-- gallery.md                 // Obrazy: formaty, warianty, Sharp pipeline
 |   |-- site-structure.md          // Drzewo stron, routing, nawigacja, React Flow
 |   |-- testing.md                 // Scenariusze testowe, Lighthouse, checklist
-|   |-- deploy.md                  // Deploy: Railway, env vars, Volume, domena
+|   |-- deploy.md                  // Deploy: Vercel, env vars, Neon, Blob, domena
 |   |-- admin-guide.md             // Poradnik dla admina (non-tech)
 |
 |-- data/
@@ -826,10 +814,10 @@ model SiteSettings {
 |-- public/
 |   |-- assets/                    // Istniejace grafiki
 |
-|-- uploads/                           // Railway Volume mount — persistent storage dla uploadowanych grafik
-|   |-- original/                      // Oryginaly
-|   |-- webp/                          // Zoptymalizowane WebP
-|   |-- thumbs/                        // Miniatury
+|-- (Vercel Blob)                      // Pliki grafik w chmurze (nie lokalnie)
+|   |-- original/*                     // Oryginaly
+|   |-- webp/*                         // Zoptymalizowane WebP
+|   |-- thumbs/*                       // Miniatury
 ```
 
 ---
@@ -837,8 +825,8 @@ model SiteSettings {
 ## Zmienne srodowiskowe (.env)
 
 ```env
-# Database (Railway PostgreSQL — ustawiane automatycznie przez Railway)
-DATABASE_URL="postgresql://user:pass@host:5432/hommm"
+# Database (Neon Postgres — auto-provisioned przez Vercel Marketplace)
+DATABASE_URL="postgresql://user:pass@host/hommm?sslmode=require"
 
 # Auth
 JWT_SECRET="<set-a-real-secret-in-env>"
@@ -855,15 +843,15 @@ SMTP_PASS="..."
 EMAIL_PROVIDER="resend"          # "resend" lub "smtp"
 ADMIN_EMAIL="hommm@hommm.eu"
 
-# Storage (Railway Volume — sciezka montowania)
-UPLOADS_DIR="/app/uploads"
+# Storage (Vercel Blob — auto-provisioned)
+BLOB_READ_WRITE_TOKEN="vercel_blob_..."
 
 # App
 NEXT_PUBLIC_BASE_URL="https://hommm.eu"
 PORT="3000"
 ```
 
-> Railway automatycznie ustawia `DATABASE_URL` po dodaniu serwisu PostgreSQL. `UPLOADS_DIR` wskazuje na zamontowany Railway Volume.
+> Vercel Marketplace automatycznie ustawia `DATABASE_URL` (Neon) i `BLOB_READ_WRITE_TOKEN` (Vercel Blob) po dodaniu integracji.
 
 ---
 
@@ -907,7 +895,7 @@ PORT="3000"
 
 9. **Wykresy** — Na start karty statystyk (shadcn Card). Recharts dodany pozniej gdy beda dane.
 
-10. **Rate limiting** — Prosty in-memory counter (Map) w middleware na `/api/auth/login` i `/api/reservations`. Railway to always-on container (nie serverless) — in-memory state persists miedzy requestami. Bez dodatkowych zaleznosci.
+10. **Rate limiting** — Upstash Redis + `@upstash/ratelimit` w middleware na `/api/auth/login` i `/api/reservations`. Vercel to serverless — in-memory state nie persystuje miedzy requestami, dlatego potrzebny zewnetrzny store (Upstash przez Vercel Marketplace, auto-provisioning).
 
 11. **Dokumentacja** — Tworzona przyrostowo z kazdą fazą (nie na koniec). Kazdy plik w `docs/` opisuje jedno zagadnienie. Format: krotki opis → jak to dziala → jak zmodyfikowac/rozszerzyc → przyklady. `admin-guide.md` jest pisany dla osoby nietechnicznej. Dokumentacja aktualizowana przy kazdej zmianie kodu, ktora zmienia zachowanie opisane w docs.
 
