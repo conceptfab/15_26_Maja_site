@@ -1,6 +1,8 @@
 import { getPageTree, createPage, updatePage, deletePage, reorderPages } from '@/actions/pages';
 import { SiteStructureClient } from './client';
 
+export const dynamic = 'force-dynamic';
+
 export default async function SiteStructurePage() {
   const pages = await getPageTree();
 
