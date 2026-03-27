@@ -22,5 +22,20 @@
   "footer.contact": "KONTAKT:",
   "footer.backToTop": "Powrot do strony glownej",
   "nav.openMenu": "Otworz menu",
-  "nav.closeMenu": "Zamknij menu"
+  "nav.closeMenu": "Zamknij menu",
+  "reservation.modal.title": "Potwierdzenie rezerwacji",
+  "reservation.modal.summary": "Podsumowanie",
+  "reservation.modal.name": "Imię i nazwisko",
+  "reservation.modal.email": "Adres email",
+  "reservation.modal.phone": "Numer telefonu",
+  "reservation.modal.comment": "Komentarz / dodatkowe informacje",
+  "reservation.modal.rodo": "Wyrażam zgodę na przetwarzanie danych osobowych w celu realizacji rezerwacji",
+  "reservation.modal.rodo_link": "Polityka prywatności",
+  "reservation.modal.submit": "Wyślij rezerwację",
+  "reservation.modal.sending": "Wysyłanie...",
+  "reservation.modal.success_title": "Dziękujemy!",
+  "reservation.modal.success_text": "Twoja rezerwacja została wysłana. Potwierdzenie otrzymasz na podany adres email w ciągu 24h.",
+  "reservation.modal.error": "Wystąpił błąd. Spróbuj ponownie.",
+  "reservation.modal.close": "Zamknij",
+  "reservation.modal.unavailable": "Wybrany termin jest niedostępny"
 }

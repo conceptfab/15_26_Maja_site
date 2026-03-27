@@ -22,5 +22,20 @@
   "footer.contact": "CONTACT:",
   "footer.backToTop": "Back to home",
   "nav.openMenu": "Open menu",
-  "nav.closeMenu": "Close menu"
+  "nav.closeMenu": "Close menu",
+  "reservation.modal.title": "Reservation confirmation",
+  "reservation.modal.summary": "Summary",
+  "reservation.modal.name": "Full name",
+  "reservation.modal.email": "Email address",
+  "reservation.modal.phone": "Phone number",
+  "reservation.modal.comment": "Comment / additional information",
+  "reservation.modal.rodo": "I consent to the processing of my personal data for the purpose of this reservation",
+  "reservation.modal.rodo_link": "Privacy policy",
+  "reservation.modal.submit": "Send reservation",
+  "reservation.modal.sending": "Sending...",
+  "reservation.modal.success_title": "Thank you!",
+  "reservation.modal.success_text": "Your reservation has been sent. You will receive a confirmation email within 24 hours.",
+  "reservation.modal.error": "An error occurred. Please try again.",
+  "reservation.modal.close": "Close",
+  "reservation.modal.unavailable": "The selected dates are unavailable"
 }

@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
-import { differenceInCalendarDays, format } from 'date-fns';
+import { useEffect, useMemo, useRef, useState, useCallback, type MouseEvent } from 'react';
+import { differenceInCalendarDays, format, eachDayOfInterval, isSameDay } from 'date-fns';
 import { pl as plLocale } from 'date-fns/locale';
 import { enUS as enLocale } from 'date-fns/locale';
 import DatePicker from 'react-datepicker';
 import Image from 'next/image';
 import { TopMenu, type MenuColors, type MenuView } from './TopMenu';
+import { ReservationModal } from './ReservationModal';
 import { useLocale } from '@/lib/i18n';
 import type { SectionContent } from '@/lib/content';
 import {
@@ -87,6 +88,8 @@ export function HomeClient({ sections: initialSections }: { sections: SectionCon
     [Date | null, Date | null]
   >([null, null]);
   const [reservationGuests, setReservationGuests] = useState('1');
+  const [reservationModalOpen, setReservationModalOpen] = useState(false);
+  const [unavailableDates, setUnavailableDates] = useState<Date[]>([]);
   const isReservationView =
     activeView === 'miejsca' || activeView === 'rezerwuj';
   const showReservationGallery = activeView === 'miejsca';
@@ -158,6 +161,37 @@ export function HomeClient({ sections: initialSections }: { sections: SectionCon
 
     setActiveView(view);
   };
+
+  // Pobierz zajęte daty z API
+  const fetchAvailability = useCallback(() => {
+    fetch('/api/reservations/availability')
+      .then((res) => res.ok ? res.json() : null)
+      .then((data) => {
+        if (!data) return;
+        const dates: Date[] = [];
+        // Rezerwacje — rozwiń zakresy do pojedynczych dat
+        for (const r of data.reservations) {
+          const start = new Date(r.checkIn);
+          const end = new Date(r.checkOut);
+          if (start < end) {
+            eachDayOfInterval({ start, end: new Date(end.getTime() - 86400000) })
+              .forEach((d) => dates.push(d));
+          }
+        }
+        // Zablokowane daty
+        for (const b of data.blockedDates) {
+          dates.push(new Date(b.date));
+        }
+        setUnavailableDates(dates);
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (isReservationView) {
+      fetchAvailability();
+    }
+  }, [isReservationView, fetchAvailability]);
 
   const handleReservationClear = () => {
     setReservationRange([null, null]);
@@ -339,16 +373,7 @@ export function HomeClient({ sections: initialSections }: { sections: SectionCon
 
   const handleReservationSubmit = () => {
     if (!checkIn || !checkOut) return;
-
-    const params = new URLSearchParams({
-      checkin: format(checkIn, 'yyyy-MM-dd'),
-      checkout: format(checkOut, 'yyyy-MM-dd'),
-      guests: reservationGuests,
-    });
-
-    window.location.href = `mailto:hommm@hommm.eu?subject=${encodeURIComponent('Rezerwacja HOMMM')}&body=${encodeURIComponent(
-      `${r('checkin')}: ${checkInLabel}\n${r('checkout')}: ${checkOutLabel}\n${r('guests_label')}: ${reservationGuests}\n${nights} ${getNightLabel(nights)}\n${totalPrice} zł\n\n${params.toString()}`
-    )}`;
+    setReservationModalOpen(true);
   };
 
   const renderReservationSystem = () => (
@@ -376,6 +401,7 @@ export function HomeClient({ sections: initialSections }: { sections: SectionCon
             }
             calendarClassName="reservation-datepicker"
             fixedHeight
+            excludeDates={unavailableDates}
           />
         </div>
 
@@ -396,6 +422,7 @@ export function HomeClient({ sections: initialSections }: { sections: SectionCon
             }
             calendarClassName="reservation-datepicker"
             fixedHeight
+            excludeDates={unavailableDates}
           />
         </div>
 
@@ -795,6 +822,24 @@ export function HomeClient({ sections: initialSections }: { sections: SectionCon
           />
         </div>
       </section>
+
+      {checkIn && checkOut && (
+        <ReservationModal
+          open={reservationModalOpen}
+          onOpenChange={(open) => {
+            setReservationModalOpen(open);
+            if (!open) fetchAvailability();
+          }}
+          checkIn={checkIn}
+          checkOut={checkOut}
+          checkInLabel={checkInLabel}
+          checkOutLabel={checkOutLabel}
+          nights={nights}
+          guests={reservationGuests}
+          totalPrice={totalPrice}
+          nightLabel={getNightLabel(nights)}
+        />
+      )}
     </>
   );
 }
