@@ -39,3 +39,11 @@ export const reservationStatusSchema = z.enum([
 ]);
 
 export type ReservationStatus = z.infer<typeof reservationStatusSchema>;
+
+// --- Strony ---
+
+export const pageSlugSchema = z
+  .string()
+  .min(1, 'Slug jest wymagany')
+  .max(200)
+  .regex(/^[a-z0-9]+(?:[-/][a-z0-9]+)*$/, 'Slug: tylko małe litery, cyfry, myślniki, ukośniki');

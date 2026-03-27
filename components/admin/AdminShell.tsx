@@ -14,6 +14,7 @@ const OTHER_NAV_ITEMS = [
   { href: '/admin/gallery', label: 'Galeria', icon: '🖼' },
   { href: '/admin/reservations', label: 'Rezerwacje', icon: '📅' },
   { href: '/admin/calendar', label: 'Kalendarz', icon: '🗓' },
+  { href: '/admin/site-structure', label: 'Struktura', icon: '🗺' },
   { href: '/admin/seo', label: 'SEO', icon: '🔍' },
   { href: '/admin/settings', label: 'Ustawienia', icon: '⚙' },
 ];
