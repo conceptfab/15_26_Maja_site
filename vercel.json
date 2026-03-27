@@ -1,7 +1,14 @@
 {
   "git": {
     "deploymentEnabled": {
-      "master": true
+      "master": false,
+      "deploy_test": true
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/export",
+      "schedule": "0 3 * * 0"
+    }
+  ]
 }
