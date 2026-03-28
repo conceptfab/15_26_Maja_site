@@ -14,16 +14,18 @@ async function getSections() {
 }
 
 export default async function GalleryPage() {
-  const [images, sections] = await Promise.all([
+  const [imagesResult, sections] = await Promise.all([
     getGalleryImages(),
     getSections(),
   ]);
+
+  if ('error' in imagesResult) return <AdminShell><p className="text-destructive">{imagesResult.error}</p></AdminShell>;
 
   return (
     <AdminShell>
       <div className="space-y-6">
         <h1 className="text-2xl font-bold">Galeria</h1>
-        <GalleryManager initialImages={images} sections={sections} />
+        <GalleryManager initialImages={imagesResult} sections={sections} />
       </div>
     </AdminShell>
   );

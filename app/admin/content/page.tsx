@@ -22,7 +22,9 @@ function getPreviewText(content: unknown): string {
 }
 
 export default async function ContentListPage() {
-  const sections = await getContent();
+  const result = await getContent();
+  if ('error' in result) return <AdminShell><p className="text-destructive">{result.error}</p></AdminShell>;
+  const sections = result;
 
   return (
     <AdminShell>

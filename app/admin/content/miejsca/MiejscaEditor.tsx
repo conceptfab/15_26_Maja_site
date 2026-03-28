@@ -35,7 +35,7 @@ type GalleryItem = {
   order: number;
 };
 
-const FIELDS = {
+const FIELDS: Record<string, { label: string; description: string; multiline?: boolean }> = {
   miejsca_title: { label: 'Tytuł', description: 'Nagłówek widoku MIEJSCA (np. "Zarezerwuj swój czas")' },
   miejsca_description: { label: 'Opis główny', description: 'Tekst pod tytułem', multiline: true },
   miejsca_description2: { label: 'Opis dodatkowy', description: 'Drugi akapit', multiline: true },
