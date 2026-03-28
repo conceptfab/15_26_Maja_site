@@ -12,6 +12,7 @@ type ReservationModalProps = {
   nights: number;
   guests: string;
   totalPrice: number;
+  depositAmount: number;
   nightLabel: string;
   checkIn: Date;
   checkOut: Date;
@@ -27,6 +28,7 @@ export function ReservationModal({
   nights,
   guests,
   totalPrice,
+  depositAmount,
   nightLabel,
   checkIn,
   checkOut,
@@ -176,6 +178,11 @@ export function ReservationModal({
               <p className="reservation-modal__summary-total">
                 {totalPrice} zł — {nights} {nightLabel}
               </p>
+              {depositAmount > 0 && (
+                <p className="text-sm text-muted-foreground mt-1">
+                  Zaliczka: <strong>{depositAmount} zł</strong>
+                </p>
+              )}
             </div>
 
             <p className="text-xs text-muted-foreground mb-4">

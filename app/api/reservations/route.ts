@@ -5,6 +5,7 @@ import { reservationSchema } from '@/lib/validations';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { calculatePrice } from '@/lib/pricing';
 import { getSettings } from '@/actions/settings';
+import { getActivePricingRules } from '@/actions/pricing';
 import {
   sendEmail,
   buildGuestConfirmationEmail,
@@ -57,7 +58,8 @@ export async function POST(request: Request) {
       );
     }
 
-    const { totalPrice } = calculatePrice(checkIn, checkOut, settings);
+    const pricingRules = await getActivePricingRules();
+    const { totalPrice, depositAmount } = calculatePrice(checkIn, checkOut, settings, pricingRules);
 
     let reservation;
     try {
@@ -66,8 +68,8 @@ export async function POST(request: Request) {
         const overlapping = await tx.reservation.findFirst({
           where: {
             status: { notIn: ['CANCELLED'] },
-            checkIn: { lt: checkOut },
-            checkOut: { gt: checkIn },
+            checkIn: { lte: checkOut },
+            checkOut: { gte: checkIn },
           },
         });
 
@@ -78,7 +80,7 @@ export async function POST(request: Request) {
         // Sprawdź zablokowane daty
         const blockedDate = await tx.blockedDate.findFirst({
           where: {
-            date: { gte: checkIn, lt: checkOut },
+            date: { gte: checkIn, lte: checkOut },
           },
         });
 
@@ -103,6 +105,7 @@ export async function POST(request: Request) {
             guests,
             nights,
             totalPrice,
+            depositAmount: depositAmount > 0 ? depositAmount : null,
             comment: comment || null,
             clientId: client.id,
           },

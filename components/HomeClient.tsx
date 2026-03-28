@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback, useMemo, type MouseEvent } from 'react';
 import { differenceInCalendarDays, format, eachDayOfInterval } from 'date-fns';
-import { calculatePrice } from '@/lib/pricing';
+import { calculatePrice, type PricingRuleRange } from '@/lib/pricing';
 import { sanitizeHtml } from '@/lib/sanitize';
 const Lightbox = dynamic(() => import('./Lightbox').then((m) => ({ default: m.Lightbox })), { ssr: false });
 import { pl as plLocale } from 'date-fns/locale';
@@ -58,7 +58,7 @@ function getSectionBySlug(sections: SectionContent[], slug: string) {
   return sections.find((s) => s.slug === slug);
 }
 
-export function HomeClient({ sections: initialSections, settings }: { sections: SectionContent[]; settings: SiteSettingsMap }) {
+export function HomeClient({ sections: initialSections, settings, pricingRules = [] }: { sections: SectionContent[]; settings: SiteSettingsMap; pricingRules?: PricingRuleRange[] }) {
   const { locale, t } = useLocale();
   const [liveOverrides, setLiveOverrides] = useState<Record<string, SectionContent>>({});
 
@@ -155,7 +155,7 @@ export function HomeClient({ sections: initialSections, settings }: { sections: 
     checkIn && checkOut ? differenceInCalendarDays(checkOut, checkIn) : 0;
   const nights = nightsRaw > 0 ? nightsRaw : 0;
   const priceResult = checkIn && checkOut && nights > 0
-    ? calculatePrice(checkIn, checkOut, settings)
+    ? calculatePrice(checkIn, checkOut, settings, pricingRules)
     : null;
   const totalPrice = priceResult?.totalPrice ?? 0;
   const dateLocale = locale === 'pl' ? plLocale : enLocale;
@@ -238,7 +238,7 @@ export function HomeClient({ sections: initialSections, settings }: { sections: 
           const start = new Date(r.checkIn);
           const end = new Date(r.checkOut);
           if (start < end) {
-            eachDayOfInterval({ start, end: new Date(end.getTime() - 86400000) })
+            eachDayOfInterval({ start, end })
               .forEach((d) => dates.push(d));
           }
         }
@@ -966,6 +966,7 @@ export function HomeClient({ sections: initialSections, settings }: { sections: 
           nights={nights}
           guests={reservationGuests}
           totalPrice={totalPrice}
+          depositAmount={priceResult?.depositAmount ?? 0}
           nightLabel={getNightLabel(nights)}
         />
       )}

@@ -50,11 +50,14 @@ export async function GET(request: NextRequest) {
   ];
 
   for (const r of reservations) {
+    // iCal DTEND jest exclusive (RFC 5545), a checkOut to ostatni dzień pobytu (inclusive)
+    const icalEnd = new Date(r.checkOut);
+    icalEnd.setDate(icalEnd.getDate() + 1);
     lines.push(
       'BEGIN:VEVENT',
       `UID:${r.id}@hommm`,
       `DTSTART;VALUE=DATE:${r.checkIn.toISOString().slice(0, 10).replace(/-/g, '')}`,
-      `DTEND;VALUE=DATE:${r.checkOut.toISOString().slice(0, 10).replace(/-/g, '')}`,
+      `DTEND;VALUE=DATE:${icalEnd.toISOString().slice(0, 10).replace(/-/g, '')}`,
       `SUMMARY:${escapeIcal(r.guestName)} (${r.guests} os.)`,
       `DESCRIPTION:Status: ${r.status}`,
       `DTSTAMP:${formatDate(r.createdAt)}`,

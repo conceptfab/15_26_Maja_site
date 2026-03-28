@@ -20,7 +20,7 @@ export async function GET(request: Request) {
       where: {
         status: { notIn: ['CANCELLED'] },
         checkIn: { lt: endDate },
-        checkOut: { gt: startDate },
+        checkOut: { gte: startDate },
       },
       select: {
         checkIn: true,

@@ -170,8 +170,8 @@ export async function updateReservation(
     where: {
       id: { not: id },
       status: { notIn: ['CANCELLED'] },
-      checkIn: { lt: checkOut },
-      checkOut: { gt: checkIn },
+      checkIn: { lte: checkOut },
+      checkOut: { gte: checkIn },
     },
   });
 
@@ -327,4 +327,24 @@ export async function sendGuestEmail(reservationId: string, templateType: EmailT
   } catch {
     return { error: 'Wystąpił błąd przy wysyłaniu emaila' };
   }
+}
+
+const DELETABLE_STATUSES = ['CANCELLED', 'PENDING', 'DEPOSIT_PAID', 'PAID'];
+
+export async function deleteReservation(id: string) {
+  const session = await verifySession();
+  if (!session) return unauthorized();
+
+  const reservation = await prisma.reservation.findUnique({
+    where: { id },
+    select: { status: true },
+  });
+  if (!reservation) return { error: 'Rezerwacja nie znaleziona' };
+
+  if (!DELETABLE_STATUSES.includes(reservation.status)) {
+    return { error: 'Nie można usunąć rezerwacji o tym statusie' };
+  }
+
+  await prisma.reservation.delete({ where: { id } });
+  return { success: true };
 }

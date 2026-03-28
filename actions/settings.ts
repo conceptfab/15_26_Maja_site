@@ -26,6 +26,7 @@ export type SiteSettingsMap = {
   companyName: string;
   companyAddress: string;
   companyNip: string;
+  depositPercent: number;
 };
 
 const DEFAULTS: SiteSettingsMap = {
@@ -48,6 +49,7 @@ const DEFAULTS: SiteSettingsMap = {
   companyName: 'Banana Gun Design Maria Budner',
   companyAddress: 'ul. Sanocka 39 m 5, 93-038 Łódź',
   companyNip: '7292494164',
+  depositPercent: 30,
 };
 
 // --- Walidacja ---
@@ -72,6 +74,7 @@ const settingsSchema = z.object({
   companyName: z.string().max(200).optional().default(''),
   companyAddress: z.string().max(500).optional().default(''),
   companyNip: z.string().max(20).optional().default(''),
+  depositPercent: z.number().min(0).max(100),
 });
 
 // --- Actions ---
@@ -104,6 +107,7 @@ export async function getSettings(): Promise<SiteSettingsMap> {
     companyName: typeof map.companyName === 'string' ? map.companyName : DEFAULTS.companyName,
     companyAddress: typeof map.companyAddress === 'string' ? map.companyAddress : DEFAULTS.companyAddress,
     companyNip: typeof map.companyNip === 'string' ? map.companyNip : DEFAULTS.companyNip,
+    depositPercent: typeof map.depositPercent === 'number' ? map.depositPercent : DEFAULTS.depositPercent,
   };
 }
 

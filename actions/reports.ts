@@ -20,11 +20,11 @@ export async function getMonthlyReport(year: number, month: number) {
 
   const [reservations, prevReservations, blockedDates] = await Promise.all([
     prisma.reservation.findMany({
-      where: { checkIn: { lt: mEnd }, checkOut: { gt: mStart }, status: { not: 'CANCELLED' } },
+      where: { checkIn: { lte: mEnd }, checkOut: { gte: mStart }, status: { not: 'CANCELLED' } },
       select: { checkIn: true, checkOut: true, nights: true, totalPrice: true, status: true, guests: true },
     }),
     prisma.reservation.findMany({
-      where: { checkIn: { lt: pmEnd }, checkOut: { gt: pmStart }, status: { not: 'CANCELLED' } },
+      where: { checkIn: { lte: pmEnd }, checkOut: { gte: pmStart }, status: { not: 'CANCELLED' } },
       select: { checkIn: true, checkOut: true, nights: true, totalPrice: true, status: true },
     }),
     prisma.blockedDate.count({ where: { date: { gte: mStart, lt: mEnd } } }),
@@ -78,7 +78,7 @@ export async function getYearlyReport(year: number) {
   const yEnd = new Date(year + 1, 0, 1);
 
   const reservations = await prisma.reservation.findMany({
-    where: { checkIn: { lt: yEnd }, checkOut: { gt: yStart }, status: { not: 'CANCELLED' } },
+    where: { checkIn: { lte: yEnd }, checkOut: { gte: yStart }, status: { not: 'CANCELLED' } },
     select: { checkIn: true, checkOut: true, nights: true, totalPrice: true, status: true, guestName: true, guestEmail: true },
   });
 

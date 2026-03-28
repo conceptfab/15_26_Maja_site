@@ -68,106 +68,23 @@ export function SettingsClient({ initialSettings, initialAdmins }: Props) {
 
   return (
     <div className="grid gap-8 max-w-2xl">
-      {/* Cennik bazowy i goście */}
+      {/* Pojemność */}
       <section className="border border-border rounded-lg p-5 space-y-4">
-        <h2 className="font-semibold">Cennik bazowy i pojemność</h2>
-
-        <label className="block text-sm">
-          Cena za noc (PLN)
-          <Input
-            type="number"
-            step="0.5"
-            min="0"
-            value={settings.pricePerNight}
-            onChange={(e) => setSettings({ ...settings, pricePerNight: parseFloat(e.target.value) || 0 })}
-            className="mt-1 max-w-xs"
-          />
-        </label>
-
-        <label className="block text-sm">
-          Cena za noc weekendowa (PLN) <span className="text-muted-foreground">(0 = brak różnicy)</span>
-          <Input
-            type="number"
-            step="0.5"
-            min="0"
-            value={settings.priceWeekend}
-            onChange={(e) => setSettings({ ...settings, priceWeekend: parseFloat(e.target.value) || 0 })}
-            className="mt-1 max-w-xs"
-          />
-        </label>
-
-        <label className="block text-sm">
-          Maksymalna liczba gości
-          <Input
-            type="number"
-            min="1"
-            max="50"
-            value={settings.maxGuests}
-            onChange={(e) => setSettings({ ...settings, maxGuests: parseInt(e.target.value) || 1 })}
-            className="mt-1 max-w-xs"
-          />
-        </label>
-      </section>
-
-      {/* Cennik sezonowy */}
-      <section className="border border-border rounded-lg p-5 space-y-4">
-        <h2 className="font-semibold">Cennik sezonowy</h2>
-        <p className="text-xs text-muted-foreground">Ustaw 0 aby wyłączyć daną cenę sezonową.</p>
+        <h2 className="font-semibold">Pojemność i zasady pobytu</h2>
 
         <div className="grid grid-cols-2 gap-4">
           <label className="block text-sm">
-            Cena — sezon wysoki (PLN)
+            Maksymalna liczba gości
             <Input
               type="number"
-              step="0.5"
-              min="0"
-              value={settings.priceSeasonHigh}
-              onChange={(e) => setSettings({ ...settings, priceSeasonHigh: parseFloat(e.target.value) || 0 })}
+              min="1"
+              max="50"
+              value={settings.maxGuests}
+              onChange={(e) => setSettings({ ...settings, maxGuests: parseInt(e.target.value) || 1 })}
               className="mt-1"
             />
           </label>
 
-          <label className="block text-sm">
-            Cena — sezon niski (PLN)
-            <Input
-              type="number"
-              step="0.5"
-              min="0"
-              value={settings.priceSeasonLow}
-              onChange={(e) => setSettings({ ...settings, priceSeasonLow: parseFloat(e.target.value) || 0 })}
-              className="mt-1"
-            />
-          </label>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <label className="block text-sm">
-            Sezon wysoki od (MM-DD)
-            <Input
-              value={settings.seasonHighStart}
-              onChange={(e) => setSettings({ ...settings, seasonHighStart: e.target.value })}
-              className="mt-1"
-              placeholder="06-01"
-            />
-          </label>
-
-          <label className="block text-sm">
-            Sezon wysoki do (MM-DD)
-            <Input
-              value={settings.seasonHighEnd}
-              onChange={(e) => setSettings({ ...settings, seasonHighEnd: e.target.value })}
-              className="mt-1"
-              placeholder="09-30"
-            />
-          </label>
-        </div>
-      </section>
-
-      {/* Zasady pobytu */}
-      <section className="border border-border rounded-lg p-5 space-y-4">
-        <h2 className="font-semibold">Zasady pobytu</h2>
-
-        <div className="grid grid-cols-2 gap-4">
           <label className="block text-sm">
             Min. liczba nocy
             <Input
@@ -176,34 +93,6 @@ export function SettingsClient({ initialSettings, initialAdmins }: Props) {
               max="30"
               value={settings.minNights}
               onChange={(e) => setSettings({ ...settings, minNights: parseInt(e.target.value) || 1 })}
-              className="mt-1"
-            />
-          </label>
-
-          {/* minNightsWeekend usunięte — pole nie jest używane w logice rezerwacji */}
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <label className="block text-sm">
-            Rabat za długi pobyt (%)
-            <Input
-              type="number"
-              min="0"
-              max="100"
-              value={settings.longStayDiscount}
-              onChange={(e) => setSettings({ ...settings, longStayDiscount: parseFloat(e.target.value) || 0 })}
-              className="mt-1"
-            />
-          </label>
-
-          <label className="block text-sm">
-            Próg długiego pobytu (noce)
-            <Input
-              type="number"
-              min="1"
-              max="365"
-              value={settings.longStayThreshold}
-              onChange={(e) => setSettings({ ...settings, longStayThreshold: parseInt(e.target.value) || 7 })}
               className="mt-1"
             />
           </label>

@@ -185,3 +185,16 @@ model SiteSettings {
   key   String @unique
   value Json
 }
+
+model PricingRule {
+  id            String   @id @default(cuid())
+  label         String
+  dateFrom      DateTime
+  dateTo        DateTime
+  pricePerNight Float
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([dateFrom, dateTo])
+}

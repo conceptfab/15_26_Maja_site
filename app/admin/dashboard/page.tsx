@@ -54,7 +54,7 @@ async function getStats() {
       where: {
         status: { in: [...CONFIRMED_STATUSES] },
         checkIn: { lt: endOfMonthDay },
-        checkOut: { gt: startOfMonth },
+        checkOut: { gte: startOfMonth },
       },
       select: { checkIn: true, checkOut: true, nights: true, totalPrice: true },
     }),
@@ -63,7 +63,7 @@ async function getStats() {
       where: {
         status: { in: [...CONFIRMED_STATUSES] },
         checkIn: { lt: endOfYearDay },
-        checkOut: { gt: startOfYear },
+        checkOut: { gte: startOfYear },
       },
       select: { checkIn: true, checkOut: true, nights: true, totalPrice: true },
     }),

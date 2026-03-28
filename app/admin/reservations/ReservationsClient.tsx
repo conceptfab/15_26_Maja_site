@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useTransition } from 'react';
 import { useDebounce } from '@/lib/useDebounce';
 import Link from 'next/link';
-import { getReservations } from '@/actions/reservations';
+import { getReservations, deleteReservation } from '@/actions/reservations';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -18,7 +18,10 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { format } from 'date-fns';
+import { Trash2 } from 'lucide-react';
 import { getStatusInfo, STATUS_CONFIG } from '@/lib/reservation-status';
+
+const DELETABLE_STATUSES = ['CANCELLED', 'PENDING', 'DEPOSIT_PAID', 'PAID'];
 
 const STATUS_OPTIONS = [
   { value: '', label: 'Wszystkie statusy' },
@@ -113,6 +116,21 @@ export function ReservationsClient({ initialStats }: { initialStats: Stats }) {
     setStatus(newStatus);
     setPage(1);
   }
+
+  function handleDelete(id: string) {
+    if (!confirm('Na pewno usunąć tę rezerwację? Tej operacji nie można cofnąć.')) return;
+    startTransition(async () => {
+      const result = await deleteReservation(id);
+      if ('error' in result) {
+        setError(result.error ?? 'Błąd usuwania');
+        return;
+      }
+      setReservations((prev) => prev.filter((r) => r.id !== id));
+      setTotal((prev) => prev - 1);
+    });
+  }
+
+  const [, startTransition] = useTransition();
 
   function sortIcon(column: SortableColumn) {
     if (sortBy !== column) return ' ↕';
@@ -225,12 +243,13 @@ export function ReservationsClient({ initialStats }: { initialStats: Stats }) {
                   <TableHead className="cursor-pointer select-none hover:text-foreground" onClick={() => handleSort('createdAt')}>
                     Data zgł.{sortIcon('createdAt')}
                   </TableHead>
+                  <TableHead className="w-10" />
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {reservations.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                       Brak rezerwacji
                     </TableCell>
                   </TableRow>
@@ -259,6 +278,18 @@ export function ReservationsClient({ initialStats }: { initialStats: Stats }) {
                         <TableCell className="text-muted-foreground text-xs">
                           {format(new Date(r.createdAt), 'dd.MM.yyyy HH:mm')}
                         </TableCell>
+                        <TableCell>
+                          {DELETABLE_STATUSES.includes(r.status) && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-8 w-8 p-0 text-red-400 hover:text-red-300"
+                              onClick={() => handleDelete(r.id)}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          )}
+                        </TableCell>
                       </TableRow>
                     );
                   })
@@ -279,22 +310,34 @@ export function ReservationsClient({ initialStats }: { initialStats: Stats }) {
           reservations.map((r) => {
             const statusInfo = getStatusInfo(r.status);
             return (
-              <Link key={r.id} href={`/admin/reservations/${r.id}`} className="block">
-                <Card className="hover:ring-1 hover:ring-ring transition-all">
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between mb-2">
-                      <div>
-                        <div className="flex items-center gap-1.5">
-                          <p className="font-medium">{r.guestName}</p>
-                          {r.comment && <span className="text-muted-foreground">💬</span>}
-                        </div>
-                        <p className="text-xs text-muted-foreground">{r.guestEmail}</p>
+              <Card key={r.id} className="hover:ring-1 hover:ring-ring transition-all">
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between mb-2">
+                    <Link href={`/admin/reservations/${r.id}`} className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <p className="font-medium">{r.guestName}</p>
+                        {r.comment && <span className="text-muted-foreground">💬</span>}
                       </div>
+                      <p className="text-xs text-muted-foreground">{r.guestEmail}</p>
+                    </Link>
+                    <div className="flex items-center gap-2">
                       <Badge className={statusInfo.badgeClass}>{statusInfo.label}</Badge>
+                      {DELETABLE_STATUSES.includes(r.status) && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-8 w-8 p-0 text-red-400 hover:text-red-300 shrink-0"
+                          onClick={() => handleDelete(r.id)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      )}
                     </div>
-                    {r.comment && (
-                      <p className="text-xs text-muted-foreground mb-2 line-clamp-2">{r.comment}</p>
-                    )}
+                  </div>
+                  {r.comment && (
+                    <p className="text-xs text-muted-foreground mb-2 line-clamp-2">{r.comment}</p>
+                  )}
+                  <Link href={`/admin/reservations/${r.id}`}>
                     <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
                       <span className="text-muted-foreground">Zameldowanie</span>
                       <span>{format(new Date(r.checkIn), 'dd.MM.yyyy')}</span>
@@ -305,9 +348,9 @@ export function ReservationsClient({ initialStats }: { initialStats: Stats }) {
                       <span className="text-muted-foreground">Cena</span>
                       <span className="font-medium">{r.totalPrice} zł</span>
                     </div>
-                  </CardContent>
-                </Card>
-              </Link>
+                  </Link>
+                </CardContent>
+              </Card>
             );
           })
         )}
