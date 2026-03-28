@@ -40,7 +40,7 @@ async function getStats() {
     totalReservations,
     totalSections,
     totalImages,
-    allReservations,
+    allReservations, // ograniczone do 2 lat wstecz
     confirmedOverlappingMonth,
     confirmedOverlappingYear,
     yearlyChartData,
@@ -51,7 +51,10 @@ async function getStats() {
     prisma.section.count(),
     prisma.galleryImage.count(),
     prisma.reservation.findMany({
-      where: { status: { not: 'CANCELLED' } },
+      where: {
+        status: { not: 'CANCELLED' },
+        checkIn: { gte: new Date(now.getFullYear() - 2, 0, 1) },
+      },
       select: { checkIn: true, checkOut: true, nights: true, totalPrice: true, createdAt: true, updatedAt: true, status: true },
     }),
     // Rezerwacje potwierdzone zachodzące na bieżący miesiąc

@@ -11,8 +11,8 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Protect /admin/* routes
-  if (pathname.startsWith('/admin')) {
+  // Protect /admin/* and /api/admin/* routes
+  if (pathname.startsWith('/admin') || pathname.startsWith('/api/admin')) {
     const token = request.cookies.get('admin_session')?.value;
 
     if (!token) {
@@ -36,5 +36,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/admin/:path*'],
+  matcher: ['/admin/:path*', '/api/admin/:path*'],
 };

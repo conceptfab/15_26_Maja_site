@@ -22,20 +22,24 @@ function cleanup() {
   }
 }
 
-export function checkRateLimit(ip: string): { allowed: boolean; retryAfterMs: number } {
+export function checkRateLimit(
+  ip: string,
+  maxRequests: number = MAX_REQUESTS,
+  windowMs: number = WINDOW_MS
+): { allowed: boolean; retryAfterMs: number } {
   cleanup();
 
   const now = Date.now();
   const entry = store.get(ip);
 
   if (!entry || entry.resetAt < now) {
-    store.set(ip, { count: 1, resetAt: now + WINDOW_MS });
+    store.set(ip, { count: 1, resetAt: now + windowMs });
     return { allowed: true, retryAfterMs: 0 };
   }
 
   entry.count++;
 
-  if (entry.count > MAX_REQUESTS) {
+  if (entry.count >= maxRequests) {
     return { allowed: false, retryAfterMs: entry.resetAt - now };
   }
 

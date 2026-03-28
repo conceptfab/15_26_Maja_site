@@ -25,6 +25,18 @@ const securityHeaders = [
     key: 'Strict-Transport-Security',
     value: 'max-age=63072000; includeSubDomains; preload',
   },
+  {
+    key: 'Content-Security-Policy',
+    value: [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://use.typekit.net https://cloud.umami.is",
+      "style-src 'self' 'unsafe-inline' https://use.typekit.net",
+      "font-src 'self' https://use.typekit.net",
+      "img-src 'self' data: blob: https://*.public.blob.vercel-storage.com https://*.private.blob.vercel-storage.com",
+      "connect-src 'self' https://cloud.umami.is https://vitals.vercel-insights.com https://va.vercel-scripts.com",
+      "frame-ancestors 'self'",
+    ].join('; '),
+  },
 ];
 
 const nextConfig: NextConfig = {

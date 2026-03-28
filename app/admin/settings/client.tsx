@@ -180,17 +180,7 @@ export function SettingsClient({ initialSettings, initialAdmins }: Props) {
             />
           </label>
 
-          <label className="block text-sm">
-            Min. nocy (weekend)
-            <Input
-              type="number"
-              min="1"
-              max="30"
-              value={settings.minNightsWeekend}
-              onChange={(e) => setSettings({ ...settings, minNightsWeekend: parseInt(e.target.value) || 1 })}
-              className="mt-1"
-            />
-          </label>
+          {/* minNightsWeekend usunięte — pole nie jest używane w logice rezerwacji */}
         </div>
 
         <div className="grid grid-cols-2 gap-4">

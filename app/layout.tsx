@@ -4,8 +4,18 @@ import { Geist } from "next/font/google";
 import { cn } from "@/lib/utils";
 import { ClientProviders } from '@/components/ClientProviders';
 import { JsonLd } from '@/components/JsonLd';
+import { cache } from 'react';
 import { prisma } from '@/lib/db';
 import { Analytics } from '@vercel/analytics/react';
+
+const getGlobalSeo = cache(async () => {
+  try {
+    const setting = await prisma.siteSettings.findUnique({ where: { key: 'globalSeo' } });
+    return (setting?.value ?? {}) as { defaultTitlePl?: string; defaultDescriptionPl?: string; ogImageUrl?: string };
+  } catch {
+    return {};
+  }
+});
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import Script from 'next/script';
 
@@ -14,13 +24,7 @@ const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://hommm.pl';
 
 export async function generateMetadata(): Promise<Metadata> {
-  let seo: { defaultTitlePl?: string; defaultDescriptionPl?: string; ogImageUrl?: string } = {};
-  try {
-    const setting = await prisma.siteSettings.findUnique({ where: { key: 'globalSeo' } });
-    if (setting?.value) seo = setting.value as typeof seo;
-  } catch {
-    // fallback na domyślne
-  }
+  const seo = await getGlobalSeo();
 
   const title = seo.defaultTitlePl || 'HOMMM — Domek w naturze';
   const description = seo.defaultDescriptionPl || 'Domek na wyłączność w sercu natury. Cisza, prywatność, wypoczynek.';
@@ -86,11 +90,13 @@ export default function RootLayout({
         <JsonLd />
         <Analytics />
         <SpeedInsights />
-        <Script
-          defer
-          src="https://cloud.umami.is/script.js"
-          data-website-id="cf55bcf0-9eb0-474a-8706-159480187605"
-        />
+        {process.env.NEXT_PUBLIC_UMAMI_WEBSITE_ID && (
+          <Script
+            defer
+            src="https://cloud.umami.is/script.js"
+            data-website-id={process.env.NEXT_PUBLIC_UMAMI_WEBSITE_ID}
+          />
+        )}
       </body>
     </html>
   );

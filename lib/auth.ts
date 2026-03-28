@@ -1,4 +1,4 @@
-import { SignJWT, jwtVerify } from 'jose';
+import { SignJWT, jwtVerify, errors } from 'jose';
 import { cookies } from 'next/headers';
 import { prisma } from './db';
 import { getJwtSecret } from './env';
@@ -47,9 +47,13 @@ export async function verifySession() {
     let jwtExpired = false;
     try {
       await jwtVerify(token, getJwtSecret());
-    } catch {
-      // JWT wygasł — sprawdź sesję w DB i odśwież token
-      jwtExpired = true;
+    } catch (err) {
+      if (err instanceof errors.JWTExpired) {
+        jwtExpired = true;
+      } else {
+        // Nieprawidłowy podpis lub inny błąd — odrzuć token
+        return null;
+      }
     }
 
     const session = await prisma.session.findUnique({

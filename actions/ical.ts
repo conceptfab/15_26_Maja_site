@@ -89,37 +89,57 @@ export async function syncICalFeed(id: string) {
   if (!feed) return { error: 'Feed nie znaleziony' };
 
   try {
+    // Walidacja URL — ochrona przed SSRF
+    const parsed = new URL(feed.url);
+    if (parsed.protocol !== 'https:') {
+      return { error: 'Tylko HTTPS jest dozwolone dla feedów iCal' };
+    }
+    const blockedHosts = ['localhost', '127.0.0.1', '::1', '0.0.0.0', '169.254.169.254'];
+    if (blockedHosts.includes(parsed.hostname)) {
+      return { error: 'Niedozwolony host w URL feeda' };
+    }
+
     const response = await fetch(feed.url, { signal: AbortSignal.timeout(15000) });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
     const icalText = await response.text();
     const events = parseICalEvents(icalText);
 
-    let created = 0;
+    // Zbierz wszystkie dni do zablokowania
+    const allDays: { date: Date; reason: string }[] = [];
     for (const event of events) {
-      // Blokuj daty z zewnętrznego kalendarza (unikaj duplikatów)
-      const days: Date[] = [];
       const current = new Date(event.start);
       while (current < event.end) {
-        days.push(new Date(current));
+        const dayStart = new Date(current.getFullYear(), current.getMonth(), current.getDate());
+        allDays.push({ date: dayStart, reason: `[iCal] ${feed.name}: ${event.summary}` });
         current.setDate(current.getDate() + 1);
       }
+    }
 
-      for (const day of days) {
-        const dayStart = new Date(day.getFullYear(), day.getMonth(), day.getDate());
-        const dayEnd = new Date(dayStart);
-        dayEnd.setDate(dayEnd.getDate() + 1);
+    // Pobierz istniejące zablokowane daty w jednym zapytaniu (zamiast N+1)
+    let created = 0;
+    if (allDays.length > 0) {
+      const minDate = allDays.reduce((min, d) => d.date < min ? d.date : min, allDays[0].date);
+      const maxDate = new Date(allDays.reduce((max, d) => d.date > max ? d.date : max, allDays[0].date));
+      maxDate.setDate(maxDate.getDate() + 1);
 
-        const existing = await prisma.blockedDate.findFirst({
-          where: { date: { gte: dayStart, lt: dayEnd } },
+      const existing = await prisma.blockedDate.findMany({
+        where: { date: { gte: minDate, lt: maxDate } },
+        select: { date: true },
+      });
+
+      const existingSet = new Set(existing.map((e) => e.date.toISOString().slice(0, 10)));
+
+      const toCreate = allDays.filter(
+        (d) => !existingSet.has(d.date.toISOString().slice(0, 10))
+      );
+
+      if (toCreate.length > 0) {
+        await prisma.blockedDate.createMany({
+          data: toCreate.map((d) => ({ date: d.date, reason: d.reason })),
+          skipDuplicates: true,
         });
-
-        if (!existing) {
-          await prisma.blockedDate.create({
-            data: { date: dayStart, reason: `[iCal] ${feed.name}: ${event.summary}` },
-          });
-          created++;
-        }
+        created = toCreate.length;
       }
     }
 
@@ -144,16 +164,22 @@ export async function syncAllFeeds() {
   if (!session) return unauthorized();
 
   const feeds = await prisma.iCalFeed.findMany();
-  const results: { name: string; success: boolean; message: string }[] = [];
 
-  for (const feed of feeds) {
-    const result = await syncICalFeed(feed.id);
-    if ('error' in result) {
-      results.push({ name: feed.name, success: false, message: result.error });
-    } else {
-      results.push({ name: feed.name, success: true, message: `${result.eventsFound} wydarzeń, ${result.datesBlocked} nowych blokad` });
+  const settled = await Promise.allSettled(
+    feeds.map((feed) => syncICalFeed(feed.id))
+  );
+
+  const results = feeds.map((feed, i) => {
+    const outcome = settled[i];
+    if (outcome.status === 'rejected') {
+      return { name: feed.name, success: false, message: String(outcome.reason) };
     }
-  }
+    const result = outcome.value;
+    if ('error' in result) {
+      return { name: feed.name, success: false, message: result.error };
+    }
+    return { name: feed.name, success: true, message: `${result.eventsFound} wydarzeń, ${result.datesBlocked} nowych blokad` };
+  });
 
   return { results };
 }

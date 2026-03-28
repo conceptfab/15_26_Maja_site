@@ -40,5 +40,9 @@ export function getAdminSecretCode() {
 }
 
 export function getSeedAdminEmail() {
-  return process.env.ADMIN_EMAIL?.trim() || 'admin@example.com';
+  const email = process.env.ADMIN_EMAIL?.trim();
+  if (!email) {
+    throw new Error('Missing required environment variable: ADMIN_EMAIL');
+  }
+  return email;
 }

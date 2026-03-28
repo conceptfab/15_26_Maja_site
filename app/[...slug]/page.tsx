@@ -1,15 +1,17 @@
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { jsonToRecord } from '@/lib/json-utils';
+import Image from 'next/image';
+import { cache } from 'react';
 import type { Metadata } from 'next';
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 60;
 
 type Props = {
   params: Promise<{ slug: string[] }>;
 };
 
-async function getPageBySlug(slugSegments: string[]) {
+const getPageBySlug = cache(async (slugSegments: string[]) => {
   const slug = slugSegments.join('/');
 
   const page = await prisma.page.findUnique({
@@ -21,7 +23,7 @@ async function getPageBySlug(slugSegments: string[]) {
         include: {
           galleryImages: {
             orderBy: { order: 'asc' },
-            select: { webpUrl: true, altPl: true, altEn: true },
+            select: { webpUrl: true, mobileUrl: true, altPl: true, altEn: true },
           },
         },
       },
@@ -30,7 +32,7 @@ async function getPageBySlug(slugSegments: string[]) {
   });
 
   return page;
-}
+});
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
@@ -93,12 +95,14 @@ export default async function SubPage({ params }: Props) {
                 {section.galleryImages.length > 0 && (
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-6">
                     {section.galleryImages.map((img, i) => (
-                      <img
+                      <Image
                         key={i}
-                        src={img.webpUrl}
+                        src={img.mobileUrl || img.webpUrl}
                         alt={img.altPl || ''}
+                        width={400}
+                        height={300}
+                        sizes="(max-width:768px) 50vw, 33vw"
                         className="rounded-lg w-full h-48 object-cover"
-                        loading="lazy"
                       />
                     ))}
                   </div>

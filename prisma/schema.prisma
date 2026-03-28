@@ -23,6 +23,8 @@ model Session {
   token     String   @unique
   expiresAt DateTime
   createdAt DateTime @default(now())
+
+  @@index([expiresAt])
 }
 
 model Page {
@@ -158,6 +160,8 @@ model GalleryImage {
   captionEn   String?
   order       Int      @default(0)
   createdAt   DateTime @default(now())
+
+  @@index([sectionId])
 }
 
 model SeoSettings {

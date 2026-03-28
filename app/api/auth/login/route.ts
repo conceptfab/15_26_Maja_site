@@ -3,9 +3,22 @@ import { prisma } from '@/lib/db';
 import { createSession } from '@/lib/auth';
 import { getAdminSecretCode } from '@/lib/env';
 import { loginSchema } from '@/lib/validations';
+import { checkRateLimit } from '@/lib/rate-limit';
+import { headers } from 'next/headers';
 
 export async function POST(request: Request) {
   try {
+    const headersList = await headers();
+    const ip = headersList.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+    const { allowed, retryAfterMs } = checkRateLimit(`login:${ip}`, 10, 15 * 60 * 1000);
+
+    if (!allowed) {
+      return NextResponse.json(
+        { error: 'Zbyt wiele prób logowania. Spróbuj ponownie później.' },
+        { status: 429, headers: { 'Retry-After': String(Math.ceil(retryAfterMs / 1000)) } }
+      );
+    }
+
     const body = await request.json();
     const parsed = loginSchema.safeParse(body);
 
@@ -21,6 +34,7 @@ export async function POST(request: Request) {
 
     // Verify secret code
     if (secretCode !== getAdminSecretCode()) {
+      await new Promise((r) => setTimeout(r, 500));
       return NextResponse.json(
         { error: 'Nieprawidłowy email lub kod' },
         { status: 401 }

@@ -53,7 +53,7 @@ export function ReservationModal({
     phone: !PHONE_RE.test(phone) ? t('reservation.modal.err_phone') : '',
   };
 
-  const resetForm = () => {
+  const handleClose = useCallback(() => {
     setFormState('summary');
     setErrorMsg('');
     setTouched({});
@@ -62,10 +62,6 @@ export function ReservationModal({
     setPhone('');
     setComment('');
     setRodo(false);
-  };
-
-  const handleClose = useCallback(() => {
-    resetForm();
     onOpenChange(false);
   }, [onOpenChange]);
 

@@ -43,12 +43,14 @@ export async function getClients(filters: ClientFilters = {}) {
     orderBy[sortBy] = sortDir;
   }
 
+  // Dla computed fields: pobierz WSZYSTKICH klientów (bez paginacji), sortuj, potem paginuj
+  const needsComputedSort = sortBy === 'reservationCount' || sortBy === 'totalSpent';
+
   const [clients, total] = await Promise.all([
     prisma.client.findMany({
       where,
-      orderBy: Object.keys(orderBy).length > 0 ? orderBy : { createdAt: 'desc' },
-      skip: (page - 1) * perPage,
-      take: perPage,
+      orderBy: !needsComputedSort && Object.keys(orderBy).length > 0 ? orderBy : { createdAt: 'desc' },
+      ...(needsComputedSort ? {} : { skip: (page - 1) * perPage, take: perPage }),
       include: {
         reservations: {
           select: { id: true, totalPrice: true, status: true, checkOut: true },
@@ -82,13 +84,19 @@ export async function getClients(filters: ClientFilters = {}) {
     };
   });
 
-  // Sort by computed fields if needed
-  if (sortBy === 'reservationCount' || sortBy === 'totalSpent') {
+  // Sort by computed fields and paginate manually
+  if (needsComputedSort) {
     clientsWithStats.sort((a, b) => {
       const aVal = a[sortBy];
       const bVal = b[sortBy];
       return sortDir === 'asc' ? aVal - bVal : bVal - aVal;
     });
+    const start = (page - 1) * perPage;
+    return {
+      clients: clientsWithStats.slice(start, start + perPage),
+      total,
+      pages: Math.ceil(total / perPage),
+    };
   }
 
   return {

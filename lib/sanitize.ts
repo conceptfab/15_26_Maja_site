@@ -14,6 +14,15 @@ export function sanitizeHtml(dirty: string): string {
   return sanitize(dirty, {
     allowedTags: ALLOWED_TAGS,
     allowedAttributes: ALLOWED_ATTRIBUTES,
+    transformTags: {
+      a: (tagName, attribs) => ({
+        tagName,
+        attribs: {
+          ...attribs,
+          ...(attribs.target === '_blank' ? { rel: 'noopener noreferrer' } : {}),
+        },
+      }),
+    },
   });
 }
 

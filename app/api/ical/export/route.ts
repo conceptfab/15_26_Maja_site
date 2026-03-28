@@ -14,10 +14,12 @@ function formatDate(d: Date) {
 }
 
 export async function GET(request: NextRequest) {
-  // Opcjonalne zabezpieczenie tokenem
+  // Zabezpieczenie tokenem — akceptuje header Authorization lub query param (legacy)
   if (ICAL_TOKEN) {
-    const token = request.nextUrl.searchParams.get('token');
-    if (token !== ICAL_TOKEN) {
+    const authHeader = request.headers.get('authorization');
+    const headerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    const queryToken = request.nextUrl.searchParams.get('token');
+    if (headerToken !== ICAL_TOKEN && queryToken !== ICAL_TOKEN) {
       return new NextResponse('Unauthorized', { status: 401 });
     }
   }

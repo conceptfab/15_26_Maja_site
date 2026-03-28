@@ -4,9 +4,10 @@ import { useEffect, useRef, useState, useCallback, type MouseEvent } from 'react
 import { differenceInCalendarDays, format, eachDayOfInterval } from 'date-fns';
 import { calculatePrice } from '@/lib/pricing';
 import { sanitizeHtml } from '@/lib/sanitize';
-import { Lightbox } from './Lightbox';
+const Lightbox = dynamic(() => import('./Lightbox').then((m) => ({ default: m.Lightbox })), { ssr: false });
 import { pl as plLocale } from 'date-fns/locale';
 import { enUS as enLocale } from 'date-fns/locale';
+import dynamic from 'next/dynamic';
 import DatePicker from 'react-datepicker';
 import Image from 'next/image';
 import { TopMenu, type MenuColors, type MenuView } from './TopMenu';
@@ -118,6 +119,8 @@ export function HomeClient({ sections: initialSections, settings }: { sections: 
   const [reservationRange, setReservationRange] = useState<
     [Date | null, Date | null]
   >([null, null]);
+  const reservationRangeRef = useRef(reservationRange);
+  reservationRangeRef.current = reservationRange;
   const [reservationGuests, setReservationGuests] = useState('1');
   const [reservationModalOpen, setReservationModalOpen] = useState(false);
   const [unavailableDates, setUnavailableDates] = useState<Date[]>([]);
@@ -146,7 +149,7 @@ export function HomeClient({ sections: initialSections, settings }: { sections: 
   const checkOutLabel = checkOut
     ? format(checkOut, 'd.MM.yyyy', { locale: dateLocale })
     : '--.--.----';
-  const today = new Date();
+  const today = useRef(new Date()).current;
 
   // Helper: pobierz treść wg języka
   const c = (section: SectionContent | undefined, field: string): string => {
@@ -270,7 +273,7 @@ export function HomeClient({ sections: initialSections, settings }: { sections: 
 
       requestAnimationFrame(() => {
         const currentScrollY = window.scrollY;
-        const hasReservationDates = reservationRange[0] !== null;
+        const hasReservationDates = reservationRangeRef.current[0] !== null;
 
         setHasScrolled(currentScrollY > SCROLL_COMPACT_THRESHOLD);
 
@@ -329,7 +332,7 @@ export function HomeClient({ sections: initialSections, settings }: { sections: 
     window.addEventListener('scroll', onScroll, { passive: true });
 
     return () => window.removeEventListener('scroll', onScroll);
-  }, [activeView, expandedSection, isReservationView, reservationRange]);
+  }, [activeView, expandedSection, isReservationView]);
 
   useEffect(() => {
     const elements = document.querySelectorAll('.reveal:not(.is-revealed)');
@@ -432,7 +435,7 @@ export function HomeClient({ sections: initialSections, settings }: { sections: 
         <div className="reservation-system__calendar-col reservation-system__calendar-col--wide">
           <DatePicker
             selected={today}
-            onChange={(update) => setReservationRange(update)}
+            onChange={(update: [Date | null, Date | null]) => setReservationRange(update)}
             startDate={checkIn}
             endDate={checkOut}
             selectsRange
@@ -441,7 +444,7 @@ export function HomeClient({ sections: initialSections, settings }: { sections: 
             locale={dateLocale}
             minDate={today}
             openToDate={today}
-            formatWeekDay={(dayName) =>
+            formatWeekDay={(dayName: string) =>
               dayName.replace('.', '').slice(0, 3).toLowerCase()
             }
             calendarClassName="reservation-datepicker"

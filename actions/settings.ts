@@ -1,5 +1,6 @@
 'use server';
 
+import { cache } from 'react';
 import { prisma } from '@/lib/db';
 import { verifySession } from '@/lib/auth';
 import { z } from 'zod';
@@ -76,7 +77,7 @@ const settingsSchema = z.object({
 
 // --- Actions ---
 
-export async function getSettings(): Promise<SiteSettingsMap> {
+export const getSettings = cache(async (): Promise<SiteSettingsMap> => {
   const rows = await prisma.siteSettings.findMany();
   const map: Record<string, unknown> = {};
 
@@ -105,7 +106,7 @@ export async function getSettings(): Promise<SiteSettingsMap> {
     companyAddress: typeof map.companyAddress === 'string' ? map.companyAddress : DEFAULTS.companyAddress,
     companyNip: typeof map.companyNip === 'string' ? map.companyNip : DEFAULTS.companyNip,
   };
-}
+});
 
 export async function updateSettings(data: Partial<SiteSettingsMap>) {
   const session = await verifySession();

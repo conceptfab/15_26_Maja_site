@@ -49,6 +49,14 @@ export async function POST(request: Request) {
       );
     }
 
+    // Walidacja maksymalnej liczby gości
+    if (guests > settings.maxGuests) {
+      return NextResponse.json(
+        { error: `Maksymalna liczba gości to ${settings.maxGuests}` },
+        { status: 400 },
+      );
+    }
+
     const { totalPrice } = calculatePrice(checkIn, checkOut, settings);
 
     let reservation;
