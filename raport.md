@@ -1,812 +1,512 @@
-# Raport audytu kodu — HOMMM (Maja Site)
+# Raport analizy kodu - HOMMM (Maja Site)
 
-**Data:** 2026-03-28
-**Zakres:** Pełna analiza kodu pod kątem bezpieczeństwa, logiki, wydajności, optymalizacji i jakości kodu.
-**Stack:** Next.js 15, React 19, Prisma 7 (Neon Postgres), Vercel Blob, Sharp, Nodemailer, Zod
-
----
-
-## Spis treści
-
-0. [PAGESPEED — Dlaczego wynik się nie zmienił](#0-pagespeed--dlaczego-wynik-się-nie-zmienił)
-1. [KRYTYCZNE — Bezpieczeństwo](#1-krytyczne--bezpieczeństwo)
-2. [WAŻNE — Bezpieczeństwo i logika](#2-ważne--bezpieczeństwo-i-logika)
-3. [WYDAJNOŚĆ — Optymalizacje](#3-wydajność--optymalizacje)
-4. [OPTYMALIZACJA GRAFIK](#4-optymalizacja-grafik)
-5. [JAKOŚĆ KODU — Duplikacje i wzorce](#5-jakość-kodu--duplikacje-i-wzorce)
-6. [DROBNE UWAGI](#6-drobne-uwagi)
-7. [PODSUMOWANIE](#7-podsumowanie)
+**Data:** 2026-03-29
+**Zakres:** Pełna analiza kodu pod katem logiki, wydajnosci, bezpieczenstwa, optymalizacji i jakosci kodu.
+**Ostatni commit:** `ce89b3e` — admin dashboard, pricing rules, calendar, reservations management.
 
 ---
 
-## 0. PAGESPEED — Dlaczego wynik się nie zmienił
+## Podsumowanie
 
-### Diagnoza: co zrobiła ostatnia "optymalizacja"
-
-Commit `d773fec` dodał:
-1. **`@next/bundle-analyzer`** — narzędzie diagnostyczne (dev-only), nie wpływa na produkcyjny build
-2. **`.browserslistrc`** z `last 2 versions, not dead, not ie 11` — identyczny z domyślnym targetem Next.js, zero wpływu na output
-
-**Żadna z tych zmian nie dotyka rzeczywistych bottlenecków PageSpeed.**
+| Kategoria | Krytyczne | Wysokie | Srednie | Niskie |
+|-----------|-----------|---------|---------|--------|
+| Logika / Bugi | 1 | 1 | 2 | - |
+| Bezpieczenstwo | - | 3 | 2 | - |
+| Wydajnosc | - | 1 | 6 | 3 |
+| Jakosc kodu / DRY | - | 2 | 5 | 3 |
+| Optymalizacja obrazow/assets | - | - | 1 | - |
+| **Razem** | **1** | **7** | **16** | **6** |
 
 ---
 
-### Prawdziwe przyczyny niskiego wyniku mobile (w kolejności wpływu)
+## 1. KRYTYCZNE
 
-#### 0.1 ⛔ Tła sekcji przez CSS `background-image` — OMIJAJĄ CAŁY SYSTEM OPTYMALIZACJI (LCP ~7s)
+### 1.1 Bug w logice priorytetow cenowych (lib/pricing.ts:82-94)
 
-**Problem:** 4 sekcje używają CSS `background-image` zamiast `next/image`:
+**Problem:** Cena weekendowa nadpisuje cene sezonowa zamiast stosowac hierarchie priorytetow.
 
-| Klasa CSS | Plik | Fallback | Rozmiar |
-|-----------|------|----------|---------|
-| `.bg-slider` | `globals.css:765` | `hero.webp` | 452 KB |
-| `.bg-dark` | `globals.css:904` | `sec_3.webp` | 448 KB |
-| `.bg-light` | `globals.css:912` | `footer.webp` | 156 KB |
-| `.section-bg-secondary` | `globals.css:920` | `sec_2.webp` | 364 KB |
-
-**Dlaczego to krytyczne:**
-- **Brak responsywności** — telefon pobiera identyczny plik co monitor 4K (np. hero 1920px na ekranie 375px)
-- **Brak konwersji AVIF** — mimo `formats: ['image/avif', 'image/webp']` w `next.config.ts`, CSS background-image omija Next.js Image Optimization. Przeglądarka dostaje surowy WebP z `public/`
-- **3-poziomowy łańcuch odkrywania** — HTML → CSS (parsowanie) → dopiero wtedy przeglądarka dowiaduje się o obrazie. To dodaje ~500ms+ do LCP
-- **Dynamiczne URL z DB** — `bgStyle()` w `HomeClient.tsx:168-175` ustawia `--section-bg` na URL z Blob Storage. Preload w `layout.tsx:78-83` ładuje tylko statyczny `/assets/hero.webp`, ale gdy DB zwraca inny URL, preload jest bezużyteczny
-- **Brak preconnect do Blob Storage** — obrazy z `*.public.blob.vercel-storage.com` wymagają dodatkowego DNS + TLS handshake (~100-200ms)
-
-**Porównanie mobile vs desktop:**
-
-| Element | Desktop | Mobile | Różnica |
-|---------|---------|--------|---------|
-| Galeria (`<Image sizes="...">`) | 40vw (~768px) | 92vw (~640px) | ✅ Mobile mniejszy |
-| Hero tło (CSS `background-image`) | 1920px, 452 KB | 1920px, 452 KB | ❌ IDENTYCZNE |
-| sec_2 tło (CSS) | 1920px, 364 KB | 1920px, 364 KB | ❌ IDENTYCZNE |
-| sec_3 tło (CSS) | 1920px, 448 KB | 1920px, 448 KB | ❌ IDENTYCZNE |
-| footer tło (CSS) | 1920px, 156 KB | 1920px, 156 KB | ❌ IDENTYCZNE |
-
-**Na mobile sumarycznie ~1.4 MB samych teł sekcji w pełnej rozdzielczości desktopowej.**
-
-**Rozwiązanie (priorytet P0 dla PageSpeed):**
-
-Opcja A — zamiana na `<Image>` z `fill` + `sizes` (najlepsza):
-```tsx
-// Zamiast CSS background-image:
-<div className="section h-100vh" style={{ position: 'relative' }}>
-  <Image
-    src={heroSection?.bgImage || '/assets/hero.webp'}
-    alt=""
-    fill
-    sizes="100vw"
-    priority  // tylko dla hero (LCP)
-    style={{ objectFit: 'cover', objectPosition: 'center 70%' }}
-  />
-  {/* treść sekcji z position: relative, z-index: 1 */}
-</div>
-```
-Efekt: Next.js automatycznie serwuje AVIF 640px (~40-80 KB) na mobile zamiast WebP 1920px (452 KB).
-
-Opcja B — ręczne warianty mobilne + media query w CSS (prostsza):
-```css
-.bg-slider {
-  background-image: var(--section-bg, url('/assets/hero.webp'));
+```typescript
+// Obecny kod:
+let price = settings.pricePerNight;
+if (highSeason && settings.priceSeasonHigh > 0) {
+  price = settings.priceSeasonHigh;
+} else if (!highSeason && settings.priceSeasonLow > 0) {
+  price = settings.priceSeasonLow;
 }
-@media (max-width: 768px) {
-  .bg-slider {
-    background-image: var(--section-bg-mobile, url('/assets/hero-mobile.webp'));
-  }
+// BUG: weekend ZAWSZE nadpisuje sezon!
+if (isWeekendNight(current) && settings.priceWeekend > 0) {
+  price = settings.priceWeekend;
 }
 ```
-Wymaga przygotowania wariantów 800px przez sharp.
+
+**Efekt:** Jesli weekend wypada w sezonie wysokim (np. cena sezonowa 400 zl, weekendowa 300 zl), cena spada do 300 zl zamiast pozostac na 400 zl.
+
+**Sugestia:** Uzyc `Math.max(price, settings.priceWeekend)` lub okreslic jawna hierarchie: reguly dat > sezon > weekend > baza.
 
 ---
 
-#### 0.2 ⛔ TypeKit CSS blokuje renderowanie (~500-700ms na mobile)
+## 2. WYSOKIE
 
-**Plik:** `app/layout.tsx:84-90`
-
-```html
-<!-- Komentarz mówi "async load" ale implementacja jest SYNCHRONICZNA -->
-<link rel="preload" href="https://use.typekit.net/zpt0osi.css" as="style" />
-<link rel="stylesheet" href="https://use.typekit.net/zpt0osi.css" />
-```
-
-- `<link rel="preload">` tuż nad `<link rel="stylesheet">` jest **redundantny** — nie daje żadnego przyspieszenia
-- Synchroniczny `<link rel="stylesheet">` **blokuje renderowanie** całej strony do momentu pobrania i sparsowania
-- Na mobile (3G/4G) to ~500-700ms czystego oczekiwania zanim cokolwiek się wyświetli
-- TypeKit CSS dodatkowo pobiera pliki fontów — kolejne ~200-400ms
-
-**Rozwiązanie — prawdziwy async load:**
-```html
-<link
-  rel="stylesheet"
-  href="https://use.typekit.net/zpt0osi.css"
-  media="print"
-  onLoad="this.media='all'"
-/>
-<noscript>
-  <link rel="stylesheet" href="https://use.typekit.net/zpt0osi.css" />
-</noscript>
-```
-Efekt: strona renderuje się natychmiast z Geist (już załadowany przez `next/font`), TypeKit doładowuje się asynchronicznie.
-
----
-
-#### 0.3 ⚠️ react-datepicker + CSS w głównym bundlu (~90 KB gzipped)
+### 2.1 Zduplikowana stala DELETABLE_STATUSES
 
 **Pliki:**
-- `components/HomeClient.tsx:11` — `import DatePicker from 'react-datepicker'` (synchroniczny)
-- `app/globals.css:1` — `@import 'react-datepicker/dist/react-datepicker.css'`
+- `actions/reservations.ts:332` — `const DELETABLE_STATUSES = ['CANCELLED', 'PENDING', 'DEPOSIT_PAID', 'PAID']`
+- `app/admin/reservations/ReservationsClient.tsx:24` — identyczna kopia
 
-DatePicker jest potrzebny tylko w widoku `rezerwuj`/`miejsca`, ale trafia do initial bundle. Porównaj z `Lightbox` (linia 7) który jest poprawnie lazy-loaded: `dynamic(() => import('./Lightbox'), { ssr: false })`.
+**Problem:** Jesli polityka usuwania rezerwacji sie zmieni, trzeba pamietac o aktualizacji w dwoch miejscach.
 
-**Rozwiązanie:**
-```tsx
-const DatePicker = dynamic(() => import('react-datepicker'), { ssr: false });
+**Sugestia:** Wyeksportowac z `lib/reservation-status.ts` (tam juz sa `CONFIRMED_STATUSES`).
+
+### 2.2 Niespojny wzorzec autoryzacji w server actions
+
+**Pliki:**
+- `actions/reservations.ts:38` — uzywa helpera `unauthorized()`
+- `actions/pricing.ts:68` — inline `{ error: 'Brak autoryzacji' }`
+- `actions/settings.ts:116` — inline `{ error: 'Brak autoryzacji' }`
+- `actions/gallery.ts`, `actions/content.ts` — rozne wzorce
+
+**Problem:** Niespojne odpowiedzi bledow utrudniaja obsluge po stronie klienta.
+
+**Sugestia:** Ujednolicic na `unauthorized()` z `lib/auth.ts` we wszystkich actions.
+
+### 2.3 CSP pozwala na unsafe-eval i unsafe-inline (next.config.ts:34-43)
+
+```typescript
+"script-src 'self' 'unsafe-inline' 'unsafe-eval' https://use.typekit.net https://cloud.umami.is"
 ```
-Plus przeniesienie CSS datepickera do komponentu (CSS Modules lub import w lazy-loaded wrapper).
+
+**Problem:** `unsafe-eval` i `unsafe-inline` uniewaznaja ochrone CSP przed XSS. Na produkcji to powazne ryzyko.
+
+**Sugestia:** Uzyc nonce-based CSP lub usunac `unsafe-eval` (czesto potrzebne tylko w dev).
+
+### 2.4 Rate limiting dziala tylko w pamieci (lib/rate-limit.ts)
+
+**Problem:** In-memory rate limiter nie dziala w srodowisku wieloinstancyjnym (Vercel Functions). Kazda instancja ma wlasny licznik.
+
+**Sugestia:** Uzyc Upstash Redis rate limiter (`@upstash/ratelimit`) dla pelnej ochrony.
+
+### 2.5 Middleware waliduje tylko JWT, nie sprawdza sesji w DB (middleware.ts:22-32)
+
+**Problem:** Jesli admin zostanie dezaktywowany, moze dalej korzystac z panelu do wygasniecia JWT (24h). Middleware sprawdza jedynie podpis JWT.
+
+**Sugestia:** Dodac krotszy czas zycia JWT (np. 1h) lub cache'owac status admina w Redis.
 
 ---
 
-#### 0.4 ⚠️ Obraz gal_00.webp — 1.4 MB (nadmierny rozmiar)
+## 3. BEZPIECZENSTWO (srednie)
 
-**Plik:** `public/assets/gal_00.webp` (1,422,460 bytes)
+### 3.1 Brak ochrony CSRF w logowaniu (app/api/auth/login/route.ts)
 
-Nawet jak na WebP, 1.4 MB jest ekstremalnie dużo. Typowy WebP o wymiarach 1920px powinien mieścić się w 200-400 KB (quality 80-85). Obraz prawdopodobnie ma zbyt wysoki quality lub nietypowe wymiary.
+**Problem:** Brak walidacji tokenu CSRF. Formularz logowania moze byc podatny na ataki CSRF z obcych domen.
 
-**Rozwiązanie:** Rekompresja przez sharp:
-```bash
-npx sharp-cli -i public/assets/gal_00.webp -o public/assets/gal_00.webp --webp --quality 82 --resize 1920
+**Sugestia:** Dodac CSRF token lub uzyc biblioteki (np. `csrf-token`).
+
+### 3.2 Ciche polykanie bledow przy wysylce emaili
+
+**Pliki:**
+- `actions/reservations.ts:133-137`
+- `app/api/reservations/route.ts:139-148`
+
+```typescript
+sendEmail({ to: updated.guestEmail, ...emailContent }).catch(() => {});
 ```
-Oczekiwany rozmiar po rekompresji: ~200-350 KB (redukcja 75-85%).
+
+**Problem:** Jesli email nie zostanie wyslany, nikt sie nie dowie. Brak logowania, brak retry.
+
+**Sugestia:** Dodac `console.error` w `catch` i rozwazyc kolejke retry (np. Vercel Queues).
 
 ---
 
-#### 0.5 ⚠️ Brak preconnect do Vercel Blob Storage
+## 4. LOGIKA I POPRAWNOSC
 
-**Plik:** `app/layout.tsx` — jest preconnect do TypeKit, ale brak preconnect do Blob Storage.
+### 4.1 Porownywanie dat w zapytaniach o nakladanie sie rezerwacji
 
-Obrazy z DB ładują się z `*.public.blob.vercel-storage.com`. Bez preconnect, przeglądarka musi wykonać DNS lookup + TLS handshake dopiero gdy napotka URL obrazu.
+**Pliki:** `app/api/reservations/route.ts:68-74`, `actions/reservations.ts:170-180`
 
-**Rozwiązanie:**
-```html
-<link rel="preconnect" href="https://lp1kkgv0aginmark.public.blob.vercel-storage.com" />
+Zmiana z `lt/gt` na `lte/gte` w ostatnim commicie jest poprawna koncepcyjnie (inclusywne granice), ale wymaga weryfikacji semantyki `checkOut`:
+- Jesli `checkOut` to dzien wyjazdu (gosc NIE nocuje tego dnia) — `lte/gte` moze powodowac falszywwe konflikty (gosc A wyjedza 15-go, gosc B zameldowuje sie 15-go — to NIE jest konflikt, ale query go wykryje).
+
+**Sugestia:** Zweryfikowac semantyke `checkOut` w calym systemie i udokumentowac konwencje.
+
+### 4.2 Przyklad zaliczki w PricingClient jest bledny (PricingClient.tsx:573)
+
+```typescript
+{settings.depositPercent > 0 && ` Np. przy cenie 1000 zl zaliczka wyniesie ${settings.depositPercent * 10} zl.`}
 ```
-(dokładny hostname z Blob Store)
+
+**Problem:** `depositPercent * 10` to uproszczenie, ktore jest poprawne TYLKO dla ceny 1000 zl. Lepiej uzyc `1000 * settings.depositPercent / 100`.
 
 ---
 
-#### 0.6 ⚠️ logo.png — jedyny PNG, 74 KB
+## 5. WYDAJNOSC
 
-**Plik:** `public/assets/logo.png` (75,483 bytes)
+### 5.1 Dashboard force-dynamic bez cache (app/admin/dashboard/page.tsx)
 
-Jedyny plik PNG w katalogu assets. Powinien być skonwertowany do WebP (~15-25 KB) lub SVG (jeśli wektorowy) dla spójności i mniejszego rozmiaru.
+**Problem:** `export const dynamic = 'force-dynamic'` powoduje, ze kazde wejscie na dashboard = cold hit do bazy. Zapytania pobieraja rezerwacje z 2 lat ze WSZYSTKIMI polami (15+ kolumn).
+
+**Sugestia:**
+- Dodac `select` z tylko potrzebnymi polami (`checkIn, checkOut, nights, totalPrice, status`)
+- Rozwazyc `revalidate: 60` zamiast `force-dynamic`
+
+### 5.2 getReservations pobiera wszystkie pola (actions/reservations.ts:55-62)
+
+**Problem:** `findMany` bez `select` pobiera wszystkie kolumny. Dla tabeli potrzeba tylko 7-8 pol.
+
+**Sugestia:** Dodac `select: { id, guestName, guestEmail, checkIn, checkOut, status, totalPrice, nights, guests, comment, createdAt }`.
+
+### 5.3 Sekwencyjne zapytania DB w updateReservation (actions/reservations.ts:152-169)
+
+**Problem:** `findUnique` (linia 152) i `findFirst` dla overlap check (linia 169) wykonywane sekwencyjnie.
+
+**Sugestia:** Uzyc `Promise.all` lub przeniesc overlap check do transakcji.
+
+### 5.4 Sanityzacja HTML — cache uniewazniane przy kazdym renderze (HomeClient.tsx:118-128)
+
+```typescript
+const memoSanitize = useMemo(() => { ... }, [sections, locale]);
+```
+
+**Problem:** `sections` jest nowym obiektem przy kazdym renderze (derivowany z `initialSections` + `liveOverrides`), wiec cache sie resetuje.
+
+**Sugestia:** Usunac `sections` z tablicy zaleznosci — cache powinien byc niezalezny od danych wejsciowych (`[]`).
+
+### 5.5 Brak useCallback na inline functions w HomeClient (HomeClient.tsx:171, 191, 200)
+
+**Problem:** Funkcje `c()`, `r()`, `getNightLabel()` sa tworzone na nowo przy kazdym renderze, co uniewazniane memoizacje komponentow potomnych.
+
+**Sugestia:** Uzyc `useCallback` z prawidlowymi zaleznosciami.
+
+### 5.6 useRef(new Date()) tworzy nowy obiekt przy kazdym renderze (HomeClient.tsx:168)
+
+```typescript
+const today = useRef(new Date()).current;
+```
+
+**Problem:** `new Date()` jest ewaluowane przy kazdym renderze, mimo ze `useRef` zachowuje tylko pierwsza wartosc.
+
+**Sugestia:** `useMemo(() => new Date(), [])`.
+
+### 5.7 Cron export laduje 500 pelnych rezerwacji (app/api/cron/export/route.ts:16-20)
+
+**Problem:** Pobiera 500 rezerwacji ze WSZYSTKIMI polami do pamieci, potem serializuje do JSON.
+
+**Sugestia:** Dodac `select` z potrzebnymi polami.
+
+### 5.8 SMTP transport cache'owany bez health-check (lib/mail.ts:13-35)
+
+**Problem:** Jesli serwer SMTP padnie, polaczenie nigdy nie jest odnawiane. Transport jest cache'owany globalnie.
+
+**Sugestia:** Dodac `transport.verify()` przed wysylka lub implementowac exponential backoff.
+
+### 5.9 CSS globalny — 2389 linii w jednym pliku (app/globals.css)
+
+**Problem:** Caly CSS ladowany na kazdej stronie. Import CSS react-datepicker globalnie, nawet jesli komponent nie jest uzywany.
+
+**Sugestia:** Przeniesc CSS react-datepicker do komponentu, ktory go uzywa. Rozwazyc CSS modules dla specyficznych stron.
 
 ---
 
-### Szacowany wpływ napraw na PageSpeed mobile
+## 6. JAKOSC KODU / DRY
 
-| Naprawa | Estymacja wpływu na LCP | Estymacja wpływu na FCP |
-|---------|------------------------|------------------------|
-| 0.1 Tła sekcji → `<Image>` | **-2 do -4s** (główny zysk) | ~0 |
-| 0.2 TypeKit async | **-0.5 do -0.7s** | **-0.5 do -0.7s** |
-| 0.3 Lazy DatePicker | ~0 | -0.1s (mniejszy bundle) |
-| 0.4 Rekompresja gal_00.webp | -0.3 do -1s (gdy widoczny) | ~0 |
-| 0.5 Preconnect Blob | -0.1 do -0.2s | ~0 |
-| **ŁĄCZNIE** | **-3 do -6s** | **-0.5 do -1s** |
+### 6.1 Niespojne formatowanie dat
 
-Sama zmiana 0.1 (tła → `<Image>`) powinna dać największy skok wyniku, bo LCP to ~45% wagi PageSpeed Performance score.
+Trzy rozne wzorce formatowania dat w kodzie:
+- `toISOString().split('T')[0]` — actions/pricing.ts
+- `toLocaleDateString('pl-PL', ...)` — PricingClient.tsx
+- `format(date, 'dd.MM.yyyy')` (date-fns) — actions/reservations.ts
+
+**Sugestia:** Stworzyc helper w `lib/date-utils.ts`: `toDateString(date)` i `toDisplayDate(date, locale)`.
+
+### 6.2 Niespojne wyciaganie bledow Zod
+
+- `actions/pricing.ts:71` — `parsed.error.issues[0].message`
+- `actions/reservations.ts:150` — `parsed.error.issues[0]?.message ?? 'Nieprawidlowe dane'`
+- `app/api/reservations/route.ts:35` — `parsed.error.flatten().fieldErrors`
+
+**Sugestia:** Stworzyc helper `extractZodError(parsed)`.
+
+### 6.3 Zduplikowana walidacja telefonu
+
+- `lib/validations.ts:15` — `/^[\d\s+()-]+$/`
+- `components/ReservationModal.tsx:49` — `/^\+?[\d\s\-()]{9,15}$/`
+
+**Problem:** Dwa rozne regexy dla tego samego celu. Moga dawac rozne wyniki.
+
+**Sugestia:** Uzyc jednego regexa, wyeksportowanego z `lib/validations.ts`.
+
+### 6.4 Reczne sprawdzanie typow w getSettings (actions/settings.ts:82-112)
+
+```typescript
+pricePerNight: typeof map.pricePerNight === 'number' ? map.pricePerNight : DEFAULTS.pricePerNight,
+// ... 15+ kolejnych recznych sprawdzen
+```
+
+**Problem:** Duplikuje logike walidacji z `settingsSchema` (Zod). Podatne na bledy przy dodawaniu nowych pol.
+
+**Sugestia:** Uzyc `settingsSchema.safeParse({ ...DEFAULTS, ...map })`.
+
+### 6.5 Duplikacja wzorca CRUD w actions
+
+Kazdy plik action reimplementuje ten sam wzorzec: `verifySession()` → `safeParse()` → operacja DB → `{ success/error }`.
+
+**Pliki:** `actions/pricing.ts`, `actions/reservations.ts`, `actions/settings.ts`, `actions/clients.ts`, `actions/pages.ts`
+
+**Sugestia:** Rozwazyc helper `withAuth(schema, handler)`, ale NIE overengineer'owac — obecny stan jest czytelny i KISS.
+
+### 6.6 Zbyt wiele useState w HomeClient (HomeClient.tsx:62-145)
+
+10+ stanow w jednym komponencie. Zlozony lancuch zaleznosci miedzy stanami.
+
+**Sugestia:** Rozwazyc `useReducer` dla powiazanych stanow (np. stany rezerwacji) lub wydzielic mniejsze komponenty.
+
+### 6.7 Parameter sprawl w ReservationModal (ReservationModal.tsx:7-19)
+
+Komponent przyjmuje 10 indywidualnych propsow zamiast obiektu.
+
+**Sugestia:** Zgrupowac w `reservation: { checkIn, checkOut, nights, guests, totalPrice, depositAmount }`.
 
 ---
 
-## 1. KRYTYCZNE — Bezpieczeństwo
+## 7. OPTYMALIZACJA OBRAZOW I ASSETOW
 
-### 1.1 ⛔ Sekrety `.env` BYŁY commitowane do git — WYMAGANA NATYCHMIASTOWA ROTACJA
+### 7.1 Konfiguracja next/image — brak formatu fallback
 
-**Pliki:** `.env`, historia git (commity `af72859`, `49a82e2`)
-**Dotkliwość:** KRYTYCZNA
+**Plik:** `next.config.ts:61`
 
-Plik `.env` zawierający pełne dane uwierzytelniające był commitowany do repozytorium (2 commity). Choć `.gitignore` teraz wyklucza `.env`, **historia git zachowuje pełną treść**. Każda osoba z dostępem do repo (lub jego klonu) może odczytać:
+```typescript
+formats: ['image/avif', 'image/webp'],
+```
 
-- **SMTP_PASS** — hasło do serwera pocztowego
-- **JWT_SECRET** — klucz podpisu sesji (umożliwia fałszowanie tokenów)
-- **ADMIN_SECRET_CODE** — kod logowania admina
-- **BLOB_READ_WRITE_TOKEN** — pełny dostęp do Vercel Blob
-- **VERCEL_TOKEN** — token API Vercel (deploy, env, domains)
-- **DATABASE_URL** — pełny connection string do bazy Neon (z hasłem)
-- **NEON_API_KEY** — klucz API Neon
-- **UMAMI_API_KEY** — klucz API analityki
+**Status:** Obrazy w `public/` sa w formacie WebP — **poprawnie**.
+Konfiguracja `remotePatterns` dla Vercel Blob — **poprawnie**.
+`deviceSizes` i `imageSizes` — **poprawnie** skonfigurowane.
+Hero image preload z `fetchPriority="high"` — **poprawnie** (`app/layout.tsx:76-83`).
 
-**Wymagane działania:**
-1. Natychmiastowa rotacja WSZYSTKICH powyższych sekretów
-2. Rozważ `git filter-branch` lub `bfg` do usunięcia `.env` z historii (wymaga force-push)
-3. Po rotacji, sprawdź czy nowe sekrety nie są commitowane
+**Uwaga:** Next.js automatycznie obsluguje fallback (JPEG/PNG), wiec brak jawnego formatu fallback w konfiguracji nie jest problemem.
+
+**Wniosek:** Optymalizacja obrazow dziala prawidlowo. Brak problemow.
+
+### 7.2 Bundle analyzer skonfigurowany, ale nieuzywany
+
+**Plik:** `next.config.ts:2-6`
+
+`withBundleAnalyzer` jest skonfigurowany. Warto okresowo uruchamiac `ANALYZE=true npm run build` aby wykrywac nadmierny rozmiar bundla.
 
 ---
 
-### 1.2 ⛔ Brak autoryzacji w publicznych server actions
+## 8. SUGESTIE DODATKOWE (niski priorytet)
 
-**Pliki i lokalizacje:**
+### 8.1 Dostepnosc danych o dostepnosci terminow
 
-| Plik | Funkcja | Problem |
-|------|---------|---------|
-| `actions/seo.ts:6` | `getSeoSettings()` | Brak `verifySession()` — zwraca SEO config wszystkich stron |
-| `actions/seo.ts:20` | `getGlobalSeo()` | Brak auth — zwraca globalne SEO w tym `customHeadTags` |
-| `actions/seo.ts:82` | `getLlmsTxtContent()` | Brak auth — zwraca treść llms.txt |
-| `actions/pages.ts:65` | `getPageTree()` | Brak auth — zwraca pełne drzewo stron z ID |
-| `actions/pages.ts:83` | `getSectionsForGraph()` | Brak auth — zwraca listę sekcji |
-| `actions/pages.ts:90` | `getPageFlat()` | Brak auth — zwraca pełną listę stron |
-| `actions/content.ts:20` | `getContentBySlug()` | Brak auth — zwraca również ukryte/draftowe sekcje (`isVisible: false`) |
+Dane o zajetych terminach pobierane sa client-side (`fetchAvailability` w HomeClient). Mozna je wstepnie zaladowac server-side i przekazac jako prop.
 
-**Ryzyko:** Server actions można wywoływać bezpośrednio przez POST. Atakujący poznaje wewnętrzną strukturę serwisu, ID encji, ukrytą treść i konfigurację.
+### 8.2 Reusable StatsCard
 
-**Rozwiązanie:** Dodać `verifySession()` do każdej funkcji adminowej LUB, jeśli mają być publiczne, filtrować `isVisible: true` w `getContentBySlug`.
+Wzorzec karty statystyk powtarza sie w ReservationsClient, ClientsClient, Dashboard. Mozna wydzielic `<StatsCard label value />`.
+
+### 8.3 Podwojne sprawdzanie JWT
+
+JWT jest weryfikowany w middleware (middleware.ts:24), a potem ponownie w `verifySession()` w kazdym server action. To podwojne sprawdzenie jest nadmiarowe, ale nie szkodliwe.
 
 ---
 
-### 1.3 ⛔ XSS w szablonie testowego emaila (mailing.ts)
+## 9. CO DZIALA DOBRZE
 
-**Plik:** `actions/mailing.ts:70-72`
-
-```ts
-const logoHtml = logoUrl
-  ? `<img src="${logoUrl}" alt="HOMMM" ...`
-  : '';
-```
-
-`logoUrl` z bazy wstawiany jest do HTML bez escapowania. Porównaj z `lib/mail.ts:72`, gdzie poprawnie używa `escapeAttr()`. Admin z dostępem do edycji logo mailingowego może wstrzyknąć HTML/JS do emaili.
-
-**Rozwiązanie:** Użyć `escapeAttr()` z `lib/mail.ts` lub wyodrębnić layout emaila do wspólnej funkcji.
+- **Architektura**: Czyste rozdzielenie server actions / API routes / komponenty klienckie.
+- **Walidacja Zod**: Uzywana konsekwentnie na granicach systemowych.
+- **Optymalizacja obrazow**: WebP, proper next/image, preload hero.
+- **Lazy loading**: Lightbox i DatePicker ladowane dynamicznie.
+- **Parallel data fetching**: `Promise.all` uzywany w wiekszosci stron serwerowych.
+- **Prisma**: Transakcje uzywane przy tworzeniu rezerwacji (zapobieganie race conditions).
+- **ISR**: Strona glowna uzywa `revalidate: 60`.
+- **Sanityzacja HTML**: `sanitizeHtml` uzywany przy renderowaniu user-generated content.
+- **Event listener cleanup**: Prawidlowe czyszczenie w useEffect.
 
 ---
 
-### 1.4 ⛔ Niekompletna ochrona SSRF w iCal sync
+## 10. PRIORYTETY NAPRAW
 
-**Plik:** `actions/ical.ts:18-26, 93-100`
+### Natychmiastowe (przed wdrozeniem)
+1. **Bug cenowy** (1.1) — weekendowa cena nadpisuje sezonowa
+2. **Weryfikacja semantyki checkOut** (4.1) — lte/gte moze powodowac false conflicts
 
-Problemy:
-1. **`addICalFeed`** — brak walidacji URL przy zapisie (żaden string jest akceptowany)
-2. **`syncICalFeed`** — blocklista hostów jest niekompletna:
-   - Brakuje: octal IP (`0177.0.0.1`), decimal IP (`2130706433`), IPv6 link-local (`fe80::`), RFC-1918 (`10.x`, `192.168.x`, `172.16-31.x`), AWS/GCP internal (`100.64.0.0/10`)
-   - Walidacja odbywa się dopiero przy sync, nie przy zapisie
+### Wysokie (w najblizszym sprincie)
+3. Wyeksportowac DELETABLE_STATUSES do wspolnego pliku (2.1)
+4. Ujednolicic wzorzec autoryzacji (2.2)
+5. Poprawic CSP — usunac unsafe-eval na produkcji (2.3)
+6. Wdrozyc rozproszony rate limiting (2.4)
 
-**Rozwiązanie:** Walidować URL przy `addICalFeed` (wymuszać `https://`, sprawdzać host). Rozszerzyć blocklist lub użyć podejścia allowlist (tylko znane domeny iCal: google, airbnb itp.).
+### Srednie (planowane)
+7. Dodac `select` do zapytan dashboardowych (5.1, 5.2)
+8. Naprawic cache sanityzacji HTML (5.4)
+9. Ujednolicic formatowanie dat (6.1)
+10. Ujednolicic obsluge bledow Zod (6.2)
 
----
-
-## 2. WAŻNE — Bezpieczeństwo i logika
-
-### 2.1 Rate limiter in-memory — nieskuteczny na Vercel
-
-**Plik:** `lib/rate-limit.ts`
-
-Rate limiter oparty na `Map` w pamięci. Na Vercel każda instancja Serverless Function ma osobny `Map`, więc efektywny limit = `MAX_REQUESTS × liczba instancji`. Dla logowania (10 prób/15 min) i rezerwacji (5/min) ochrona jest iluzoryczna.
-
-**Rozwiązanie:** Upstash Rate Limit (`@upstash/ratelimit`) lub Vercel WAF rate limiting.
-
-### 2.2 IP spoofing przez X-Forwarded-For
-
-**Pliki:** `app/api/reservations/route.ts:18`, `app/api/auth/login/route.ts:12`
-
-```ts
-const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
-```
-
-`X-Forwarded-For[0]` to wartość kontrolowana przez klienta. Atakujący może wysłać dowolne IP i obejść rate limiting. Na Vercel, bezpieczniejsze jest użycie **ostatniego** elementu (dodanego przez platformę) lub nagłówka `x-real-ip` z Vercel.
-
-### 2.3 Brak walidacji Zod w `updateReservation`
-
-**Plik:** `actions/reservations.ts:138-175`
-
-Funkcja przyjmuje `totalPrice?: number` bez walidacji. Server actions nie enforcują typów TypeScript w runtime — można przekazać `NaN`, `Infinity`, liczbę ujemną. Porównaj z `updateClient` (linia 162) która poprawnie używa Zod schema.
-
-**Dodatkowy problem (linia 148-149):** `new Date(data.checkIn)` bez sprawdzenia `isNaN()` — niepoprawny string daty przejdzie walidację `checkOut <= checkIn` (NaN comparisons zwracają false).
-
-### 2.4 Duplikaty w `addBlockedDate`
-
-**Plik:** `actions/reservations.ts:231-252`
-
-Brak sprawdzenia unikalności daty przed `prisma.blockedDate.create()`. Wielokrotne wywołanie z tą samą datą tworzy duplikaty. Porównaj z iCal sync (`ical.ts:138`) który używa `skipDuplicates: true`.
-
-### 2.5 Brak walidacji `status` w eksporcie CSV
-
-**Plik:** `app/api/admin/reservations/export/route.ts:28`
-
-Parametr `status` z query string trafia do Prisma bez walidacji przez enum. Prisma odrzuci niepoprawną wartość, ale error handling jest ogólny.
-
-### 2.6 `updateGlobalSeo` i `updateLlmsTxt` — niepotrzebne `JSON.parse(JSON.stringify())`
-
-**Plik:** `actions/seo.ts:50, 94`
-
-```ts
-const jsonValue = JSON.parse(JSON.stringify(data));
-```
-
-To no-op dla prostych obiektów. Jeśli celem jest deep clone — `structuredClone(data)` jest czytelniejszy. Jeśli celem jest usunięcie `undefined` — lepiej zrobić to jawnie.
+### Niskie (backlog)
+11. Wydzielic StatsCard (8.2)
+12. Uzyc useReducer w HomeClient (6.6)
+13. Zgrupowac propsy ReservationModal (6.7)
+14. Dodac tooltipy do pol formularzy w panelu admina (11)
+15. Dodac symulator ceny do zakladki Cennik (12)
 
 ---
 
-## 3. WYDAJNOŚĆ — Optymalizacje
+## 11. TOOLTIPY — POLA WYMAGAJACE POMOCY KONTEKSTOWEJ
 
-### 3.1 `getClients` — pobieranie WSZYSTKICH klientów z rezerwacjami dla computed sort
+Ponizej lista pol formularzy w panelu admina, ktore wymagaja tooltipow (ikonka `?` lub `info` z podpowiedzią po najechaniu). Pogrupowane wg sekcji.
 
-**Plik:** `actions/clients.ts:58-66`
+### 11.1 Cennik (`app/admin/pricing/PricingClient.tsx`)
 
-```ts
-const needsComputedSort = sortBy === 'reservationCount' || sortBy === 'totalSpent';
-// ... pobiera WSZYSTKICH klientów bez paginacji gdy needsComputedSort
-```
+#### Cennik bazowy (linie 157-185)
 
-Gdy sortowanie po `reservationCount` lub `totalSpent`, pobierani są WSZYSCY klienci z relacją `reservations` — paginacja jest nakładana dopiero w JS. Przy dużej liczbie klientów to problem wydajnościowy i pamięciowy.
+| Pole | Linia | Obecna pomoc | Sugerowany tooltip |
+|------|-------|--------------|-------------------|
+| Cena za noc (PLN) | 162 | Brak | "Podstawowa cena za jedną noc. Może być nadpisana przez cenę weekendową, sezonową lub regułę z cennika dat." |
+| Cena weekendowa (PLN) | 173 | "(0 = brak)" | "Cena obowiązująca w noce piątek→sobota i sobota→niedziela. Nadpisuje cenę bazową i sezonową. Ustaw 0 aby wyłączyć." |
 
-**Rozwiązanie:** Użyć raw SQL z `GROUP BY` i `ORDER BY` w Prisma `$queryRaw` lub dedykowanego widoku SQL.
+#### Cennik sezonowy (linie 187-239)
 
-### 3.2 `getSettings` — osobne zapytanie dla każdego klucza settings
+| Pole | Linia | Obecna pomoc | Sugerowany tooltip |
+|------|-------|--------------|-------------------|
+| Cena — sezon wysoki (PLN) | 194 | Brak | "Cena w okresie sezonu wysokiego (daty poniżej). Nadpisuje cenę bazową. Ustaw 0 aby wyłączyć." |
+| Cena — sezon niski (PLN) | 206 | Brak | "Cena poza sezonem wysokim. Nadpisuje cenę bazową. Ustaw 0 aby wyłączyć." |
+| Sezon wysoki od (MM-DD) | 220 | Placeholder "06-01" | "Data początkowa sezonu w formacie MM-DD. Np. 06-01 = 1 czerwca. Obsługuje przełom roku (np. 11-01 do 03-31)." |
+| Sezon wysoki do (MM-DD) | 230 | Placeholder "09-30" | "Data końcowa sezonu w formacie MM-DD. Jeśli 'od' > 'do', system rozumie to jako okres przez zmianę roku." |
 
-**Plik:** `actions/settings.ts:80`
+#### Rabat za długi pobyt (linie 241-270)
 
-`getSettings()` pobiera wszystkie wpisy `siteSettings` w jednym zapytaniu — to poprawne. Jest owinięte `cache()` z React — dobrze. Ale `updateSettings` (linia 124) robi `upsert` w transakcji dla KAŻDEGO klucza osobno. Przy 18 kluczach to 18 operacji DB.
+| Pole | Linia | Obecna pomoc | Sugerowany tooltip |
+|------|-------|--------------|-------------------|
+| Rabat (%) | 247 | Brak | "Procent rabatu od całkowitej ceny rezerwacji. Aktywuje się gdy liczba nocy >= próg poniżej." |
+| Próg (noce) | 259 | Brak | "Minimalna liczba nocy do aktywacji rabatu. Np. 7 = rabat od tygodnia wzwyż." |
 
-**Rozwiązanie:** Użyć pojedynczego JSON-a w jednym wierszu `siteSettings` zamiast wielu wierszy.
+#### Zaliczka (linie 272-293)
 
-### 3.3 `getYearlyReport` — iteracja O(n²)
+| Pole | Linia | Obecna pomoc | Opis obecnej pomocy / Sugerowany tooltip |
+|------|-------|--------------|------------------------------------------|
+| Wysokość (%) | 278 | Obliczony przykład | "Procent ceny rezerwacji wymagany jako zaliczka. Obliczany od ceny PO rabacie. Ustaw 0 aby wyłączyć." |
 
-**Plik:** `actions/reports.ts:94-106`
+#### Cennik dat — formularz reguł (linie 303-370)
 
-Dla każdego z 12 miesięcy iteruje po WSZYSTKICH potwierdzonych rezerwacjach:
-```ts
-const monthlyRevenue = MONTH_NAMES.map((name, i) => {
-  for (const r of confirmed) { // n rezerwacji × 12 miesięcy
-```
+| Pole | Linia | Obecna pomoc | Sugerowany tooltip |
+|------|-------|--------------|-------------------|
+| Nagłówek sekcji | 306 | Opis pod tytułem | "Reguły z cennika dat mają NAJWYŻSZY priorytet — nadpisują cenę bazową, weekendową i sezonową." |
+| Nazwa | 333 | Brak | "Wewnętrzna nazwa reguły (np. 'Wakacje 2026', 'Sylwester'). Widoczna tylko w panelu." |
+| Cena za noc (zł) | 341 | Brak | "Cena noclegowa w tym przedziale dat. Nadpisuje WSZYSTKIE inne ceny (bazową, weekendową, sezonową)." |
+| Od | 352 | Brak | "Pierwszy dzień obowiązywania reguły (włącznie)." |
+| Do | 360 | Brak | "Ostatni dzień obowiązywania reguły (włącznie)." |
 
-Przy 500+ rezerwacjach to 6000+ iteracji `overlapNights`. Nie jest to problem przy obecnej skali, ale liniowo rośnie.
+### 11.2 Ustawienia (`app/admin/settings/client.tsx`)
 
-### 3.4 `updateImageOrder` — N operacji UPDATE w transakcji
+| Pole | Linia | Obecna pomoc | Sugerowany tooltip |
+|------|-------|--------------|-------------------|
+| Max. liczba gości | 77 | Brak | "Limit osób na jedną rezerwację. Formularz rezerwacji nie pozwoli przekroczyć tej wartości." |
+| Min. liczba nocy | 88 | Brak | "Minimalna długość pobytu. Np. 2 = nie można zarezerwować na jedną noc." |
+| Instagram/Facebook/TikTok URL | 127-146 | Placeholders | "Pełny URL profilu. Pojawi się jako ikona w stopce strony." |
+| Nazwa firmy | 161 | Brak | "Oficjalna nazwa firmy. Widoczna w emailach i meta tagach." |
+| NIP | 179 | Brak | "NIP do faktur. Może być pusty dla osób fizycznych." |
 
-**Plik:** `actions/gallery.ts:83-94`
+### 11.3 SEO (`app/admin/seo/SeoForm.tsx`)
 
-```ts
-await prisma.$transaction(
-  ids.map((id, index) =>
-    prisma.galleryImage.update({ where: { id }, data: { order: index } }),
-  ),
-);
-```
+| Pole | Linia | Obecna pomoc | Sugerowany tooltip |
+|------|-------|--------------|-------------------|
+| Tytuł (PL/EN) | 78-85 | Licznik znaków | "Nagłówek strony w Google (max ~60 znaków). Powinien zawierać słowa kluczowe." |
+| Opis (PL/EN) | 95-104 | Licznik znaków | "Opis pod tytułem w Google (max ~160 znaków). Zachęcający do kliknięcia." |
+| OG Image URL | 129 | Brak | "URL obrazka przy udostępnianiu na social media. Min. 1200x630px." |
+| Custom head tags | 136 | Brak | "Dodatkowy HTML w <head>. Dla zaawansowanych: skrypty analityczne, custom meta tagi." |
+| Reguły robots.txt dla AI | 155 | Opis ogólny | "Kontroluj dostęp botów AI (ChatGPT, Claude). Allow/Disallow dla konkretnych crawlerów." |
+| llms.txt | 177 | Opis ogólny | "Opis obiektu czytelny dla AI. Skanowany przez modele językowe." |
 
-Przy 50+ obrazach to 50+ UPDATEów. Można zoptymalizować do jednego `$executeRaw` z CASE/WHEN.
+### 11.4 Mailing (`app/admin/mailing/MailingEditor.tsx`)
 
-### 3.5 `updateSettings` — 18 UPSERTów w transakcji
+| Pole | Linia | Obecna pomoc | Sugerowany tooltip |
+|------|-------|--------------|-------------------|
+| Logo w mailach | 131 | Brak | "Logo na górze emaili do gości. PNG/WebP, do 200px szerokości." |
+| Treść (HTML) | 194 | Brak | "HTML body emaila. Użyj zmiennych {{guestName}}, {{totalPrice}} itp. do dynamicznych danych." |
 
-**Plik:** `actions/settings.ts:124`
+### 11.5 Galeria (`app/admin/gallery/GalleryManager.tsx`)
 
-Analogicznie do 3.4 — każdy klucz ustawień to osobny upsert.
+| Pole | Linia | Obecna pomoc | Sugerowany tooltip |
+|------|-------|--------------|-------------------|
+| Alt text (PL/EN) | 320-331 | Placeholders | "Opis obrazka dla SEO i dostępności. Opisz co widać na zdjęciu (do 125 znaków)." |
+| Sekcja | 341 | Brak | "Przypisz do sekcji strony. Puste = galeria główna." |
 
-### 3.6 `gal_00.webp` w public/ — 1.4 MB
+### 11.6 iCal (`app/admin/settings/ICalManager.tsx`)
 
-**Plik:** `public/assets/gal_00.webp` (1.4 MB)
+| Pole | Linia | Obecna pomoc | Sugerowany tooltip |
+|------|-------|--------------|-------------------|
+| Link do eksportu | 91 | Opis ogólny | "Wklej w Booking.com/Airbnb aby zsynchronizować kalendarz." |
+| Nazwa feedu | 159 | Placeholder | "Etykieta źródła (np. 'Booking.com', 'Airbnb'). Dla Twojej identyfikacji." |
+| URL kalendarza iCal | 160 | Placeholder | "URL feedu iCal z Booking/Airbnb. Znajdź w ustawieniach kalendarza danego portalu." |
 
-Jest to bardzo duży plik jak na WebP. Sugerowane jest przejrzenie i rekompresja (typowy WebP tego rozmiaru powinien być < 300 KB).
+### 11.7 Edytor treści (`app/admin/content/[slug]/SectionEditor.tsx`)
 
-### 3.7 `logo.png` — jedyny plik PNG, nie zoptymalizowany
-
-**Plik:** `public/assets/logo.png` (74 KB)
-
-Jedyny plik PNG w katalogu `public/`. Może być skonwertowany do WebP/AVIF (lub SVG jeśli to logo wektorowe) dla spójności i mniejszego rozmiaru.
-
-### 3.8 TypeKit CSS — redundantny preload, render-blocking
-
-**Plik:** `app/layout.tsx:86-90`
-
-```html
-<link rel="preload" href="https://use.typekit.net/zpt0osi.css" as="style" />
-<link rel="stylesheet" href="https://use.typekit.net/zpt0osi.css" />
-```
-
-Synchroniczny `<link rel="stylesheet">` blokuje renderowanie strony. `<link rel="preload">` tuż nad nim jest redundantny — nie daje żadnego przyspieszenia. Komentarz w kodzie mówi "async load to avoid render-blocking", ale implementacja tego nie zapewnia.
-
-**Rozwiązanie:** Zastąpić wzorcem `media="print" onload="this.media='all'"` lub użyć `next/font` z Google Fonts API dla TypeKit.
-
-### 3.9 Dashboard — sekwencyjne zapytania poza Promise.all
-
-**Plik:** `app/admin/dashboard/page.tsx:221-264`
-
-Po głównym `Promise.all` z 9 zapytaniami (dobrze), wykonywane są 3 dodatkowe zapytania **sekwencyjnie** (`upcomingCheckIns`, `pendingCheckingSoon`, `depositSoon`), mimo że nie zależą od wyników głównej paczki.
-
-**Rozwiązanie:** Włączyć do głównego `Promise.all`.
-
-### 3.10 `react-datepicker` statycznie w bundlu głównym
-
-**Plik:** `components/HomeClient.tsx:11`
-
-```ts
-import DatePicker from 'react-datepicker'; // zawsze w bundlu
-const Lightbox = dynamic(...)              // lazy — dobrze
-```
-
-`react-datepicker` jest importowany statycznie, podczas gdy `Lightbox` jest poprawnie lazy-loaded. DatePicker jest potrzebny tylko w widoku `rezerwuj`/`miejsca`, ale trafia do głównego bundla klienta.
-
-**Rozwiązanie:** `dynamic(() => import('react-datepicker'), { ssr: false })` lub warunkowy render.
-
-### 3.11 `sanitizeHtml` wywoływane przy każdym renderze bez memoizacji
-
-**Plik:** `components/HomeClient.tsx:560, 589, 593, 669-671, 728, 759`
-
-`sanitize-html` parsuje HTML przez parser DOM-like — ciężka operacja. Jest wywoływane inline przy każdym renderze komponentu (kilkukrotnie), bez `useMemo`. Scroll events powodują częste re-rendery.
-
-### 3.12 `setHasScrolled` bezwarunkowo przy każdym scroll event
-
-**Plik:** `components/HomeClient.tsx:278`
-
-```ts
-setHasScrolled(currentScrollY > SCROLL_COMPACT_THRESHOLD); // zawsze setState
-```
-
-Wywoływane przy każdym scroll event (nawet gdy wartość się nie zmienia), co powoduje re-render `HomeClient` i całej jego zawartości.
-
-**Rozwiązanie:** Sprawdzenie czy wartość się zmieniła przed wywołaniem setState.
-
-### 3.13 AdminShell — 3 fetch requests na każde mount bez cache
-
-**Plik:** `components/admin/AdminShell.tsx`
-
-Sidebar ładuje `/api/content/sections`, `/api/admin/build-info` i `/api/admin/notifications` przy każdej nawigacji w panelu admina (re-mount). Wyniki nie są cachowane.
-
-### 3.14 `react.cache` w Server Action — nie deduplikuje
-
-**Plik:** `actions/settings.ts:80`
-
-```ts
-export const getSettings = cache(async (): Promise<SiteSettingsMap> => { ... });
-```
-
-`cache()` z React jest przeznaczone do Server Components (deduplikacja w jednym render tree). Server Actions (`'use server'`) są wywoływane w osobnym request — `cache()` nie deduplikuje między invocations.
+| Pole | Linia | Obecna pomoc | Sugerowany tooltip |
+|------|-------|--------------|-------------------|
+| Obraz tła (URL) | 334 | Placeholder | "URL tła sekcji. Użyj przycisku 'Galeria' lub wklej zewnętrzny URL. Min. 1920x1080px." |
+| Kolor tła | 398 | Brak | "Kolor tła gdy brak obrazu. Format hex (#RRGGBB) np. #1a1a1a." |
 
 ---
 
-## 4. OPTYMALIZACJA GRAFIK
+## 12. SYMULATOR CENY — PROPOZYCJA FUNKCJONALNOSCI
 
-### 4.1 Pipeline optymalizacji obrazów (gallery) — POPRAWNY ✅
+### 12.1 Cel
 
-**Plik:** `actions/gallery.ts:35-48`
+Dodac do zakladki **Cennik** (`app/admin/pricing/PricingClient.tsx`) interaktywny symulator ceny, ktory pozwala adminowi:
+- Sprawdzic koncowa cene rezerwacji dla dowolnych dat
+- Zweryfikowac poprawnosc konfiguracji cenowej
+- Zobaczyc jak poszczegolne reguly wplywaja na cene
 
-Pipeline sharp jest dobrze zaimplementowany:
-- ✅ 4 warianty równolegle: original (95%), standard (82%), mobile (800px, 80%), thumbnail (400px, 82%)
-- ✅ Wszystko konwertowane do WebP
-- ✅ `withoutEnlargement: true` — nie powiększa mniejszych obrazów
-- ✅ Równoległy upload do Blob (`Promise.all`)
-- ✅ Walidacja typu pliku (`ALLOWED_TYPES`) i rozmiaru (`10 MB`)
+### 12.2 Interfejs
 
-### 4.2 Next.js Image Optimization — POPRAWNA ✅
+Symulator powinien byc umieszczony **na dole strony cennika** jako osobna sekcja (Card).
 
-**Plik:** `next.config.ts:48-62`
+**Pola wejsciowe:**
+- Data zameldowania (date picker)
+- Data wymeldowania (date picker)
 
-- ✅ Formaty: `['image/avif', 'image/webp']` — AVIF jako preferowany
-- ✅ `deviceSizes` i `imageSizes` skonfigurowane
-- ✅ `remotePatterns` dla Vercel Blob
+**Wynik — rozbicie ceny (tabela):**
 
-### 4.3 Użycie `next/image` — CZĘŚCIOWE ⚠️
+| Noc | Data | Dzień tyg. | Sezon | Weekend | Reguła dat | Cena noclegu |
+|-----|------|-----------|-------|---------|-----------|-------------|
+| 1 | 2026-07-05 | Pt | Wysoki | Tak | — | 350 zł (weekendowa) |
+| 2 | 2026-07-06 | So | Wysoki | Tak | — | 350 zł (weekendowa) |
+| 3 | 2026-07-07 | Nd | Wysoki | Nie | — | 400 zł (sezon wysoki) |
 
-**W kodzie:**
-- ✅ `Image` z next/image używany w `HomeClient.tsx` (galeria, baner)
-- ✅ `Image` w `[...slug]/page.tsx` (podstrony)
-- ❌ **Tła 4 sekcji przez CSS `background-image`** — omijają `next/image` (patrz sekcja 0.1)
-- ⚠️ `<img src="/assets/hommm.svg">` w hero sekcji (`HomeClient.tsx:706`) — SVG, OK dla tego formatu
-- ⚠️ `<img src="/assets/hommm.svg">` w footer (`HomeClient.tsx:789`) — brak `next/image` (dla SVG akceptowalne)
-
-### 4.4 Pliki statyczne w `public/` — podsumowanie rozmiarów
-
-| Plik | Rozmiar | Format | Używany przez | Responsive mobile? | Uwaga |
-|------|---------|--------|---------------|-------------------|-------|
-| `gal_00.webp` | 1.4 MB | WebP | `<Image>` | ✅ 640px via sizes | **Za duży** — wymaga rekompresji |
-| `hero.webp` | 452 KB | WebP | CSS `background-image` | ❌ pełny 1920px | **Tło sekcji — omija next/image** |
-| `sec_3.webp` | 448 KB | WebP | CSS `background-image` | ❌ pełny 1920px | **Tło sekcji — omija next/image** |
-| `sec_2.webp` | 364 KB | WebP | CSS `background-image` | ❌ pełny 1920px | **Tło sekcji — omija next/image** |
-| `gal_01.webp` | 336 KB | WebP | `<Image>` | ✅ 640px via sizes | OK |
-| `footer.webp` | 156 KB | WebP | CSS `background-image` | ❌ pełny 1920px | **Tło sekcji — omija next/image** |
-| `gal_02.webp` | 116 KB | WebP | `<Image>` | ✅ 640px via sizes | OK |
-| `logo.png` | 74 KB | PNG | bezpośrednio | — | Konwertować do WebP/SVG |
-| `hommm.svg` | 68 KB | SVG | `<img>` | — | OK (logo wektorowe) |
-| `mailing_logo.webp` | 16 KB | WebP | email | — | OK |
-| `baner.webp` | 15 KB | WebP | `<Image>` | ✅ | OK |
-| `cfab_logo_2026.svg` | 11 KB | SVG | `<img>` | — | OK |
-
-**Kluczowy wniosek:** 4 największe pliki graficzne (hero, sec_2, sec_3, footer = łącznie 1.42 MB) są serwowane jako CSS `background-image` — identyczny plik na mobile i desktop, bez AVIF, bez responsywnych rozmiarów. To główna przyczyna niskiego PageSpeed mobile.
-
----
-
-## 5. JAKOŚĆ KODU — Duplikacje i wzorce
-
-### 5.1 Zduplikowany layout emaila
-
-**Pliki:** `lib/mail.ts:70-86` vs `actions/mailing.ts:74-85`
-
-Funkcja `emailLayout()` z `lib/mail.ts` jest skopiowana (z pominięciem `escapeAttr`) do `actions/mailing.ts:sendTestEmail`. To powoduje:
-1. Bug bezpieczeństwa (brak escapowania — patrz 1.3)
-2. Rozsynchronizowanie zmian wizualnych (zmiana w jednym miejscu nie aktualizuje drugiego)
-
-**Rozwiązanie:** Wyeksportować `emailLayout()` z `lib/mail.ts` i użyć w obu miejscach.
-
-### 5.2 Powtórzony wzorzec `unauthorized()`
-
-**Pliki:** `actions/reservations.ts:15`, `actions/clients.ts:8`, `actions/reports.ts:7`, `actions/ical.ts:7`
-
-Identyczna funkcja `function unauthorized() { return { error: 'Brak autoryzacji' }; }` zdefiniowana w 4 plikach.
-
-**Rozwiązanie:** Wyeksportować z jednego pliku (np. `lib/auth.ts`).
-
-### 5.3 Powtórzony wzorzec konwersji dat w akcjach
-
-**Pliki:** `actions/reservations.ts:62-68, 82-89, 187-191`
-
-Wzorzec `{ ...r, checkIn: r.checkIn.toISOString(), ... }` powtarza się w 3 funkcjach. Może być helper `serializeReservation(r)`.
-
-### 5.4 `STATUS_LABELS` zduplikowane
-
-**Pliki:** `app/api/admin/reservations/export/route.ts:6-12` vs `lib/reservation-status.ts:10-41`
-
-`STATUS_LABELS` w route eksportowym są ręcznie zdefiniowane, gdy `STATUS_CONFIG` w `lib/reservation-status.ts` zawiera te same dane (pole `label`).
-
-### 5.5 `CONFIRMED_STATUSES` zduplikowane
-
-**Pliki:** `actions/reports.ts:12`, `actions/clients.ts:76-77`, `app/admin/dashboard/page.tsx:21`
-
-Tablica `['DEPOSIT_PAID', 'PAID', 'COMPLETED']` powtarza się w 3+ plikach jako literał.
-
-### 5.6 `formatPLN` zduplikowane
-
-**Pliki:** `lib/format.ts:1-3` vs `app/admin/dashboard/page.tsx:294-296`
-
-Identyczna funkcja `formatPLN` zdefiniowana w obu plikach. Dashboard nie importuje z `lib/format.ts`.
-
-### 5.7 `getWeekOfYear` w dashboard — mogłaby być w `lib/date-utils.ts`
-
-**Plik:** `app/admin/dashboard/page.tsx:13-17`
-
-Lokalna funkcja `getWeekOfYear` zdefiniowana w pliku dashboard. Jeśli będzie potrzebna gdzie indziej, wymaga duplikacji.
-
-### 5.8 Trzecia kopia layoutu emaila — `MailingEditor.tsx`
-
-**Pliki:** `lib/mail.ts:70-86` vs `actions/mailing.ts:73-85` vs `app/admin/mailing/MailingEditor.tsx:42-58`
-
-Funkcja `buildPreviewHtml()` w `MailingEditor.tsx` to trzecia kopia tego samego HTML emaila. Łącznie 3 miejsca z identyczną strukturą `<!doctype html>...<h1 style="color:#be1622;">HOMMM</h1>...footer`. Każda zmiana wizualna wymaga edycji 3 plików.
-
-### 5.9 `SAMPLE_VARS` zduplikowane
-
-**Pliki:** `actions/mailing.ts:46-56` vs `app/admin/mailing/MailingEditor.tsx:30-40`
-
-Identyczny obiekt z 9 kluczami (`guestName`, `checkIn`, `checkOut`, ...) i tymi samymi wartościami przykładowymi, zdefiniowany w dwóch plikach. Powinien być w jednym miejscu (np. `lib/email-template-defaults.ts`).
-
-### 5.10 `STATUS_COLORS` w CalendarView — duplikuje `STATUS_CONFIG.color`
-
-**Pliki:** `app/admin/calendar/CalendarView.tsx:47-52` vs `lib/reservation-status.ts:10-41`
-
-Lokalna mapa `STATUS_COLORS` (klasy Tailwind border) jest koncepcyjnie tą samą mapą co `STATUS_CONFIG.color`/`badgeClass`. Kolory powinny być scentralizowane w `lib/reservation-status.ts`.
-
-### 5.11 `MONTH_NAMES` zduplikowane
-
-**Pliki:** `actions/reports.ts:92` vs `app/admin/dashboard/page.tsx:11`
-
-Identyczna tablica `['Sty', 'Lut', 'Mar', ...]` zdefiniowana w dwóch plikach.
-
-### 5.12 Zduplikowany parser tagów JSON
-
-**Pliki:** `app/admin/clients/ClientsClient.tsx:102-104, 147-149` vs `app/admin/clients/[id]/ClientDetail.tsx:50`
-
-`try { JSON.parse(c.tags) } catch { return [] }` powtórzony 3 razy. W `ClientsClient.tsx` wywołany dwukrotnie (desktop i mobile). Helper `parseTags(json: string): string[]` wyeliminowałby duplikację.
-
-### 5.13 Zduplikowany wzorzec debounce szukania
-
-**Pliki:** `app/admin/reservations/ReservationsClient.tsx:96-101` vs `app/admin/clients/ClientsClient.tsx:52-55`
-
-Identyczny `useEffect` z `setTimeout(400)` i parą stanów `search`/`searchInput`. Kandydat do hooka `useDebounce(value, delay)`.
-
-### 5.14 Zduplikowany blok paginacji JSX
-
-**Pliki:** `app/admin/reservations/ReservationsClient.tsx:319-343` vs `app/admin/clients/ClientsClient.tsx:191-198`
-
-Identyczny układ: stan `page`/`pages`, text "Strona X z Y", przyciski Poprzednia/Następna z `disabled`. Kandydat do wspólnego komponentu `<Pagination>`.
-
-### 5.15 Stringly-typed statusy rezerwacji zamiast stałych
-
-**Pliki:** `actions/reservations.ts:107-108`, `app/admin/dashboard/page.tsx:148,179`, `app/admin/calendar/CalendarView.tsx:47-52`
-
-Literalne stringi statusów (`'PAID'`, `'COMPLETED'`, `'DEPOSIT_PAID'`) używane inline w wielu plikach zamiast reużycia `ReservationStatusKey` i stałych z `lib/reservation-status.ts`.
-
-### 5.16 Zduplikowana logika budowania `where` rezerwacji
-
-**Pliki:** `actions/reservations.ts:38-45` vs `app/api/admin/reservations/export/route.ts:32-38`
-
-Identyczna struktura `where.OR` z `guestName`, `guestEmail`, `guestPhone` i `mode: 'insensitive'`. Mogłaby być wyodrębniona do `buildReservationWhereClause()`.
-
-### 5.17 Obliczanie nocy — dwa różne sposoby
-
-**Pliki:** `actions/reservations.ts:153` vs `app/admin/calendar/CalendarView.tsx:233,306`
-
-`Math.round((checkOut - checkIn) / ms_per_day)` w actions vs `differenceInCalendarDays` z `date-fns` w kalendarzu. `date-fns` jest importowane w obu plikach — powinno być użyte konsekwentnie.
-
----
-
-## 6. DROBNE UWAGI
-
-### 6.1 Nagłówki bezpieczeństwa — DOBRZE SKONFIGUROWANE ✅
-
-**Plik:** `next.config.ts:8-45`
-
-- ✅ `X-Content-Type-Options: nosniff`
-- ✅ `X-Frame-Options: SAMEORIGIN`
-- ✅ `Strict-Transport-Security` z preload
-- ✅ `Content-Security-Policy` z dozwolonymi źródłami
-- ✅ `Permissions-Policy` — blokuje kamerę, mikrofon, geolokalizację
-
-### 6.2 CSP ma `unsafe-eval` i `unsafe-inline`
-
-**Plik:** `next.config.ts:37`
+**Podsumowanie pod tabelą:**
 
 ```
-script-src 'self' 'unsafe-inline' 'unsafe-eval' ...
+Suma nocy:                    1100 zł
+Rabat za długi pobyt:         — (min. 7 nocy, masz 3)
+Cena końcowa:                 1100 zł
+Zaliczka (30%):                330 zł
 ```
 
-`unsafe-eval` i `unsafe-inline` osłabiają CSP. Jest to typowe dla Next.js (szczególnie w dev), ale w produkcji warto rozważyć nonce-based CSP.
+### 12.3 Hierarchia priorytetow cen (do wyswietlenia jako legenda)
 
-### 6.3 Middleware — POPRAWNY ✅
+```
+1. Reguła z cennika dat    ← NAJWYŻSZY priorytet
+2. Cena weekendowa         ← nadpisuje sezon i bazową
+3. Cena sezonowa (wysoka/niska)
+4. Cena bazowa             ← NAJNIŻSZY priorytet
+```
 
-**Plik:** `middleware.ts`
+Nastepnie:
+- Rabat za długi pobyt (% od sumy, jesli noce >= prog)
+- Zaliczka (% od ceny koncowej)
 
-- ✅ JWT weryfikowany w middleware (szybkie odrzucenie nieautoryzowanych)
-- ✅ Cookie usuwane przy błędzie weryfikacji
-- ✅ Login page wyłączona z ochrony
-- ✅ Matcher ogranicza uruchamianie middleware
+### 12.4 Logika (uzywa istniejacego `calculatePrice` z `lib/pricing.ts`)
 
-### 6.4 Auth system — DOBRZE ZAPROJEKTOWANY ✅
+Symulator powinien:
+1. Wywolac `calculatePrice(checkIn, checkOut, settings, pricingRules)` client-side
+2. Dodatkowo iterowac po nocach i wyswietlic ktora regula "wygrala" (dla przejrzystosci)
+3. Podswietlic noce z regula dat na inny kolor (np. zolty)
+4. Podswietlic noce weekendowe (np. niebieski)
+5. Pokazac prog rabatu jako progress bar (np. "3/7 nocy do rabatu")
 
-**Plik:** `lib/auth.ts`
+### 12.5 Uwaga implementacyjna
 
-- ✅ Dwupoziomowy system: JWT (24h) + sesja DB (7 dni)
-- ✅ Automatyczne odświeżanie JWT gdy wygaśnie (ale sesja DB wciąż ważna)
-- ✅ Czyszczenie wygasłych sesji przy tworzeniu nowej
-- ✅ Sprawdzanie `isActive` admina
-- ✅ Cookie: httpOnly, secure w prod, sameSite lax
-
-### 6.5 Login — DOBRZE ZABEZPIECZONY ✅
-
-**Plik:** `app/api/auth/login/route.ts`
-
-- ✅ Timing attack mitigation (`setTimeout 500ms` przy błędnym kodzie)
-- ✅ Rate limiting (10/15 min)
-- ✅ Jednolity komunikat błędu (nie ujawnia czy email czy kod jest błędny)
-- ✅ Walidacja Zod na wejściu
-
-### 6.6 Sanityzacja HTML — POPRAWNA ✅
-
-**Plik:** `lib/sanitize.ts`
-
-- ✅ Whitelist tagów i atrybutów
-- ✅ Auto-dodawanie `rel="noopener noreferrer"` do linków `_blank`
-- ✅ Używana konsekwentnie w `dangerouslySetInnerHTML`
-
-### 6.7 Upload obrazów — BEZPIECZNY ✅
-
-**Plik:** `actions/gallery.ts:18-62`
-
-- ✅ Walidacja typu MIME (whitelist)
-- ✅ Walidacja rozmiaru (10 MB max)
-- ✅ Losowa nazwa pliku (`crypto.randomBytes`)
-- ✅ Przekazanie przez `sharp` (przeparsowanie — eliminuje payload w metadanych)
-- ✅ Autoryzacja sesji
-
-### 6.8 Cron job — POPRAWNY ✅
-
-**Pliki:** `vercel.json:8-13`, `app/api/cron/export/route.ts`
-
-- ✅ Weryfikacja `CRON_SECRET`
-- ✅ Truncation danych JSON (50K) w emailu
-- ✅ Escapowanie HTML w eksporcie JSON
-
-### 6.9 Prisma singleton — POPRAWNY ✅
-
-**Plik:** `lib/db.ts`
-
-- ✅ Global singleton pattern
-- ✅ Przypisanie do `globalThis` tylko w development (zapobiega wyciekowi w hot reload)
-- ✅ Adapter Neon poprawnie skonfigurowany
-
-### 6.10 Transakcja rezerwacji — POPRAWNA ✅
-
-**Plik:** `app/api/reservations/route.ts:63-110`
-
-- ✅ `isolationLevel: 'Serializable'` — zapobiega race conditions
-- ✅ Sprawdzanie nakładających się rezerwacji i zablokowanych dat w transakcji
-- ✅ Upsert klienta
-- ✅ Emaile fire & forget (nie blokują odpowiedzi)
-
-### 6.11 Env validation — DOBRZE ✅
-
-**Plik:** `lib/env.ts`
-
-- ✅ Minimalna długość JWT_SECRET (32 znaki)
-- ✅ Minimalna długość ADMIN_SECRET_CODE (12 znaków)
-- ✅ Cache na poziomie modułu (enkodowanie raz)
-- ✅ Fail-fast przy brakujących env
-
-### 6.12 Schema Prisma — indeksy OK ✅
-
-**Plik:** `prisma/schema.prisma`
-
-Indeksy są na kluczowych kolumnach:
-- ✅ `Reservation: @@index([checkIn, checkOut])` — zapytania o dostępność
-- ✅ `Reservation: @@index([status])` — filtrowanie po statusie
-- ✅ `Reservation: @@index([clientId])` — relacja klient-rezerwacja
-- ✅ `Session: @@index([expiresAt])` — czyszczenie wygasłych sesji
-- ✅ `BlockedDate: @@index([date])` — zapytania o zablokowane daty
-- ✅ `GalleryImage: @@index([sectionId])` — galeria sekcji
-
-### 6.13 Brak indeksu na `BlockedDate` — unikalność daty
-
-**Plik:** `prisma/schema.prisma:133-141`
-
-Nie ma `@@unique([date])` ani `@@unique([date, type])` na `BlockedDate`, co pozwala na duplikaty (patrz 2.4).
-
----
-
-## 7. PODSUMOWANIE
-
-### Co działa dobrze ✅
-
-- **Architektura auth** — dwupoziomowy JWT + sesja DB, bezpieczne cookie
-- **Pipeline upload grafik** — sharp z 4 wariantami, równoległa konwersja i upload
-- **Sanityzacja HTML** — konsekwentne użycie `sanitize-html` z whitelistą
-- **Transakcyjność rezerwacji** — Serializable isolation level
-- **Nagłówki bezpieczeństwa** — CSP, HSTS, X-Frame-Options
-- **Walidacja wejścia** — Zod schemas dla kluczowych endpointów
-- **Indeksy DB** — poprawne na głównych kolumnach
-- **Image optimization** — AVIF/WebP, responsive sizes, preload LCP
-
-### Co wymaga natychmiastowej naprawy ⛔
-
-| # | Problem | Priorytet |
-|---|---------|-----------|
-| 1.1 | Rotacja WSZYSTKICH sekretów (były w git history) | **P0** |
-| 1.2 | Dodać auth do 7 niezabezpieczonych server actions | **P0** |
-| 1.3 | Escapowanie logoUrl w mailing.ts | **P1** |
-| 1.4 | Walidacja URL w addICalFeed + rozszerzenie SSRF blocklist | **P1** |
-| 2.1 | Migracja rate limitera na Upstash | **P2** |
-| 2.3 | Dodać walidację Zod w updateReservation | **P2** |
-
-### Kluczowe naprawy PageSpeed (sekcja 0) ⚡
-
-| # | Naprawa | Wpływ na PageSpeed mobile |
-|---|---------|--------------------------|
-| 0.1 | **Tła sekcji → `<Image fill>` z `sizes`** (hero, sec_2, sec_3, footer) | **LCP -2 do -4s** (najważniejsza zmiana!) |
-| 0.2 | **TypeKit CSS → async load** (`media="print" onLoad`) | **FCP -0.5 do -0.7s** |
-| 0.3 | **Lazy import react-datepicker** (`dynamic()`) | TBT -50-100ms |
-| 0.4 | **Rekompresja gal_00.webp** (1.4 MB → ~250 KB) | LCP -0.3 do -1s (gdy widoczny) |
-| 0.5 | **Preconnect do Blob Storage** | LCP -0.1 do -0.2s |
-| 0.6 | **Konwersja logo.png do WebP** (74 KB → ~20 KB) | marginalne |
-
-### Sugerowane optymalizacje kodu 📈
-
-| # | Optymalizacja | Wpływ |
-|---|---------------|-------|
-| 3.1 | SQL-owy sort klientów zamiast JS | Wydajność przy >100 klientów |
-| 3.9 | Dashboard zapytania do Promise.all | Szybszy czas ładowania admina |
-| 3.11 | useMemo na sanitizeHtml | Mniej CPU na re-renderach |
-| 3.12 | Guard na setHasScrolled | Eliminacja zbędnych re-renderów |
-| 5.1+5.8 | Wyekstrahowanie wspólnego emailLayout (3 kopie!) | Eliminacja duplikacji i buga XSS |
-| 5.2 | Wspólna funkcja unauthorized() | Czystość kodu |
-| 5.5 | Stała CONFIRMED_STATUSES w jednym miejscu | Eliminacja duplikacji |
-| 5.6 | Import formatPLN z lib/format.ts | Eliminacja duplikacji |
-| 5.9 | SAMPLE_VARS do wspólnego pliku | Eliminacja duplikacji |
-| 5.13 | Hook useDebounce | Eliminacja powtarzającego się wzorca |
-| 5.14 | Komponent \<Pagination\> | Eliminacja duplikacji JSX |
-| 5.15 | Stałe statusów zamiast literalnych stringów | Spójność, bezpieczeństwo typów |
-
-### Statystyki audytu
-
-| Metryka | Wartość |
-|---------|--------|
-| Plików źródłowych przeanalizowanych | ~80 |
-| Znalezisk KRYTYCZNYCH | 4 |
-| Znalezisk WAŻNYCH | 6 |
-| Znalezisk wydajnościowych | 14 |
-| Duplikacji kodu | 17 |
-| Elementów poprawnych (✅) | 13 |
-
----
-
-*Raport wygenerowany 2026-03-28 na podstawie pełnej analizy kodu źródłowego projektu HOMMM.*
+- `calculatePrice` juz zwraca `nightPrices: number[]` — wystarczy dodac info o zrodle ceny
+- Funkcja jest czysto obliczeniowa (bez DB), wiec dziala client-side
+- Symulator powinien reagowac na zmiany ustawien cenowych w formularzu powyzej (bez koniecznosci zapisu)
+- Mozna dodac eksport `getSourceForNight(date, settings, rules)` w `lib/pricing.ts` ktory zwroci typ zrodla ceny ('rule' | 'weekend' | 'seasonHigh' | 'seasonLow' | 'base')
