@@ -789,6 +789,8 @@ export function HomeClient({ sections: initialSections, settings }: { sections: 
                 src="/assets/hommm.svg"
                 alt="HOMMM"
                 className="footer-logo"
+                width={168}
+                height={119}
               />
             </a>
 
