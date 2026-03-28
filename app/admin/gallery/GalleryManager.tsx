@@ -47,6 +47,7 @@ type Props = {
 export function GalleryManager({ initialImages, sections }: Props) {
   const [images, setImages] = useState(initialImages);
   const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const [editImage, setEditImage] = useState<GalleryImage | null>(null);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
@@ -56,6 +57,7 @@ export function GalleryManager({ initialImages, sections }: Props) {
 
   const handleUpload = useCallback(async (files: FileList) => {
     setUploading(true);
+    setUploadError(null);
     try {
       for (const file of Array.from(files)) {
         const fd = new FormData();
@@ -63,8 +65,13 @@ export function GalleryManager({ initialImages, sections }: Props) {
         const result = await uploadImage(fd);
         if (result.success && result.image) {
           setImages((prev) => [...prev, result.image as unknown as GalleryImage]);
+        } else if ('error' in result) {
+          setUploadError(result.error as string);
+          break;
         }
       }
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : 'Błąd przesyłania');
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = '';
@@ -168,6 +175,9 @@ export function GalleryManager({ initialImages, sections }: Props) {
             <p className="text-muted-foreground mb-3">
               Przeciągnij zdjęcia tutaj lub kliknij przycisk
             </p>
+            {uploadError && (
+              <p className="text-destructive text-sm mb-3">{uploadError}</p>
+            )}
             <input
               ref={fileRef}
               type="file"

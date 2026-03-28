@@ -2,6 +2,7 @@
 
 import { prisma } from '@/lib/db';
 import { verifySession } from '@/lib/auth';
+import { sanitizeHtml } from '@/lib/sanitize';
 
 export async function getContent() {
   const sections = await prisma.section.findMany({
@@ -32,6 +33,20 @@ export type UpdateContentData = {
   isVisible?: boolean;
 };
 
+// Pola, które zawierają HTML (multiline w edytorze WYSIWYG)
+const HTML_FIELDS = new Set([
+  'body', 'intro',
+  'description', 'description2', 'info',
+]);
+
+function sanitizeContentRecord(record: Record<string, string>): Record<string, string> {
+  const result: Record<string, string> = {};
+  for (const [key, value] of Object.entries(record)) {
+    result[key] = HTML_FIELDS.has(key) ? sanitizeHtml(value) : value;
+  }
+  return result;
+}
+
 export async function updateContent(slug: string, data: UpdateContentData) {
   const session = await verifySession();
   if (!session) {
@@ -49,8 +64,8 @@ export async function updateContent(slug: string, data: UpdateContentData) {
   const updateData: Record<string, unknown> = {};
   if (data.titlePl !== undefined) updateData.titlePl = data.titlePl;
   if (data.titleEn !== undefined) updateData.titleEn = data.titleEn;
-  if (data.contentPl !== undefined) updateData.contentPl = data.contentPl as object;
-  if (data.contentEn !== undefined) updateData.contentEn = data.contentEn as object;
+  if (data.contentPl !== undefined) updateData.contentPl = sanitizeContentRecord(data.contentPl) as object;
+  if (data.contentEn !== undefined) updateData.contentEn = sanitizeContentRecord(data.contentEn) as object;
   if (data.bgImage !== undefined) updateData.bgImage = data.bgImage;
   if (data.bgColor !== undefined) updateData.bgColor = data.bgColor;
   if (data.isVisible !== undefined) updateData.isVisible = data.isVisible;

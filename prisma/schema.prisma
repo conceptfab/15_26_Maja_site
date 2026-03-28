@@ -107,8 +107,11 @@ model GalleryImage {
   originalUrl String
   webpUrl     String
   thumbUrl    String?
+  mobileUrl   String?
   altPl       String?
   altEn       String?
+  captionPl   String?
+  captionEn   String?
   order       Int      @default(0)
   createdAt   DateTime @default(now())
 }

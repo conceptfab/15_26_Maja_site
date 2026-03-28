@@ -1,7 +1,9 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, useCallback, type MouseEvent } from 'react';
-import { differenceInCalendarDays, format, eachDayOfInterval, isSameDay } from 'date-fns';
+import { differenceInCalendarDays, format, eachDayOfInterval } from 'date-fns';
+import { sanitizeHtml } from '@/lib/sanitize';
+import { Lightbox } from './Lightbox';
 import { pl as plLocale } from 'date-fns/locale';
 import { enUS as enLocale } from 'date-fns/locale';
 import DatePicker from 'react-datepicker';
@@ -84,6 +86,8 @@ export function HomeClient({ sections: initialSections }: { sections: SectionCon
   const [hasScrolled, setHasScrolled] = useState(false);
   const [expandedSection, setExpandedSection] =
     useState<ExpandableSection | null>(null);
+  const [lightboxSection, setLightboxSection] = useState<ExpandableSection | null>(null);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
   const [reservationRange, setReservationRange] = useState<
     [Date | null, Date | null]
   >([null, null]);
@@ -524,24 +528,34 @@ export function HomeClient({ sections: initialSections }: { sections: SectionCon
     const dbSection = section === 'sec2' ? konceptSection : miejsceSection;
     const dbGallery = dbSection?.galleryImages;
     const gallery = dbGallery && dbGallery.length > 0
-      ? dbGallery.map((img) => ({ src: img.src, altPl: img.altPl || '', altEn: img.altEn || '' }))
+      ? dbGallery
       : GALLERY_FALLBACK[section] || [];
     const heading = c(dbSection, 'heading') || (section === 'sec2' ? 'KONCEPT HOMMM' : 'YOUR SPECIAL PLACE');
     const intro = c(dbSection, 'intro');
     const body = c(dbSection, 'body');
-    const bodyParagraphs = body ? body.split('\n\n') : [];
+
+    const openLightbox = (index: number) => {
+      setLightboxSection(section);
+      setLightboxIndex(index);
+    };
 
     return (
       <div className="container container-white expanded-content-container">
         <div className="expanded-content-grid">
           <div className="expanded-content-copy-col">
             <h2 className="heading-secondary">{heading}</h2>
-            {intro && <p className="expanded-content-intro">{intro}</p>}
-            <div className="expanded-content-body">
-              {bodyParagraphs.map((paragraph, index) => (
-                <p key={`${section}-paragraph-${index}`}>{paragraph}</p>
-              ))}
-            </div>
+            {intro && (
+              <div
+                className="expanded-content-intro"
+                dangerouslySetInnerHTML={{ __html: sanitizeHtml(intro) }}
+              />
+            )}
+            {body && (
+              <div
+                className="expanded-content-body"
+                dangerouslySetInnerHTML={{ __html: sanitizeHtml(body) }}
+              />
+            )}
           </div>
 
           <aside
@@ -550,12 +564,14 @@ export function HomeClient({ sections: initialSections }: { sections: SectionCon
           >
             {gallery.map((image, index) => (
               <figure
-                className="expanded-content-gallery-item"
+                className="expanded-content-gallery-item expanded-content-gallery-item--clickable"
                 key={`${image.src}-${index}`}
+                onClick={() => openLightbox(index)}
+                title="Powiększ"
               >
                 <Image
                   src={image.src}
-                  alt={locale === 'pl' ? image.altPl : image.altEn}
+                  alt={locale === 'pl' ? (image.altPl || '') : (image.altEn || '')}
                   fill
                   sizes="(max-width: 768px) 92vw, 40vw"
                 />
@@ -857,6 +873,23 @@ export function HomeClient({ sections: initialSections }: { sections: SectionCon
           />
         </div>
       </section>
+
+      {lightboxSection && (() => {
+        const dbSection = lightboxSection === 'sec2' ? konceptSection : miejsceSection;
+        const gallery = (dbSection?.galleryImages && dbSection.galleryImages.length > 0)
+          ? dbSection.galleryImages
+          : GALLERY_FALLBACK[lightboxSection] || [];
+        return (
+          <Lightbox
+            images={gallery}
+            startIndex={lightboxIndex}
+            open={true}
+            locale={locale}
+            onClose={() => setLightboxSection(null)}
+            onNavigate={setLightboxIndex}
+          />
+        );
+      })()}
 
       {checkIn && checkOut && (
         <ReservationModal

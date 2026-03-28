@@ -4,8 +4,12 @@ import { EXPANDED_SECTION_CONTENT } from '@/data/content';
 
 export type GalleryImageData = {
   src: string;
+  thumbSrc?: string | null;
+  mobileSrc?: string | null;
   altPl: string | null;
   altEn: string | null;
+  captionPl?: string | null;
+  captionEn?: string | null;
 };
 
 export type SectionContent = {
@@ -28,7 +32,15 @@ export async function getHomeContent(): Promise<SectionContent[]> {
       include: {
         galleryImages: {
           orderBy: { order: 'asc' },
-          select: { webpUrl: true, altPl: true, altEn: true },
+          select: {
+            webpUrl: true,
+            thumbUrl: true,
+            mobileUrl: true,
+            altPl: true,
+            altEn: true,
+            captionPl: true,
+            captionEn: true,
+          },
         },
       },
     });
@@ -49,8 +61,12 @@ export async function getHomeContent(): Promise<SectionContent[]> {
       galleryImages: s.galleryImages.length > 0
         ? s.galleryImages.map((img) => ({
             src: img.webpUrl,
+            thumbSrc: img.thumbUrl,
+            mobileSrc: img.mobileUrl,
             altPl: img.altPl,
             altEn: img.altEn,
+            captionPl: img.captionPl,
+            captionEn: img.captionEn,
           }))
         : undefined,
     }));

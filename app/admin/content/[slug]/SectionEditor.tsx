@@ -10,10 +10,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { jsonToRecord } from '@/lib/json-utils';
+import { RichTextEditor } from '@/components/admin/RichTextEditor';
+import { SectionGalleryEditor } from '@/components/admin/SectionGalleryEditor';
 
 type SectionData = {
   id: string;
@@ -26,6 +27,17 @@ type SectionData = {
   contentEn: unknown;
   bgImage: string | null;
   bgColor: string | null;
+};
+
+type GalleryItem = {
+  id: string;
+  webpUrl: string;
+  thumbUrl: string | null;
+  altPl: string | null;
+  altEn: string | null;
+  captionPl: string | null;
+  captionEn: string | null;
+  order: number;
 };
 
 // Slug → anchor ID na stronie głównej (do scrollowania iframe)
@@ -92,7 +104,14 @@ const FIELD_LABELS: Record<string, Record<string, { label: string; description: 
   },
 };
 
-export function SectionEditor({ section }: { section: SectionData }) {
+const GALLERY_SECTIONS = new Set(['koncept', 'miejsce']);
+
+type Props = {
+  section: SectionData;
+  galleryImages: GalleryItem[];
+};
+
+export function SectionEditor({ section, galleryImages }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [activeLang, setActiveLang] = useState<'pl' | 'en'>('pl');
@@ -163,7 +182,6 @@ export function SectionEditor({ section }: { section: SectionData }) {
       if ('error' in result) {
         setMessage({ type: 'error', text: result.error as string });
       } else {
-        // Sync local state with what was actually saved in DB
         const saved = (result as { section: SectionData }).section;
         if (saved) {
           setBgImage(saved.bgImage ?? '');
@@ -213,11 +231,10 @@ export function SectionEditor({ section }: { section: SectionData }) {
                 <p className="text-xs text-muted-foreground">{meta.description}</p>
               )}
               {meta?.multiline ? (
-                <Textarea
-                  id={`${lang}-${key}`}
+                <RichTextEditor
                   value={value}
-                  onChange={(e) => setFields((prev) => ({ ...prev, [key]: e.target.value }))}
-                  rows={5}
+                  onChange={(html) => setFields((prev) => ({ ...prev, [key]: html }))}
+                  placeholder={meta.description}
                 />
               ) : (
                 <Input
@@ -398,6 +415,14 @@ export function SectionEditor({ section }: { section: SectionData }) {
               </div>
             </CardContent>
           </Card>
+
+          {/* Gallery (tylko dla sekcji z galerią) */}
+          {GALLERY_SECTIONS.has(section.slug) && (
+            <SectionGalleryEditor
+              sectionId={section.id}
+              initialImages={galleryImages}
+            />
+          )}
         </div>
 
         {/* RIGHT: Real page preview in iframe */}

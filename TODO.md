@@ -8,3 +8,13 @@
 - audyt bezpieczeństwa
 - testy
 - benchmark
+
+
+
+
+deploy:
+mail
+github
+neon
+vercel + blob
+
