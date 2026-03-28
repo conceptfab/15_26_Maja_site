@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback, type MouseEvent } from 'react';
 import { differenceInCalendarDays, format, eachDayOfInterval } from 'date-fns';
+import { calculatePrice } from '@/lib/pricing';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { Lightbox } from './Lightbox';
 import { pl as plLocale } from 'date-fns/locale';
@@ -23,7 +24,6 @@ import {
 } from './Icons';
 
 const BRAND_COLOR = '#be1622';
-const PRICE_PER_NIGHT_FALLBACK = 204.5;
 const SCROLL_COMPACT_THRESHOLD = 10;
 const DISMISS_KEYS = new Set([
   'ArrowDown',
@@ -135,8 +135,10 @@ export function HomeClient({ sections: initialSections, settings }: { sections: 
   const nightsRaw =
     checkIn && checkOut ? differenceInCalendarDays(checkOut, checkIn) : 0;
   const nights = nightsRaw > 0 ? nightsRaw : 0;
-  const pricePerNight = settings.pricePerNight ?? PRICE_PER_NIGHT_FALLBACK;
-  const totalPrice = Math.round(nights * pricePerNight);
+  const priceResult = checkIn && checkOut && nights > 0
+    ? calculatePrice(checkIn, checkOut, settings)
+    : null;
+  const totalPrice = priceResult?.totalPrice ?? 0;
   const dateLocale = locale === 'pl' ? plLocale : enLocale;
   const checkInLabel = checkIn
     ? format(checkIn, 'd.MM.yyyy', { locale: dateLocale })
@@ -489,6 +491,11 @@ export function HomeClient({ sections: initialSections, settings }: { sections: 
           className="reservation-summary-card"
           aria-label={mw('title')}
         >
+          {checkIn && !checkOut && (
+            <p className="reservation-summary-card__hint">
+              {t('reservation.select_checkout')}
+            </p>
+          )}
           <p className="reservation-summary-card__price">
             <span>{totalPrice} zl</span> za {nights} {getNightLabel(nights)}
           </p>

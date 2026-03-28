@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { toast } from 'sonner';
 import { updateContent } from '@/actions/content';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -55,8 +56,6 @@ export function MiejscaEditor({ section, galleryImages }: Props) {
 
   const [fieldsPl, setFieldsPl] = useState(() => jsonToRecord(section.contentPl));
   const [fieldsEn, setFieldsEn] = useState(() => jsonToRecord(section.contentEn));
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-
   const sendLivePreview = useCallback(() => {
     const iframe = iframeRef.current;
     if (!iframe?.contentWindow) return;
@@ -77,9 +76,7 @@ export function MiejscaEditor({ section, galleryImages }: Props) {
   }, []);
 
   const handleSave = () => {
-    setMessage(null);
     startTransition(async () => {
-      // Merge: zachowaj istniejące pola sekcji miejsce, nadpisz tylko miejsca_*
       const existingPl = jsonToRecord(section.contentPl);
       const existingEn = jsonToRecord(section.contentEn);
 
@@ -89,9 +86,9 @@ export function MiejscaEditor({ section, galleryImages }: Props) {
       });
 
       if ('error' in result) {
-        setMessage({ type: 'error', text: result.error as string });
+        toast.error(result.error as string);
       } else {
-        setMessage({ type: 'success', text: 'Zapisano!' });
+        toast.success('Zapisano!');
         router.refresh();
         setTimeout(reloadPreview, 800);
       }
@@ -146,11 +143,6 @@ export function MiejscaEditor({ section, galleryImages }: Props) {
         </div>
       </div>
 
-      {message && (
-        <div className={`rounded-md px-4 py-3 text-sm ${message.type === 'success' ? 'bg-green-500/10 text-green-500' : 'bg-destructive/10 text-destructive'}`}>
-          {message.text}
-        </div>
-      )}
 
       <div className="grid grid-cols-1 xl:grid-cols-[minmax(380px,1fr)_1.5fr] gap-6">
         <div className="space-y-4 max-h-[calc(100vh-140px)] overflow-y-auto pr-1">

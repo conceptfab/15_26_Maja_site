@@ -37,5 +37,11 @@
   "reservation.modal.success_text": "Your reservation has been sent. You will receive a confirmation email within 24 hours.",
   "reservation.modal.error": "An error occurred. Please try again.",
   "reservation.modal.close": "Close",
-  "reservation.modal.unavailable": "The selected dates are unavailable"
+  "reservation.modal.unavailable": "The selected dates are unavailable",
+  "reservation.modal.back": "Back",
+  "reservation.modal.continue": "Continue",
+  "reservation.modal.err_name": "Name must be at least 2 characters",
+  "reservation.modal.err_email": "Please enter a valid email address",
+  "reservation.modal.err_phone": "Please enter a valid phone number (9-15 digits)",
+  "reservation.select_checkout": "Now select your check-out date"
 }

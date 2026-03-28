@@ -44,7 +44,13 @@ export async function verifySession() {
   if (!token) return null;
 
   try {
-    await jwtVerify(token, getJwtSecret());
+    let jwtExpired = false;
+    try {
+      await jwtVerify(token, getJwtSecret());
+    } catch {
+      // JWT wygasł — sprawdź sesję w DB i odśwież token
+      jwtExpired = true;
+    }
 
     const session = await prisma.session.findUnique({
       where: { token },
@@ -53,6 +59,29 @@ export async function verifySession() {
 
     if (!session || session.expiresAt < new Date() || !session.admin.isActive) {
       return null;
+    }
+
+    // Odśwież JWT jeśli wygasł, ale sesja DB jest jeszcze ważna
+    if (jwtExpired) {
+      const jwtExpiresAt = new Date(Date.now() + JWT_DURATION_MS);
+      const newToken = await new SignJWT({ adminId: session.adminId })
+        .setProtectedHeader({ alg: 'HS256' })
+        .setExpirationTime(jwtExpiresAt)
+        .setIssuedAt()
+        .sign(getJwtSecret());
+
+      await prisma.session.update({
+        where: { id: session.id },
+        data: { token: newToken },
+      });
+
+      cookieStore.set(COOKIE_NAME, newToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+        expires: session.expiresAt,
+      });
     }
 
     return { admin: session.admin, session };

@@ -62,25 +62,60 @@ model Section {
   @@unique([pageId, slug])
 }
 
+model Client {
+  id              String        @id @default(cuid())
+  email           String        @unique
+  name            String
+  phone           String?
+  locale          String        @default("pl")
+  rating          Int?
+  tags            String        @default("[]")
+  adminNote       String?
+  discount        Float         @default(0)
+  isBlacklisted   Boolean       @default(false)
+  blacklistReason String?
+  reservations    Reservation[]
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+}
+
 model Reservation {
-  id         String            @id @default(cuid())
-  guestName  String
-  guestEmail String
-  guestPhone String?
-  checkIn    DateTime
-  checkOut   DateTime
-  guests     Int
-  nights     Int
-  totalPrice Float
-  comment    String?
-  status     ReservationStatus @default(PENDING)
-  adminNote  String?
-  isPaid     Boolean           @default(false)
-  createdAt  DateTime          @default(now())
-  updatedAt  DateTime          @updatedAt
+  id            String            @id @default(cuid())
+  guestName     String
+  guestEmail    String
+  guestPhone    String?
+  checkIn       DateTime
+  checkOut      DateTime
+  guests        Int
+  nights        Int
+  totalPrice    Float
+  comment       String?
+  status        ReservationStatus @default(PENDING)
+  adminNote     String?
+  isPaid        Boolean           @default(false)
+  depositAmount Float?
+  depositPaidAt DateTime?
+  clientId      String?
+  client        Client?           @relation(fields: [clientId], references: [id])
+  statusHistory StatusHistory[]
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
 
   @@index([checkIn, checkOut])
   @@index([status])
+  @@index([clientId])
+}
+
+model StatusHistory {
+  id            String            @id @default(cuid())
+  reservationId String
+  reservation   Reservation       @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  oldStatus     ReservationStatus
+  newStatus     ReservationStatus
+  changedBy     String?
+  createdAt     DateTime          @default(now())
+
+  @@index([reservationId])
 }
 
 enum ReservationStatus {
@@ -98,6 +133,15 @@ model BlockedDate {
   createdAt DateTime @default(now())
 
   @@index([date])
+}
+
+model ICalFeed {
+  id        String   @id @default(cuid())
+  name      String
+  url       String
+  lastSync  DateTime?
+  lastError String?
+  createdAt DateTime @default(now())
 }
 
 model GalleryImage {

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { toast } from 'sonner';
 import { updateContent } from '@/actions/content';
 import { getGalleryThumbs } from '@/actions/gallery';
 import { Button } from '@/components/ui/button';
@@ -116,7 +117,7 @@ export function SectionEditor({ section, galleryImages }: Props) {
   const [bgImage, setBgImage] = useState(section.bgImage ?? '');
   const [bgColor, setBgColor] = useState(section.bgColor ?? '');
   const [isVisible, setIsVisible] = useState(section.isVisible);
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  // Toast zamiast lokalnego message state
   const [showImagePicker, setShowImagePicker] = useState(false);
   const [galleryThumbs, setGalleryThumbs] = useState<{ id: string; webpUrl: string; thumbUrl: string | null; altPl: string | null }[]>([]);
 
@@ -161,7 +162,6 @@ export function SectionEditor({ section, galleryImages }: Props) {
   }, []);
 
   const handleSave = () => {
-    setMessage(null);
     startTransition(async () => {
       const result = await updateContent(section.slug, {
         titlePl: titlePl || null,
@@ -174,7 +174,7 @@ export function SectionEditor({ section, galleryImages }: Props) {
       });
 
       if ('error' in result) {
-        setMessage({ type: 'error', text: result.error as string });
+        toast.error(result.error as string);
       } else {
         const saved = (result as { section: SectionData }).section;
         if (saved) {
@@ -186,7 +186,7 @@ export function SectionEditor({ section, galleryImages }: Props) {
           if (saved.contentEn) setFieldsEn(jsonToRecord(saved.contentEn));
           setIsVisible(saved.isVisible);
         }
-        setMessage({ type: 'success', text: 'Zapisano!' });
+        toast.success('Zapisano!');
         router.refresh();
         setTimeout(reloadPreview, 800);
       }
@@ -296,17 +296,6 @@ export function SectionEditor({ section, galleryImages }: Props) {
         </div>
       </div>
 
-      {message && (
-        <div
-          className={`rounded-md px-4 py-3 text-sm ${
-            message.type === 'success'
-              ? 'bg-green-500/10 text-green-500'
-              : 'bg-destructive/10 text-destructive'
-          }`}
-        >
-          {message.text}
-        </div>
-      )}
 
       {/* Split: Editor left, Preview right */}
       <div className="grid grid-cols-1 xl:grid-cols-[minmax(380px,1fr)_1.5fr] gap-6">

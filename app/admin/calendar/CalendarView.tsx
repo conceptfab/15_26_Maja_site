@@ -6,9 +6,12 @@ import {
   format,
   startOfMonth,
   endOfMonth,
+  startOfDay,
   eachDayOfInterval,
+  differenceInCalendarDays,
   isSameMonth,
   isSameDay,
+  isBefore,
   isWithinInterval,
   addMonths,
   subMonths,
@@ -49,11 +52,21 @@ const STATUS_COLORS: Record<string, string> = {
 
 const WEEKDAYS = ['Pn', 'Wt', 'Śr', 'Cz', 'Pt', 'Sb', 'Nd'];
 
+const STATUS_LABELS: Record<string, string> = {
+  PENDING: 'Oczekująca',
+  DEPOSIT_PAID: 'Zaliczka',
+  PAID: 'Opłacona',
+  COMPLETED: 'Zakończona',
+  CANCELLED: 'Anulowana',
+};
+
 export function CalendarView({ reservations, blockedDates }: Props) {
   const router = useRouter();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [isPending, startTransition] = useTransition();
   const [blockReason, setBlockReason] = useState('');
+  const [tooltip, setTooltip] = useState<{ r: Reservation; x: number; y: number } | null>(null);
+  const today = startOfDay(new Date());
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
@@ -94,9 +107,16 @@ export function CalendarView({ reservations, blockedDates }: Props) {
         <Button variant="outline" size="sm" onClick={() => setCurrentMonth((m) => subMonths(m, 1))}>
           ← Poprzedni
         </Button>
-        <h2 className="text-lg font-semibold capitalize">
-          {format(currentMonth, 'LLLL yyyy', { locale: pl })}
-        </h2>
+        <div className="flex items-center gap-2">
+          <h2 className="text-lg font-semibold capitalize">
+            {format(currentMonth, 'LLLL yyyy', { locale: pl })}
+          </h2>
+          {!isSameMonth(currentMonth, new Date()) && (
+            <Button variant="ghost" size="sm" className="text-xs" onClick={() => setCurrentMonth(new Date())}>
+              Dziś
+            </Button>
+          )}
+        </div>
         <Button variant="outline" size="sm" onClick={() => setCurrentMonth((m) => addMonths(m, 1))}>
           Następny →
         </Button>
@@ -122,8 +142,8 @@ export function CalendarView({ reservations, blockedDates }: Props) {
         <p className="text-xs text-muted-foreground">Kliknij datę w kalendarzu, aby ją zablokować</p>
       </div>
 
-      {/* Siatka kalendarza */}
-      <Card>
+      {/* Siatka kalendarza (desktop) */}
+      <Card className="hidden md:block">
         <CardContent className="p-4">
           <div className="grid grid-cols-7 gap-px">
             {/* Nagłówki dni */}
@@ -142,39 +162,42 @@ export function CalendarView({ reservations, blockedDates }: Props) {
             {days.map((day) => {
               const dayReservations = getReservationsForDay(day);
               const blocked = getBlockedForDay(day);
-              const isToday = isSameDay(day, new Date());
+              const isCurrentDay = isSameDay(day, today);
+              const isPast = isBefore(day, today) && !isCurrentDay;
 
               return (
                 <div
                   key={day.toISOString()}
                   className={`min-h-[80px] border rounded p-1 text-xs transition-colors ${
-                    isToday ? 'border-white/40' : 'border-border'
-                  } ${blocked ? 'bg-red-500/10' : ''}`}
+                    isCurrentDay ? 'border-white/40' : 'border-border'
+                  } ${blocked ? 'bg-red-500/10' : ''} ${isPast ? 'opacity-50' : ''}`}
                 >
                   <div className="flex items-center justify-between mb-1">
-                    <span className={`font-medium ${isToday ? 'text-white' : 'text-muted-foreground'}`}>
+                    <span className={`font-medium ${isCurrentDay ? 'text-white' : 'text-muted-foreground'}`}>
                       {format(day, 'd')}
                     </span>
-                    {blocked ? (
-                      <button
-                        type="button"
-                        className="text-red-400 hover:text-red-300 text-[10px]"
-                        onClick={() => handleUnblockDate(blocked.id)}
-                        disabled={isPending}
-                        title="Odblokuj datę"
-                      >
-                        ✕
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        className="text-muted-foreground/30 hover:text-red-400 text-[10px]"
-                        onClick={() => handleBlockDate(day)}
-                        disabled={isPending}
-                        title="Zablokuj datę"
-                      >
-                        ⊘
-                      </button>
+                    {!isPast && (
+                      blocked ? (
+                        <button
+                          type="button"
+                          className="text-red-400 hover:text-red-300 text-[10px]"
+                          onClick={() => handleUnblockDate(blocked.id)}
+                          disabled={isPending}
+                          title="Odblokuj datę"
+                        >
+                          ✕
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className="text-muted-foreground/30 hover:text-red-400 text-[10px]"
+                          onClick={() => handleBlockDate(day)}
+                          disabled={isPending}
+                          title="Zablokuj datę"
+                        >
+                          ⊘
+                        </button>
+                      )
                     )}
                   </div>
 
@@ -184,22 +207,116 @@ export function CalendarView({ reservations, blockedDates }: Props) {
                     </div>
                   )}
 
-                  {dayReservations.map((r) => (
-                    <Link
-                      key={r.id}
-                      href={`/admin/reservations/${r.id}`}
-                      className={`block rounded px-1 py-0.5 text-[10px] truncate border-l-2 mb-0.5 hover:opacity-80 ${STATUS_COLORS[r.status] || 'bg-gray-500/20 border-gray-500'}`}
-                      title={`${r.guestName} (${r.status})`}
-                    >
-                      {r.guestName}
-                    </Link>
-                  ))}
+                  {dayReservations.map((r) => {
+                    const nights = differenceInCalendarDays(new Date(r.checkOut), new Date(r.checkIn));
+                    return (
+                      <Link
+                        key={r.id}
+                        href={`/admin/reservations/${r.id}`}
+                        className={`block rounded px-1 py-0.5 text-[10px] truncate border-l-2 mb-0.5 hover:opacity-80 ${STATUS_COLORS[r.status] || 'bg-gray-500/20 border-gray-500'}`}
+                        onMouseEnter={(e) => setTooltip({ r, x: e.clientX, y: e.clientY })}
+                        onMouseLeave={() => setTooltip(null)}
+                      >
+                        {r.guestName} ({nights}n)
+                      </Link>
+                    );
+                  })}
                 </div>
               );
             })}
           </div>
         </CardContent>
       </Card>
+
+      {/* Widok listowy (mobile) */}
+      <Card className="md:hidden">
+        <CardContent className="p-0 divide-y divide-border/50">
+          {days.filter((day) => {
+            const dayReservations = getReservationsForDay(day);
+            const blocked = getBlockedForDay(day);
+            return dayReservations.length > 0 || blocked;
+          }).length === 0 ? (
+            <p className="text-center py-8 text-sm text-muted-foreground">Brak rezerwacji i blokad w tym miesiącu</p>
+          ) : (
+            days.map((day) => {
+              const dayReservations = getReservationsForDay(day);
+              const blocked = getBlockedForDay(day);
+              const isCurrentDay = isSameDay(day, today);
+              const isPast = isBefore(day, today) && !isCurrentDay;
+
+              if (dayReservations.length === 0 && !blocked) return null;
+
+              return (
+                <div key={day.toISOString()} className={`px-4 py-3 ${isPast ? 'opacity-50' : ''}`}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className={`text-sm font-medium ${isCurrentDay ? 'text-white' : ''}`}>
+                      {format(day, 'EEEE, d MMM', { locale: pl })}
+                    </span>
+                    {!isPast && !blocked && (
+                      <button
+                        type="button"
+                        className="text-muted-foreground/40 hover:text-red-400 text-xs"
+                        onClick={() => handleBlockDate(day)}
+                        disabled={isPending}
+                      >
+                        Zablokuj
+                      </button>
+                    )}
+                  </div>
+
+                  {blocked && (
+                    <div className="flex items-center justify-between text-xs text-red-400 mb-1">
+                      <span>🚫 {blocked.reason || 'Zablokowana'}</span>
+                      {!isPast && (
+                        <button
+                          type="button"
+                          className="hover:text-red-300"
+                          onClick={() => handleUnblockDate(blocked.id)}
+                          disabled={isPending}
+                        >
+                          Odblokuj
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {dayReservations.map((r) => {
+                    const nights = differenceInCalendarDays(new Date(r.checkOut), new Date(r.checkIn));
+                    return (
+                      <Link
+                        key={r.id}
+                        href={`/admin/reservations/${r.id}`}
+                        className={`flex items-center justify-between rounded px-2 py-1.5 text-xs border-l-2 mb-1 ${STATUS_COLORS[r.status] || 'bg-gray-500/20 border-gray-500'}`}
+                      >
+                        <span className="font-medium truncate">{r.guestName}</span>
+                        <span className="text-muted-foreground ml-2 shrink-0">
+                          {format(new Date(r.checkIn), 'dd.MM')}–{format(new Date(r.checkOut), 'dd.MM')} ({nights}n)
+                        </span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              );
+            })
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Tooltip rezerwacji */}
+      {tooltip && (
+        <div
+          className="fixed z-50 pointer-events-none bg-popover border border-border rounded-md shadow-lg px-3 py-2 text-xs min-w-[180px]"
+          style={{ left: tooltip.x + 12, top: tooltip.y - 10 }}
+        >
+          <p className="font-semibold mb-1">{tooltip.r.guestName}</p>
+          <p className="text-muted-foreground">
+            {format(new Date(tooltip.r.checkIn), 'dd.MM')} – {format(new Date(tooltip.r.checkOut), 'dd.MM.yyyy')}
+          </p>
+          <p className="text-muted-foreground">
+            Status: {STATUS_LABELS[tooltip.r.status] || tooltip.r.status}
+          </p>
+        </div>
+      )}
     </div>
   );
 }

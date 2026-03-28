@@ -13,6 +13,9 @@
       "Bash(find /c/_cloud/15_26_Maja_site -type f -name *.env* ! -path */node_modules/*)",
       "Bash(xargs ls:*)",
       "Bash(grep -r TODO /c/_cloud/15_26_Maja_site --include=*.ts --include=*.tsx)"
+    ],
+    "additionalDirectories": [
+      "c:\\_cloud\\15_26_Maja_site\\app\\admin\\clients"
     ]
   }
 }

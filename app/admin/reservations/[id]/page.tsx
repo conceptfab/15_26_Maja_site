@@ -102,6 +102,10 @@ export default async function ReservationDetailPage({ params }: PageProps) {
           id={reservation.id}
           currentStatus={reservation.status}
           adminNote={reservation.adminNote}
+          checkIn={reservation.checkIn.toISOString()}
+          checkOut={reservation.checkOut.toISOString()}
+          guests={reservation.guests}
+          totalPrice={reservation.totalPrice}
         />
 
         <p className="text-xs text-muted-foreground">

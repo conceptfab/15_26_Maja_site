@@ -17,7 +17,7 @@ type ReservationModalProps = {
   checkOut: Date;
 };
 
-type FormState = 'form' | 'sending' | 'success' | 'error';
+type FormState = 'summary' | 'form' | 'sending' | 'success' | 'error';
 
 export function ReservationModal({
   open,
@@ -32,17 +32,31 @@ export function ReservationModal({
   checkOut,
 }: ReservationModalProps) {
   const { t } = useLocale();
-  const [formState, setFormState] = useState<FormState>('form');
+  const [formState, setFormState] = useState<FormState>('summary');
   const [errorMsg, setErrorMsg] = useState('');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [comment, setComment] = useState('');
   const [rodo, setRodo] = useState(false);
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+
+  const markTouched = (field: string) =>
+    setTouched((prev) => ({ ...prev, [field]: true }));
+
+  const PHONE_RE = /^\+?[\d\s\-()]{9,15}$/;
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+  const errors = {
+    name: name.length < 2 ? t('reservation.modal.err_name') : '',
+    email: !EMAIL_RE.test(email) ? t('reservation.modal.err_email') : '',
+    phone: !PHONE_RE.test(phone) ? t('reservation.modal.err_phone') : '',
+  };
 
   const resetForm = () => {
-    setFormState('form');
+    setFormState('summary');
     setErrorMsg('');
+    setTouched({});
     setName('');
     setEmail('');
     setPhone('');
@@ -108,7 +122,7 @@ export function ReservationModal({
     }
   };
 
-  const isValid = name.length >= 2 && email.includes('@') && phone.length >= 9 && rodo;
+  const isValid = !errors.name && !errors.email && !errors.phone && rodo;
 
   if (!open) return null;
 
@@ -148,15 +162,13 @@ export function ReservationModal({
               {t('reservation.modal.close')}
             </button>
           </div>
-        ) : (
+        ) : formState === 'summary' ? (
           <>
             <h2 className="font-heading text-base font-medium mb-4">
-              {t('reservation.modal.title')}
+              {t('reservation.modal.summary')}
             </h2>
 
-            {/* Podsumowanie */}
             <div className="reservation-modal__summary">
-              <p className="reservation-modal__summary-title">{t('reservation.modal.summary')}</p>
               <div className="reservation-modal__summary-grid">
                 <span>{t('reservation.checkin')}</span>
                 <strong>{checkInLabel}</strong>
@@ -170,6 +182,33 @@ export function ReservationModal({
               </p>
             </div>
 
+            <p className="text-xs text-muted-foreground mb-4">
+              {t('reservation.note')}
+            </p>
+
+            <div className="flex gap-3">
+              <button
+                type="button"
+                className="reservation-modal__btn reservation-modal__btn--secondary flex-1"
+                onClick={handleClose}
+              >
+                {t('reservation.modal.back')}
+              </button>
+              <button
+                type="button"
+                className="reservation-modal__btn flex-1"
+                onClick={() => setFormState('form')}
+              >
+                {t('reservation.modal.continue')}
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <h2 className="font-heading text-base font-medium mb-4">
+              {t('reservation.modal.title')}
+            </h2>
+
             {/* Formularz */}
             <form onSubmit={handleSubmit} className="reservation-modal__form">
               <label className="reservation-modal__field">
@@ -178,10 +217,14 @@ export function ReservationModal({
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
+                  onBlur={() => markTouched('name')}
                   required
                   minLength={2}
                   autoComplete="name"
                 />
+                {touched.name && errors.name && (
+                  <span className="reservation-modal__field-error">{errors.name}</span>
+                )}
               </label>
 
               <label className="reservation-modal__field">
@@ -190,9 +233,13 @@ export function ReservationModal({
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  onBlur={() => markTouched('email')}
                   required
                   autoComplete="email"
                 />
+                {touched.email && errors.email && (
+                  <span className="reservation-modal__field-error">{errors.email}</span>
+                )}
               </label>
 
               <label className="reservation-modal__field">
@@ -201,10 +248,14 @@ export function ReservationModal({
                   type="tel"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
+                  onBlur={() => markTouched('phone')}
                   required
                   minLength={9}
                   autoComplete="tel"
                 />
+                {touched.phone && errors.phone && (
+                  <span className="reservation-modal__field-error">{errors.phone}</span>
+                )}
               </label>
 
               <label className="reservation-modal__field">
@@ -236,15 +287,24 @@ export function ReservationModal({
                 <p className="reservation-modal__error">{errorMsg}</p>
               )}
 
-              <button
-                type="submit"
-                className="reservation-modal__btn"
-                disabled={!isValid || formState === 'sending'}
-              >
-                {formState === 'sending'
-                  ? t('reservation.modal.sending')
-                  : t('reservation.modal.submit')}
-              </button>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  className="reservation-modal__btn reservation-modal__btn--secondary flex-1"
+                  onClick={() => setFormState('summary')}
+                >
+                  {t('reservation.modal.back')}
+                </button>
+                <button
+                  type="submit"
+                  className="reservation-modal__btn flex-1"
+                  disabled={!isValid || formState === 'sending'}
+                >
+                  {formState === 'sending'
+                    ? t('reservation.modal.sending')
+                    : t('reservation.modal.submit')}
+                </button>
+              </div>
             </form>
           </>
         )}

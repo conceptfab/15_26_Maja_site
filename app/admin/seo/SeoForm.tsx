@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -14,12 +15,27 @@ type Props = {
   initialLlmsTxt: string;
 };
 
+function CharCount({ value, max, warn }: { value: string; max: number; warn: number }) {
+  const len = value.length;
+  const color = len <= max ? 'text-green-500' : len <= warn ? 'text-yellow-500' : 'text-red-500';
+  return <span className={`text-xs ${color}`}>{len}/{max}</span>;
+}
+
+function SerpPreview({ title, description }: { title: string; description: string }) {
+  return (
+    <div className="border border-border rounded-md p-3 bg-white dark:bg-zinc-900 space-y-0.5">
+      <div className="text-blue-600 dark:text-blue-400 text-lg leading-tight truncate">{title}</div>
+      <div className="text-green-700 dark:text-green-400 text-sm">hommm.eu</div>
+      <div className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">{description}</div>
+    </div>
+  );
+}
+
 export function SeoForm({ initialData, initialLlmsTxt }: Props) {
   const [data, setData] = useState(initialData);
   const [llmsTxt, setLlmsTxt] = useState(initialLlmsTxt);
   const [savingSeo, setSavingSeo] = useState(false);
   const [savingLlms, setSavingLlms] = useState(false);
-  const [msg, setMsg] = useState('');
 
   const handleChange = (field: keyof GlobalSeoData, value: string) => {
     setData((prev) => ({ ...prev, [field]: value }));
@@ -27,17 +43,17 @@ export function SeoForm({ initialData, initialLlmsTxt }: Props) {
 
   const handleSaveSeo = async () => {
     setSavingSeo(true);
-    setMsg('');
     const res = await updateGlobalSeo(data);
-    setMsg(res.success ? 'Zapisano ustawienia SEO' : res.error ?? 'Błąd');
+    if (res.success) toast.success('Zapisano ustawienia SEO');
+    else toast.error(res.error ?? 'Błąd zapisu');
     setSavingSeo(false);
   };
 
   const handleSaveLlms = async () => {
     setSavingLlms(true);
-    setMsg('');
     const res = await updateLlmsTxt(llmsTxt);
-    setMsg(res.success ? 'Zapisano llms.txt' : res.error ?? 'Błąd');
+    if (res.success) toast.success('Zapisano llms.txt');
+    else toast.error(res.error ?? 'Błąd zapisu');
     setSavingLlms(false);
   };
 
@@ -49,11 +65,6 @@ export function SeoForm({ initialData, initialLlmsTxt }: Props) {
         <TabsTrigger value="llms">llms.txt</TabsTrigger>
       </TabsList>
 
-      {msg && (
-        <p className={`text-sm mt-2 ${msg.startsWith('Zapisano') ? 'text-green-500' : 'text-red-500'}`}>
-          {msg}
-        </p>
-      )}
 
       <TabsContent value="general" className="space-y-4 mt-4">
         <Card>
@@ -68,6 +79,7 @@ export function SeoForm({ initialData, initialLlmsTxt }: Props) {
                   value={data.defaultTitlePl}
                   onChange={(e) => handleChange('defaultTitlePl', e.target.value)}
                 />
+                <CharCount value={data.defaultTitlePl} max={60} warn={70} />
               </div>
               <div className="space-y-2">
                 <Label>Tytuł (EN)</Label>
@@ -75,6 +87,7 @@ export function SeoForm({ initialData, initialLlmsTxt }: Props) {
                   value={data.defaultTitleEn}
                   onChange={(e) => handleChange('defaultTitleEn', e.target.value)}
                 />
+                <CharCount value={data.defaultTitleEn} max={60} warn={70} />
               </div>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
@@ -85,6 +98,7 @@ export function SeoForm({ initialData, initialLlmsTxt }: Props) {
                   value={data.defaultDescriptionPl}
                   onChange={(e) => handleChange('defaultDescriptionPl', e.target.value)}
                 />
+                <CharCount value={data.defaultDescriptionPl} max={160} warn={180} />
               </div>
               <div className="space-y-2">
                 <Label>Opis (EN)</Label>
@@ -93,7 +107,22 @@ export function SeoForm({ initialData, initialLlmsTxt }: Props) {
                   value={data.defaultDescriptionEn}
                   onChange={(e) => handleChange('defaultDescriptionEn', e.target.value)}
                 />
+                <CharCount value={data.defaultDescriptionEn} max={160} warn={180} />
               </div>
+            </div>
+
+            {/* Podgląd SERP */}
+            <div className="space-y-3">
+              <Label className="text-muted-foreground">Podgląd Google (PL)</Label>
+              <SerpPreview
+                title={data.defaultTitlePl || 'HOMMM — Domek w naturze'}
+                description={data.defaultDescriptionPl || 'Opis strony...'}
+              />
+              <Label className="text-muted-foreground">Podgląd Google (EN)</Label>
+              <SerpPreview
+                title={data.defaultTitleEn || 'HOMMM — House in nature'}
+                description={data.defaultDescriptionEn || 'Page description...'}
+              />
             </div>
             <div className="space-y-2">
               <Label>OG Image URL</Label>

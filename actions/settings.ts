@@ -8,6 +8,15 @@ import { z } from 'zod';
 
 export type SiteSettingsMap = {
   pricePerNight: number;
+  priceWeekend: number;
+  priceSeasonHigh: number;
+  priceSeasonLow: number;
+  seasonHighStart: string;
+  seasonHighEnd: string;
+  minNights: number;
+  minNightsWeekend: number;
+  longStayDiscount: number;
+  longStayThreshold: number;
   maxGuests: number;
   contactEmail: string;
   contactPhone: string;
@@ -21,6 +30,15 @@ export type SiteSettingsMap = {
 
 const DEFAULTS: SiteSettingsMap = {
   pricePerNight: 204.5,
+  priceWeekend: 0,
+  priceSeasonHigh: 0,
+  priceSeasonLow: 0,
+  seasonHighStart: '06-01',
+  seasonHighEnd: '09-30',
+  minNights: 2,
+  minNightsWeekend: 2,
+  longStayDiscount: 0,
+  longStayThreshold: 7,
   maxGuests: 6,
   contactEmail: 'hommm@hommm.eu',
   contactPhone: '+48 608 259 945',
@@ -36,6 +54,15 @@ const DEFAULTS: SiteSettingsMap = {
 
 const settingsSchema = z.object({
   pricePerNight: z.number().min(0, 'Cena musi być >= 0'),
+  priceWeekend: z.number().min(0),
+  priceSeasonHigh: z.number().min(0),
+  priceSeasonLow: z.number().min(0),
+  seasonHighStart: z.string().regex(/^\d{2}-\d{2}$/, 'Format MM-DD'),
+  seasonHighEnd: z.string().regex(/^\d{2}-\d{2}$/, 'Format MM-DD'),
+  minNights: z.number().int().min(1).max(30),
+  minNightsWeekend: z.number().int().min(1).max(30),
+  longStayDiscount: z.number().min(0).max(100),
+  longStayThreshold: z.number().int().min(1).max(365),
   maxGuests: z.number().int().min(1).max(50),
   contactEmail: z.string().email('Nieprawidłowy email'),
   contactPhone: z.string().min(1, 'Telefon jest wymagany'),
@@ -59,6 +86,15 @@ export async function getSettings(): Promise<SiteSettingsMap> {
 
   return {
     pricePerNight: typeof map.pricePerNight === 'number' ? map.pricePerNight : DEFAULTS.pricePerNight,
+    priceWeekend: typeof map.priceWeekend === 'number' ? map.priceWeekend : DEFAULTS.priceWeekend,
+    priceSeasonHigh: typeof map.priceSeasonHigh === 'number' ? map.priceSeasonHigh : DEFAULTS.priceSeasonHigh,
+    priceSeasonLow: typeof map.priceSeasonLow === 'number' ? map.priceSeasonLow : DEFAULTS.priceSeasonLow,
+    seasonHighStart: typeof map.seasonHighStart === 'string' ? map.seasonHighStart : DEFAULTS.seasonHighStart,
+    seasonHighEnd: typeof map.seasonHighEnd === 'string' ? map.seasonHighEnd : DEFAULTS.seasonHighEnd,
+    minNights: typeof map.minNights === 'number' ? map.minNights : DEFAULTS.minNights,
+    minNightsWeekend: typeof map.minNightsWeekend === 'number' ? map.minNightsWeekend : DEFAULTS.minNightsWeekend,
+    longStayDiscount: typeof map.longStayDiscount === 'number' ? map.longStayDiscount : DEFAULTS.longStayDiscount,
+    longStayThreshold: typeof map.longStayThreshold === 'number' ? map.longStayThreshold : DEFAULTS.longStayThreshold,
     maxGuests: typeof map.maxGuests === 'number' ? map.maxGuests : DEFAULTS.maxGuests,
     contactEmail: typeof map.contactEmail === 'string' ? map.contactEmail : DEFAULTS.contactEmail,
     contactPhone: typeof map.contactPhone === 'string' ? map.contactPhone : DEFAULTS.contactPhone,

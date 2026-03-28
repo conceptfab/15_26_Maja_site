@@ -37,5 +37,11 @@
   "reservation.modal.success_text": "Twoja rezerwacja została wysłana. Potwierdzenie otrzymasz na podany adres email w ciągu 24h.",
   "reservation.modal.error": "Wystąpił błąd. Spróbuj ponownie.",
   "reservation.modal.close": "Zamknij",
-  "reservation.modal.unavailable": "Wybrany termin jest niedostępny"
+  "reservation.modal.unavailable": "Wybrany termin jest niedostępny",
+  "reservation.modal.back": "Wróć",
+  "reservation.modal.continue": "Dalej",
+  "reservation.modal.err_name": "Imię musi mieć min. 2 znaki",
+  "reservation.modal.err_email": "Podaj prawidłowy adres email",
+  "reservation.modal.err_phone": "Podaj prawidłowy numer telefonu (9-15 cyfr)",
+  "reservation.select_checkout": "Teraz wybierz datę wymeldowania"
 }

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { updateSettings, addAdmin, removeAdmin, type SiteSettingsMap } from '@/actions/settings';
@@ -23,58 +24,53 @@ export function SettingsClient({ initialSettings, initialAdmins }: Props) {
   const router = useRouter();
   const [settings, setSettings] = useState(initialSettings);
   const [saving, setSaving] = useState(false);
-  const [msg, setMsg] = useState('');
 
   // Admin whitelist
   const [admins, setAdmins] = useState(initialAdmins);
   const [newEmail, setNewEmail] = useState('');
   const [newName, setNewName] = useState('');
-  const [adminMsg, setAdminMsg] = useState('');
 
   const handleSave = async () => {
     setSaving(true);
-    setMsg('');
     const result = await updateSettings(settings);
     if (result.error) {
-      setMsg(result.error);
+      toast.error(result.error);
     } else {
-      setMsg('Zapisano');
+      toast.success('Ustawienia zapisane');
       router.refresh();
     }
     setSaving(false);
   };
 
   const handleAddAdmin = async () => {
-    setAdminMsg('');
     if (!newEmail) return;
     const result = await addAdmin(newEmail, newName || undefined);
     if (result.error) {
-      setAdminMsg(result.error);
+      toast.error(result.error);
     } else {
       setNewEmail('');
       setNewName('');
-      setAdminMsg('Dodano');
+      toast.success('Admin dodany');
       router.refresh();
     }
   };
 
   const handleRemoveAdmin = async (id: string) => {
     if (!confirm('Na pewno usunąć tego admina?')) return;
-    setAdminMsg('');
     const result = await removeAdmin(id);
     if (result.error) {
-      setAdminMsg(result.error);
+      toast.error(result.error);
     } else {
       setAdmins((prev) => prev.filter((a) => a.id !== id));
-      setAdminMsg('Usunięto');
+      toast.success('Admin usunięty');
     }
   };
 
   return (
     <div className="grid gap-8 max-w-2xl">
-      {/* Cennik i goście */}
+      {/* Cennik bazowy i goście */}
       <section className="border border-border rounded-lg p-5 space-y-4">
-        <h2 className="font-semibold">Cennik i pojemność</h2>
+        <h2 className="font-semibold">Cennik bazowy i pojemność</h2>
 
         <label className="block text-sm">
           Cena za noc (PLN)
@@ -84,6 +80,18 @@ export function SettingsClient({ initialSettings, initialAdmins }: Props) {
             min="0"
             value={settings.pricePerNight}
             onChange={(e) => setSettings({ ...settings, pricePerNight: parseFloat(e.target.value) || 0 })}
+            className="mt-1 max-w-xs"
+          />
+        </label>
+
+        <label className="block text-sm">
+          Cena za noc weekendowa (PLN) <span className="text-muted-foreground">(0 = brak różnicy)</span>
+          <Input
+            type="number"
+            step="0.5"
+            min="0"
+            value={settings.priceWeekend}
+            onChange={(e) => setSettings({ ...settings, priceWeekend: parseFloat(e.target.value) || 0 })}
             className="mt-1 max-w-xs"
           />
         </label>
@@ -99,6 +107,117 @@ export function SettingsClient({ initialSettings, initialAdmins }: Props) {
             className="mt-1 max-w-xs"
           />
         </label>
+      </section>
+
+      {/* Cennik sezonowy */}
+      <section className="border border-border rounded-lg p-5 space-y-4">
+        <h2 className="font-semibold">Cennik sezonowy</h2>
+        <p className="text-xs text-muted-foreground">Ustaw 0 aby wyłączyć daną cenę sezonową.</p>
+
+        <div className="grid grid-cols-2 gap-4">
+          <label className="block text-sm">
+            Cena — sezon wysoki (PLN)
+            <Input
+              type="number"
+              step="0.5"
+              min="0"
+              value={settings.priceSeasonHigh}
+              onChange={(e) => setSettings({ ...settings, priceSeasonHigh: parseFloat(e.target.value) || 0 })}
+              className="mt-1"
+            />
+          </label>
+
+          <label className="block text-sm">
+            Cena — sezon niski (PLN)
+            <Input
+              type="number"
+              step="0.5"
+              min="0"
+              value={settings.priceSeasonLow}
+              onChange={(e) => setSettings({ ...settings, priceSeasonLow: parseFloat(e.target.value) || 0 })}
+              className="mt-1"
+            />
+          </label>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <label className="block text-sm">
+            Sezon wysoki od (MM-DD)
+            <Input
+              value={settings.seasonHighStart}
+              onChange={(e) => setSettings({ ...settings, seasonHighStart: e.target.value })}
+              className="mt-1"
+              placeholder="06-01"
+            />
+          </label>
+
+          <label className="block text-sm">
+            Sezon wysoki do (MM-DD)
+            <Input
+              value={settings.seasonHighEnd}
+              onChange={(e) => setSettings({ ...settings, seasonHighEnd: e.target.value })}
+              className="mt-1"
+              placeholder="09-30"
+            />
+          </label>
+        </div>
+      </section>
+
+      {/* Zasady pobytu */}
+      <section className="border border-border rounded-lg p-5 space-y-4">
+        <h2 className="font-semibold">Zasady pobytu</h2>
+
+        <div className="grid grid-cols-2 gap-4">
+          <label className="block text-sm">
+            Min. liczba nocy
+            <Input
+              type="number"
+              min="1"
+              max="30"
+              value={settings.minNights}
+              onChange={(e) => setSettings({ ...settings, minNights: parseInt(e.target.value) || 1 })}
+              className="mt-1"
+            />
+          </label>
+
+          <label className="block text-sm">
+            Min. nocy (weekend)
+            <Input
+              type="number"
+              min="1"
+              max="30"
+              value={settings.minNightsWeekend}
+              onChange={(e) => setSettings({ ...settings, minNightsWeekend: parseInt(e.target.value) || 1 })}
+              className="mt-1"
+            />
+          </label>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <label className="block text-sm">
+            Rabat za długi pobyt (%)
+            <Input
+              type="number"
+              min="0"
+              max="100"
+              value={settings.longStayDiscount}
+              onChange={(e) => setSettings({ ...settings, longStayDiscount: parseFloat(e.target.value) || 0 })}
+              className="mt-1"
+            />
+          </label>
+
+          <label className="block text-sm">
+            Próg długiego pobytu (noce)
+            <Input
+              type="number"
+              min="1"
+              max="365"
+              value={settings.longStayThreshold}
+              onChange={(e) => setSettings({ ...settings, longStayThreshold: parseInt(e.target.value) || 7 })}
+              className="mt-1"
+            />
+          </label>
+        </div>
       </section>
 
       {/* Dane kontaktowe */}
@@ -192,11 +311,6 @@ export function SettingsClient({ initialSettings, initialAdmins }: Props) {
         <Button onClick={handleSave} disabled={saving}>
           {saving ? 'Zapisuję...' : 'Zapisz ustawienia'}
         </Button>
-        {msg && (
-          <span className={`text-sm ${msg === 'Zapisano' ? 'text-green-600' : 'text-red-600'}`}>
-            {msg}
-          </span>
-        )}
       </div>
 
       {/* Admin whitelist */}
@@ -230,11 +344,6 @@ export function SettingsClient({ initialSettings, initialAdmins }: Props) {
             Dodaj
           </Button>
         </div>
-        {adminMsg && (
-          <span className={`text-xs ${adminMsg === 'Dodano' || adminMsg === 'Usunięto' ? 'text-green-600' : 'text-red-600'}`}>
-            {adminMsg}
-          </span>
-        )}
       </section>
     </div>
   );

@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react';
 import Image from 'next/image';
+import { toast } from 'sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -22,7 +23,7 @@ import {
   getDefaultTemplate,
   interpolate,
 } from '@/lib/email-template-defaults';
-import { updateEmailTemplate, updateMailingLogoUrl } from '@/actions/mailing';
+import { updateEmailTemplate, updateMailingLogoUrl, sendTestEmail } from '@/actions/mailing';
 import { getGalleryThumbs } from '@/actions/gallery';
 
 // Dane przykładowe do podglądu
@@ -66,7 +67,7 @@ type GalleryThumb = { id: string; webpUrl: string; thumbUrl: string | null; altP
 export function MailingEditor({ initialTemplates, initialLogoUrl }: Props) {
   const [templates, setTemplates] = useState(initialTemplates);
   const [saving, setSaving] = useState<TemplateKey | null>(null);
-  const [msg, setMsg] = useState<{ key: TemplateKey; text: string; ok: boolean } | null>(null);
+  const [sendingTest, setSendingTest] = useState<TemplateKey | null>(null);
   const [logoUrl, setLogoUrl] = useState(initialLogoUrl);
   const [logoSaving, setLogoSaving] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -93,9 +94,9 @@ export function MailingEditor({ initialTemplates, initialLogoUrl }: Props) {
 
   const handleSave = async (key: TemplateKey) => {
     setSaving(key);
-    setMsg(null);
     const res = await updateEmailTemplate(key, templates[key]);
-    setMsg({ key, text: 'error' in res ? (res.error ?? 'Błąd') : 'Zapisano', ok: 'success' in res });
+    if ('error' in res) toast.error(res.error ?? 'Błąd zapisu');
+    else toast.success('Szablon zapisany');
     setSaving(null);
   };
 
@@ -231,7 +232,7 @@ export function MailingEditor({ initialTemplates, initialLogoUrl }: Props) {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 pt-1">
+                  <div className="flex items-center gap-2 pt-1 flex-wrap">
                     <Button
                       size="sm"
                       onClick={() => handleSave(key)}
@@ -247,11 +248,23 @@ export function MailingEditor({ initialTemplates, initialLogoUrl }: Props) {
                     >
                       Przywróć domyślny
                     </Button>
-                    {msg?.key === key && (
-                      <span className={`text-sm ${msg.ok ? 'text-green-500' : 'text-red-500'}`}>
-                        {msg.text}
-                      </span>
-                    )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={sendingTest === key}
+                      onClick={async () => {
+                        setSendingTest(key);
+                        const result = await sendTestEmail(key);
+                        if ('error' in result) {
+                          toast.error(result.error);
+                        } else {
+                          toast.success(`Testowy email wysłany na ${result.sentTo}`);
+                        }
+                        setSendingTest(null);
+                      }}
+                    >
+                      {sendingTest === key ? 'Wysyłanie…' : 'Wyślij testowy'}
+                    </Button>
                   </div>
                 </CardContent>
               </Card>

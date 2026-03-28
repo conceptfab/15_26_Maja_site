@@ -12,6 +12,8 @@ import {
   Image as ImageIcon,
   CalendarDays,
   CalendarRange,
+  Users,
+  BarChart3,
   Network,
   Search,
   Settings,
@@ -29,9 +31,11 @@ import { SECTION_ICONS } from '@/lib/section-icons';
 type SectionLink = { slug: string; titlePl: string | null };
 
 const OTHER_NAV_ITEMS = [
-  { href: '/admin/gallery', label: 'Galeria', Icon: ImageIcon },
   { href: '/admin/reservations', label: 'Rezerwacje', Icon: CalendarDays },
   { href: '/admin/calendar', label: 'Kalendarz', Icon: CalendarRange },
+  { href: '/admin/clients', label: 'Klienci', Icon: Users },
+  { href: '/admin/reports', label: 'Raporty', Icon: BarChart3 },
+  { href: '/admin/gallery', label: 'Galeria', Icon: ImageIcon },
   { href: '/admin/mailing', label: 'Mailing', Icon: Mail },
   { href: '/admin/site-structure', label: 'Struktura', Icon: Network },
   { href: '/admin/seo', label: 'SEO', Icon: Search },
@@ -43,16 +47,29 @@ function SectionIcon({ slug }: { slug: string }) {
   return Icon ? <Icon className="w-4 h-4 shrink-0" /> : <File className="w-4 h-4 shrink-0" />;
 }
 
+type Badges = { pendingReservations: number; upcomingCheckIns48h: number } | null;
+
+function NavBadge({ count }: { count: number }) {
+  if (count <= 0) return null;
+  return (
+    <span className="ml-auto flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-red-500 text-white text-[10px] font-bold px-1">
+      {count}
+    </span>
+  );
+}
+
 function NavLinks({
   pathname,
   sections,
   onClick,
   large,
+  badges,
 }: {
   pathname: string;
   sections: SectionLink[];
   onClick?: () => void;
   large?: boolean;
+  badges?: Badges;
 }) {
   const isContentActive = pathname.startsWith('/admin/content');
   const [contentOpen, setContentOpen] = useState(isContentActive);
@@ -142,21 +159,29 @@ function NavLinks({
       </div>
 
       {/* Pozostałe pozycje */}
-      {OTHER_NAV_ITEMS.map((item) => (
-        <Link
-          key={item.href}
-          href={item.href}
-          onClick={onClick}
-          className={`flex items-center rounded-md transition-colors ${itemCls} ${
-            pathname.startsWith(item.href)
-              ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium'
-              : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground'
-          }`}
-        >
-          <item.Icon className={iconCls} />
-          {item.label}
-        </Link>
-      ))}
+      {OTHER_NAV_ITEMS.map((item) => {
+        let badgeCount = 0;
+        if (badges) {
+          if (item.href === '/admin/reservations') badgeCount = badges.pendingReservations;
+          if (item.href === '/admin/calendar') badgeCount = badges.upcomingCheckIns48h;
+        }
+        return (
+          <Link
+            key={item.href}
+            href={item.href}
+            onClick={onClick}
+            className={`flex items-center rounded-md transition-colors ${itemCls} ${
+              pathname.startsWith(item.href)
+                ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium'
+                : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground'
+            }`}
+          >
+            <item.Icon className={iconCls} />
+            {item.label}
+            <NavBadge count={badgeCount} />
+          </Link>
+        );
+      })}
     </nav>
   );
 }
@@ -169,6 +194,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sections, setSections] = useState<SectionLink[]>([]);
   const [buildInfo, setBuildInfo] = useState<BuildInfo | null>(null);
+  const [badges, setBadges] = useState<{ pendingReservations: number; upcomingCheckIns48h: number } | null>(null);
 
   useEffect(() => {
     fetch('/api/content/sections')
@@ -178,6 +204,10 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     fetch('/api/admin/build-info')
       .then((res) => res.ok ? res.json() : null)
       .then((data: BuildInfo | null) => { if (data) setBuildInfo(data); })
+      .catch(() => {});
+    fetch('/api/admin/notifications')
+      .then((res) => res.ok ? res.json() : null)
+      .then((data) => { if (data) setBadges(data); })
       .catch(() => {});
   }, []);
 
@@ -198,7 +228,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           <p className="text-xs text-sidebar-foreground/50 mt-0.5">Panel admina</p>
         </div>
 
-        <NavLinks pathname={pathname} sections={sections} />
+        <NavLinks pathname={pathname} sections={sections} badges={badges} />
 
         <div className="mt-auto">
           <div className="flex flex-col items-center pb-3 gap-1.5">
@@ -250,7 +280,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                 <img src="/assets/hommm.svg" alt="HOMMM" className="w-[110px] h-auto mb-3" />
                 <p className="text-xs text-sidebar-foreground/50">Panel admina</p>
               </div>
-              <NavLinks pathname={pathname} sections={sections} onClick={() => setSheetOpen(false)} large />
+              <NavLinks pathname={pathname} sections={sections} onClick={() => setSheetOpen(false)} large badges={badges} />
               <div className="mt-8">
                 <div className="flex flex-col items-center pb-3 gap-1.5">
                   <a href="https://conceptfab.com" target="_blank" rel="noopener noreferrer" className="opacity-40 hover:opacity-100 transition-opacity [filter:none] hover:[filter:brightness(0.6)_sepia(1)_saturate(600%)_hue-rotate(245deg)]">

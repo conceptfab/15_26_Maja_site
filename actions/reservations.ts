@@ -2,40 +2,56 @@
 
 import { prisma } from '@/lib/db';
 import { verifySession } from '@/lib/auth';
-import { sendEmail, buildStatusChangeEmail } from '@/lib/mail';
+import {
+  sendEmail,
+  buildStatusChangeEmail,
+  buildGuestConfirmationEmail,
+  loadEmailContext,
+  type ReservationEmailData,
+} from '@/lib/mail';
+import { format } from 'date-fns';
 import type { ReservationStatus } from '@/lib/validations';
 
 function unauthorized() {
   return { error: 'Brak autoryzacji' };
 }
 
+type SortableColumn = 'checkIn' | 'checkOut' | 'totalPrice' | 'createdAt' | 'guests' | 'nights';
+
 type ReservationFilters = {
   status?: ReservationStatus;
   search?: string;
   page?: number;
   perPage?: number;
+  sortBy?: SortableColumn;
+  sortDir?: 'asc' | 'desc';
 };
+
+const SORTABLE_COLUMNS: SortableColumn[] = ['checkIn', 'checkOut', 'totalPrice', 'createdAt', 'guests', 'nights'];
 
 export async function getReservations(filters: ReservationFilters = {}) {
   const session = await verifySession();
   if (!session) return unauthorized();
 
-  const { status, search, page = 1, perPage = 20 } = filters;
+  const { status, search, page = 1, perPage = 20, sortBy = 'createdAt', sortDir = 'desc' } = filters;
 
   const where: Record<string, unknown> = {};
   if (status) where.status = status;
   if (search) {
     where.OR = [
-      { guestName: { contains: search } },
-      { guestEmail: { contains: search } },
+      { guestName: { contains: search, mode: 'insensitive' } },
+      { guestEmail: { contains: search, mode: 'insensitive' } },
       { guestPhone: { contains: search } },
     ];
   }
 
+  const orderByColumn = SORTABLE_COLUMNS.includes(sortBy) ? sortBy : 'createdAt';
+  const orderByDir = sortDir === 'asc' ? 'asc' : 'desc';
+
   const [reservations, total] = await Promise.all([
     prisma.reservation.findMany({
       where,
-      orderBy: { createdAt: 'desc' },
+      orderBy: { [orderByColumn]: orderByDir },
       skip: (page - 1) * perPage,
       take: perPage,
     }),
@@ -77,17 +93,36 @@ export async function updateReservationStatus(id: string, status: ReservationSta
   const session = await verifySession();
   if (!session) return unauthorized();
 
+  // Pobierz aktualny status przed zmianą
+  const current = await prisma.reservation.findUnique({ where: { id }, select: { status: true } });
+  if (!current) return { error: 'Rezerwacja nie znaleziona' };
+
   let updated;
   try {
-    updated = await prisma.reservation.update({
-      where: { id },
-      data: {
-        status,
-        isPaid: status === 'PAID' || status === 'COMPLETED',
-      },
+    updated = await prisma.$transaction(async (tx) => {
+      const res = await tx.reservation.update({
+        where: { id },
+        data: {
+          status,
+          isPaid: status === 'PAID' || status === 'COMPLETED',
+          depositPaidAt: status === 'DEPOSIT_PAID' ? new Date() : undefined,
+        },
+      });
+
+      // Zapisz historię zmiany statusu
+      await tx.statusHistory.create({
+        data: {
+          reservationId: id,
+          oldStatus: current.status,
+          newStatus: status,
+          changedBy: session.admin.email ?? null,
+        },
+      });
+
+      return res;
     });
   } catch {
-    return { error: 'Rezerwacja nie znaleziona' };
+    return { error: 'Nie udało się zaktualizować statusu' };
   }
 
   // Email do gościa o zmianie statusu
@@ -98,6 +133,62 @@ export async function updateReservationStatus(id: string, status: ReservationSta
   }).catch(() => {});
 
   return { success: true, reservation: updated };
+}
+
+export async function updateReservation(
+  id: string,
+  data: { checkIn?: string; checkOut?: string; guests?: number; totalPrice?: number }
+) {
+  const session = await verifySession();
+  if (!session) return unauthorized();
+
+  const reservation = await prisma.reservation.findUnique({ where: { id } });
+  if (!reservation) return { error: 'Rezerwacja nie znaleziona' };
+
+  const checkIn = data.checkIn ? new Date(data.checkIn) : reservation.checkIn;
+  const checkOut = data.checkOut ? new Date(data.checkOut) : reservation.checkOut;
+
+  if (checkOut <= checkIn) return { error: 'Data wymeldowania musi być po zameldowaniu' };
+
+  const nights = Math.round((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
+  const guests = data.guests ?? reservation.guests;
+  const totalPrice = data.totalPrice ?? reservation.totalPrice;
+
+  // Sprawdź kolizje z innymi rezerwacjami (poza bieżącą)
+  const overlap = await prisma.reservation.findFirst({
+    where: {
+      id: { not: id },
+      status: { notIn: ['CANCELLED'] },
+      checkIn: { lt: checkOut },
+      checkOut: { gt: checkIn },
+    },
+  });
+
+  if (overlap) return { error: 'Daty nakładają się z inną rezerwacją' };
+
+  const updated = await prisma.reservation.update({
+    where: { id },
+    data: { checkIn, checkOut, nights, guests, totalPrice },
+  });
+
+  return { success: true, reservation: updated };
+}
+
+export async function getStatusHistory(reservationId: string) {
+  const session = await verifySession();
+  if (!session) return unauthorized();
+
+  const history = await prisma.statusHistory.findMany({
+    where: { reservationId },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  return {
+    history: history.map((h) => ({
+      ...h,
+      createdAt: h.createdAt.toISOString(),
+    })),
+  };
 }
 
 export async function addAdminNote(id: string, note: string) {
@@ -156,4 +247,52 @@ export async function removeBlockedDate(id: string) {
 
   await prisma.blockedDate.delete({ where: { id } });
   return { success: true };
+}
+
+export type EmailTemplateType = 'confirmation' | 'deposit' | 'cancellation' | 'postStay';
+
+export async function sendGuestEmail(reservationId: string, templateType: EmailTemplateType) {
+  const session = await verifySession();
+  if (!session) return unauthorized();
+
+  const reservation = await prisma.reservation.findUnique({
+    where: { id: reservationId },
+  });
+  if (!reservation) return { error: 'Rezerwacja nie znaleziona' };
+
+  try {
+    if (templateType === 'confirmation') {
+      const emailData: ReservationEmailData = {
+        guestName: reservation.guestName,
+        guestEmail: reservation.guestEmail,
+        guestPhone: reservation.guestPhone || '',
+        checkIn: format(reservation.checkIn, 'dd.MM.yyyy'),
+        checkOut: format(reservation.checkOut, 'dd.MM.yyyy'),
+        nights: reservation.nights,
+        guests: reservation.guests,
+        totalPrice: reservation.totalPrice,
+        comment: reservation.comment || undefined,
+      };
+      const ctx = await loadEmailContext();
+      const email = await buildGuestConfirmationEmail(emailData, ctx);
+      const result = await sendEmail({ to: reservation.guestEmail, ...email });
+      if (!result.success) return { error: `Nie udało się wysłać: ${result.reason}` };
+    } else {
+      // deposit / cancellation / postStay → use status change templates
+      const statusMap: Record<string, string> = {
+        deposit: 'DEPOSIT_PAID',
+        cancellation: 'CANCELLED',
+        postStay: 'COMPLETED',
+      };
+      const status = statusMap[templateType];
+      const email = await buildStatusChangeEmail(reservation.guestName, status);
+      if (!email) return { error: 'Brak szablonu dla tego typu' };
+      const result = await sendEmail({ to: reservation.guestEmail, ...email });
+      if (!result.success) return { error: `Nie udało się wysłać: ${result.reason}` };
+    }
+
+    return { success: true };
+  } catch {
+    return { error: 'Wystąpił błąd przy wysyłaniu emaila' };
+  }
 }

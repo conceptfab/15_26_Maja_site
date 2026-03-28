@@ -472,6 +472,23 @@ body {
   gap: var(--reservation-card-gap);
 }
 
+.reservation-summary-card__hint {
+  margin: 0 0 0.5rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.85rem;
+  color: #be1622;
+  background: #be16220d;
+  border: 1px solid #be162233;
+  border-radius: 6px;
+  text-align: center;
+  animation: hint-pulse 2s ease-in-out infinite;
+}
+
+@keyframes hint-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
 .reservation-summary-card__price {
   margin: 0;
   font-size: 1.4rem;
@@ -2002,6 +2019,13 @@ body {
   outline: none;
   border-color: var(--color-brand);
   box-shadow: 0 0 0 2px rgba(190, 22, 34, 0.1);
+}
+
+.reservation-modal__field-error {
+  display: block;
+  font-size: 0.75rem;
+  color: #ef4444;
+  margin-top: 0.25rem;
 }
 
 .reservation-modal__checkbox {

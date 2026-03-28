@@ -1,6 +1,7 @@
 import { getSettings, getAdminWhitelist } from '@/actions/settings';
 import { AdminShell } from '@/components/admin/AdminShell';
 import { SettingsClient } from './client';
+import { ICalManager } from './ICalManager';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,6 +20,7 @@ export default async function SettingsPage() {
         </div>
 
         <SettingsClient initialSettings={settings} initialAdmins={admins} />
+        <ICalManager />
       </div>
     </AdminShell>
   );

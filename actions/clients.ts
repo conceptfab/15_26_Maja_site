@@ -1,0 +1,148 @@
+'use server';
+
+import { prisma } from '@/lib/db';
+import { verifySession } from '@/lib/auth';
+
+function unauthorized() {
+  return { error: 'Brak autoryzacji' };
+}
+
+type ClientFilters = {
+  search?: string;
+  tag?: string;
+  blacklisted?: boolean;
+  page?: number;
+  perPage?: number;
+  sortBy?: 'name' | 'email' | 'createdAt' | 'reservationCount' | 'totalSpent';
+  sortDir?: 'asc' | 'desc';
+};
+
+export async function getClients(filters: ClientFilters = {}) {
+  const session = await verifySession();
+  if (!session) return unauthorized();
+
+  const { search, tag, blacklisted, page = 1, perPage = 20, sortBy = 'createdAt', sortDir = 'desc' } = filters;
+
+  const where: Record<string, unknown> = {};
+  if (search) {
+    where.OR = [
+      { name: { contains: search, mode: 'insensitive' } },
+      { email: { contains: search, mode: 'insensitive' } },
+      { phone: { contains: search, mode: 'insensitive' } },
+    ];
+  }
+  if (tag) {
+    where.tags = { contains: tag };
+  }
+  if (blacklisted !== undefined) {
+    where.isBlacklisted = blacklisted;
+  }
+
+  const orderBy: Record<string, string> = {};
+  if (sortBy === 'name' || sortBy === 'email' || sortBy === 'createdAt') {
+    orderBy[sortBy] = sortDir;
+  }
+
+  const [clients, total] = await Promise.all([
+    prisma.client.findMany({
+      where,
+      orderBy: Object.keys(orderBy).length > 0 ? orderBy : { createdAt: 'desc' },
+      skip: (page - 1) * perPage,
+      take: perPage,
+      include: {
+        reservations: {
+          select: { id: true, totalPrice: true, status: true, checkOut: true },
+        },
+      },
+    }),
+    prisma.client.count({ where }),
+  ]);
+
+  const clientsWithStats = clients.map((c) => {
+    const confirmed = c.reservations.filter((r) =>
+      ['DEPOSIT_PAID', 'PAID', 'COMPLETED'].includes(r.status)
+    );
+    return {
+      id: c.id,
+      email: c.email,
+      name: c.name,
+      phone: c.phone,
+      locale: c.locale,
+      rating: c.rating,
+      tags: c.tags,
+      adminNote: c.adminNote,
+      discount: c.discount,
+      isBlacklisted: c.isBlacklisted,
+      createdAt: c.createdAt.toISOString(),
+      reservationCount: c.reservations.length,
+      totalSpent: confirmed.reduce((s, r) => s + r.totalPrice, 0),
+      lastStay: c.reservations.length > 0
+        ? c.reservations.sort((a, b) => b.checkOut.getTime() - a.checkOut.getTime())[0].checkOut.toISOString()
+        : null,
+    };
+  });
+
+  // Sort by computed fields if needed
+  if (sortBy === 'reservationCount' || sortBy === 'totalSpent') {
+    clientsWithStats.sort((a, b) => {
+      const aVal = a[sortBy];
+      const bVal = b[sortBy];
+      return sortDir === 'asc' ? aVal - bVal : bVal - aVal;
+    });
+  }
+
+  return {
+    clients: clientsWithStats,
+    total,
+    pages: Math.ceil(total / perPage),
+  };
+}
+
+export async function getClient(id: string) {
+  const session = await verifySession();
+  if (!session) return unauthorized();
+
+  const client = await prisma.client.findUnique({
+    where: { id },
+    include: {
+      reservations: {
+        orderBy: { checkIn: 'desc' },
+        select: {
+          id: true,
+          guestName: true,
+          checkIn: true,
+          checkOut: true,
+          nights: true,
+          guests: true,
+          totalPrice: true,
+          status: true,
+          createdAt: true,
+        },
+      },
+    },
+  });
+
+  if (!client) return { error: 'Klient nie znaleziony' };
+  return { client };
+}
+
+export async function updateClient(id: string, data: {
+  name?: string;
+  phone?: string;
+  rating?: number | null;
+  tags?: string;
+  adminNote?: string;
+  discount?: number;
+  isBlacklisted?: boolean;
+  blacklistReason?: string;
+}) {
+  const session = await verifySession();
+  if (!session) return unauthorized();
+
+  await prisma.client.update({
+    where: { id },
+    data,
+  });
+
+  return { success: true };
+}

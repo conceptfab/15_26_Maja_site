@@ -3,14 +3,14 @@ import { differenceInCalendarDays, format } from 'date-fns';
 import { prisma } from '@/lib/db';
 import { reservationSchema } from '@/lib/validations';
 import { checkRateLimit } from '@/lib/rate-limit';
+import { calculatePrice } from '@/lib/pricing';
+import { getSettings } from '@/actions/settings';
 import {
   sendEmail,
   buildGuestConfirmationEmail,
   buildAdminNotificationEmail,
   loadEmailContext,
 } from '@/lib/mail';
-
-const PRICE_PER_NIGHT = 204.5;
 
 export async function POST(request: Request) {
   try {
@@ -39,6 +39,17 @@ export async function POST(request: Request) {
     const { guestName, guestEmail, guestPhone, checkIn, checkOut, guests, comment } = parsed.data;
 
     const nights = differenceInCalendarDays(checkOut, checkIn);
+    const settings = await getSettings();
+
+    // Walidacja minimalnego pobytu
+    if (nights < settings.minNights) {
+      return NextResponse.json(
+        { error: `Minimalny pobyt to ${settings.minNights} noce` },
+        { status: 400 },
+      );
+    }
+
+    const { totalPrice } = calculatePrice(checkIn, checkOut, settings);
 
     let reservation;
     try {
@@ -67,11 +78,12 @@ export async function POST(request: Request) {
           throw Object.assign(new Error('Wybrany termin jest zablokowany'), { statusCode: 409 });
         }
 
-        // Pobierz aktualną cenę z ustawień
-        const settings = await tx.siteSettings.findUnique({ where: { key: 'general' } });
-        const pricePerNight: number =
-          (settings?.value as Record<string, number> | null)?.pricePerNight ?? PRICE_PER_NIGHT;
-        const totalPrice = Math.round(nights * pricePerNight);
+        // findOrCreate klienta
+        const client = await tx.client.upsert({
+          where: { email: guestEmail },
+          update: { name: guestName, phone: guestPhone || undefined },
+          create: { email: guestEmail, name: guestName, phone: guestPhone || undefined },
+        });
 
         return tx.reservation.create({
           data: {
@@ -84,6 +96,7 @@ export async function POST(request: Request) {
             nights,
             totalPrice,
             comment: comment || null,
+            clientId: client.id,
           },
         });
       }, { isolationLevel: 'Serializable' });

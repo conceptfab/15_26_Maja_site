@@ -6,8 +6,8 @@ import { CalendarView } from './CalendarView';
 
 async function getData() {
   const now = new Date();
-  const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  const sixMonthsAhead = new Date(now.getFullYear(), now.getMonth() + 6, 0);
+  const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, 1);
+  const sixMonthsAhead = new Date(now.getFullYear(), now.getMonth() + 15, 0);
 
   const [reservations, blockedDates] = await Promise.all([
     prisma.reservation.findMany({

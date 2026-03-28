@@ -94,7 +94,7 @@ async function main() {
         submit: 'REZERWUJ',
         note: 'Płatność nie zostanie jeszcze naliczona',
         clear: 'Wyczyść daty',
-        info: 'Rezerwacja zostanie potwierdzona w ciągu 24h od złożenia. Lorem ipsum dolor sit amet, consectetur adipiscing elit.',
+        info: 'Rezerwacja zostanie potwierdzona w ciągu 24h od złożenia.',
         night_one: 'noc',
         night_few: 'noce',
         night_many: 'nocy',
