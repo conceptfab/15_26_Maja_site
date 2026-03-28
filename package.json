@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "analyze": "npx cross-env ANALYZE=true next build",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
@@ -48,6 +49,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@next/bundle-analyzer": "^16.2.1",
     "@tailwindcss/postcss": "^4.2.2",
     "@types/node": "^22.13.10",
     "@types/nodemailer": "^7.0.11",
@@ -56,6 +58,7 @@
     "@types/sanitize-html": "^2.16.1",
     "@types/sharp": "^0.31.1",
     "concurrently": "^9.2.1",
+    "cross-env": "^10.1.0",
     "dotenv": "^17.3.1",
     "postcss": "^8.5.8",
     "tailwindcss": "^4.2.2",
