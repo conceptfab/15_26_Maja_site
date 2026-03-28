@@ -12,6 +12,7 @@ const THUMB_WIDTH = 400;
 const MOBILE_WIDTH = 800;
 const WEBP_QUALITY = 82;
 const MOBILE_QUALITY = 80;
+const ORIGINAL_QUALITY = 95; // Pełna jakość WebP dla archiwum
 
 // ── Upload ──────────────────────────────────────────────
 
@@ -29,25 +30,22 @@ export async function uploadImage(formData: FormData) {
 
     const buffer = Buffer.from(await file.arrayBuffer());
     const id = crypto.randomBytes(8).toString('hex');
-    const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
 
-    const originalName = `${id}_original.${ext}`;
-    const originalUrl = await uploadToBlob(originalName, buffer, file.type);
+    // Wszystkie warianty jako WebP — równoległa konwersja
+    const [origWebpBuffer, webpBuffer, mobileBuffer, thumbBuffer] = await Promise.all([
+      sharp(buffer).webp({ quality: ORIGINAL_QUALITY }).toBuffer(),
+      sharp(buffer).webp({ quality: WEBP_QUALITY }).toBuffer(),
+      sharp(buffer).resize(MOBILE_WIDTH, null, { withoutEnlargement: true }).webp({ quality: MOBILE_QUALITY }).toBuffer(),
+      sharp(buffer).resize(THUMB_WIDTH, null, { withoutEnlargement: true }).webp({ quality: WEBP_QUALITY }).toBuffer(),
+    ]);
 
-    const webpBuffer = await sharp(buffer).webp({ quality: WEBP_QUALITY }).toBuffer();
-    const webpUrl = await uploadToBlob(`${id}.webp`, webpBuffer, 'image/webp');
-
-    const mobileBuffer = await sharp(buffer)
-      .resize(MOBILE_WIDTH, null, { withoutEnlargement: true })
-      .webp({ quality: MOBILE_QUALITY })
-      .toBuffer();
-    const mobileUrl = await uploadToBlob(`${id}_mobile.webp`, mobileBuffer, 'image/webp');
-
-    const thumbBuffer = await sharp(buffer)
-      .resize(THUMB_WIDTH, null, { withoutEnlargement: true })
-      .webp({ quality: WEBP_QUALITY })
-      .toBuffer();
-    const thumbUrl = await uploadToBlob(`${id}_thumb.webp`, thumbBuffer, 'image/webp');
+    // Równoległy upload do Blob
+    const [originalUrl, webpUrl, mobileUrl, thumbUrl] = await Promise.all([
+      uploadToBlob(`${id}_original.webp`, origWebpBuffer, 'image/webp'),
+      uploadToBlob(`${id}.webp`, webpBuffer, 'image/webp'),
+      uploadToBlob(`${id}_mobile.webp`, mobileBuffer, 'image/webp'),
+      uploadToBlob(`${id}_thumb.webp`, thumbBuffer, 'image/webp'),
+    ]);
 
     const maxOrder = await prisma.galleryImage.aggregate({ _max: { order: true } });
     const nextOrder = (maxOrder._max.order ?? -1) + 1;
@@ -139,6 +137,9 @@ export async function updateImageSection(id: string, sectionId: string | null) {
 // ── Get all images ──────────────────────────────────────
 
 export async function getGalleryImages() {
+  const session = await verifySession();
+  if (!session) return { error: 'Brak autoryzacji' };
+
   return prisma.galleryImage.findMany({
     orderBy: { order: 'asc' },
     include: { section: { select: { slug: true, titlePl: true } } },

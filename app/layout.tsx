@@ -7,6 +7,7 @@ import { JsonLd } from '@/components/JsonLd';
 import { prisma } from '@/lib/db';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/next';
+import Script from 'next/script';
 
 const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
@@ -44,9 +45,9 @@ export async function generateMetadata(): Promise<Metadata> {
       'max-image-preview': 'large',
       'max-video-preview': -1,
     },
-    other: {
-      'google-site-verification': '',
-    },
+    ...(process.env.GOOGLE_SITE_VERIFICATION
+      ? { other: { 'google-site-verification': process.env.GOOGLE_SITE_VERIFICATION } }
+      : {}),
   };
 }
 
@@ -61,6 +62,11 @@ export default function RootLayout({
         <link
           rel="preconnect"
           href="https://use.typekit.net"
+          crossOrigin="anonymous"
+        />
+        <link
+          rel="preconnect"
+          href="https://p.typekit.net"
           crossOrigin="anonymous"
         />
         <link rel="stylesheet" href="https://use.typekit.net/zpt0osi.css" />
@@ -80,6 +86,11 @@ export default function RootLayout({
         <JsonLd />
         <Analytics />
         <SpeedInsights />
+        <Script
+          defer
+          src="https://cloud.umami.is/script.js"
+          data-website-id="cf55bcf0-9eb0-474a-8706-159480187605"
+        />
       </body>
     </html>
   );

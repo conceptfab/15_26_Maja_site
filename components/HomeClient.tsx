@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState, useCallback, type MouseEvent } from 'react';
+import { useEffect, useRef, useState, useCallback, type MouseEvent } from 'react';
 import { differenceInCalendarDays, format, eachDayOfInterval } from 'date-fns';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { Lightbox } from './Lightbox';
@@ -12,6 +12,7 @@ import { TopMenu, type MenuColors, type MenuView } from './TopMenu';
 import { ReservationModal } from './ReservationModal';
 import { useLocale } from '@/lib/i18n';
 import type { SectionContent } from '@/lib/content';
+import type { SiteSettingsMap } from '@/actions/settings';
 import {
   EraserIcon,
   MailIcon,
@@ -22,7 +23,7 @@ import {
 } from './Icons';
 
 const BRAND_COLOR = '#be1622';
-const PRICE_PER_NIGHT = 204.5;
+const PRICE_PER_NIGHT_FALLBACK = 204.5;
 const SCROLL_COMPACT_THRESHOLD = 10;
 const DISMISS_KEYS = new Set([
   'ArrowDown',
@@ -54,24 +55,48 @@ function getSectionBySlug(sections: SectionContent[], slug: string) {
   return sections.find((s) => s.slug === slug);
 }
 
-export function HomeClient({ sections: initialSections }: { sections: SectionContent[] }) {
+export function HomeClient({ sections: initialSections, settings }: { sections: SectionContent[]; settings: SiteSettingsMap }) {
   const { locale, t } = useLocale();
   const [liveOverrides, setLiveOverrides] = useState<Record<string, SectionContent>>({});
+
   const [activeView, setActiveView] = useState<MenuView>('home');
+
+  // Obsługa URL params dla podglądu admina (?view=rezerwuj, ?expand=sec3)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const view = params.get('view') as MenuView | null;
+    const expand = params.get('expand') as ExpandableSection | null;
+    if (view) setActiveView(view);
+    if (expand) setExpandedSection(expand);
+  }, []);
 
   // Live preview: admin edytor wysyła zmiany przez postMessage
   useEffect(() => {
     const handler = (event: MessageEvent) => {
+      // Akceptuj wyłącznie wiadomości z tego samego origin
+      if (event.origin !== window.location.origin) return;
+
+      if (event.data?.type === 'cms-expand-section') {
+        setExpandedSection(event.data.section as ExpandableSection | null);
+        return;
+      }
+      if (event.data?.type === 'cms-set-view') {
+        setActiveView(event.data.view as MenuView);
+        return;
+      }
       if (event.data?.type === 'cms-live-preview' && event.data.slug) {
-        const { slug, contentPl, contentEn, titlePl, titleEn } = event.data;
+        const { slug, contentPl, contentEn, titlePl, titleEn, bgImage, bgColor } = event.data;
         setLiveOverrides((prev) => ({
           ...prev,
           [slug]: {
+            ...prev[slug],
             slug,
             titlePl: titlePl ?? null,
             titleEn: titleEn ?? null,
             contentPl: contentPl ?? {},
             contentEn: contentEn ?? {},
+            bgImage: bgImage ?? prev[slug]?.bgImage ?? null,
+            bgColor: bgColor ?? prev[slug]?.bgColor ?? null,
             isVisible: true,
           },
         }));
@@ -81,8 +106,10 @@ export function HomeClient({ sections: initialSections }: { sections: SectionCon
     return () => window.removeEventListener('message', handler);
   }, []);
 
-  // Merge: dane z DB nadpisane live overrides
-  const sections = initialSections.map((s) => liveOverrides[s.slug] ?? s);
+  // Merge: dane z DB nadpisane live overrides (zachowaj galleryImages z DB)
+  const sections = initialSections.map((s) =>
+    liveOverrides[s.slug] ? { ...s, ...liveOverrides[s.slug] } : s
+  );
   const [hasScrolled, setHasScrolled] = useState(false);
   const [expandedSection, setExpandedSection] =
     useState<ExpandableSection | null>(null);
@@ -108,7 +135,8 @@ export function HomeClient({ sections: initialSections }: { sections: SectionCon
   const nightsRaw =
     checkIn && checkOut ? differenceInCalendarDays(checkOut, checkIn) : 0;
   const nights = nightsRaw > 0 ? nightsRaw : 0;
-  const totalPrice = Math.round(nights * PRICE_PER_NIGHT);
+  const pricePerNight = settings.pricePerNight ?? PRICE_PER_NIGHT_FALLBACK;
+  const totalPrice = Math.round(nights * pricePerNight);
   const dateLocale = locale === 'pl' ? plLocale : enLocale;
   const checkInLabel = checkIn
     ? format(checkIn, 'd.MM.yyyy', { locale: dateLocale })
@@ -116,7 +144,7 @@ export function HomeClient({ sections: initialSections }: { sections: SectionCon
   const checkOutLabel = checkOut
     ? format(checkOut, 'd.MM.yyyy', { locale: dateLocale })
     : '--.--.----';
-  const today = useMemo(() => new Date(), []);
+  const today = new Date();
 
   // Helper: pobierz treść wg języka
   const c = (section: SectionContent | undefined, field: string): string => {
@@ -146,6 +174,10 @@ export function HomeClient({ sections: initialSections }: { sections: SectionCon
     const fromDb = c(rezerwacjaSection, field);
     return fromDb || t(`reservation.${field}`);
   };
+
+  // Widok MIEJSCA — tytuł/opisy z sekcji 'miejsce' (nowe pola), fallback do rezerwacja
+  const mw = (field: string): string =>
+    c(miejsceSection, `miejsca_${field}`) || c(rezerwacjaSection, field) || t(`reservation.${field}`);
 
   const getNightLabel = (n: number) => {
     if (n === 1) return r('night_one');
@@ -366,10 +398,6 @@ export function HomeClient({ sections: initialSections }: { sections: SectionCon
       ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
-  const handleSocialClick = (event: MouseEvent<HTMLAnchorElement>) => {
-    event.preventDefault();
-  };
-
   const handlePlacesLogoMouseMove = (event: MouseEvent<HTMLDivElement>) => {
     if (isMobileRef.current) return;
     const rect = event.currentTarget.getBoundingClientRect();
@@ -459,7 +487,7 @@ export function HomeClient({ sections: initialSections }: { sections: SectionCon
 
         <aside
           className="reservation-summary-card"
-          aria-label={r('title')}
+          aria-label={mw('title')}
         >
           <p className="reservation-summary-card__price">
             <span>{totalPrice} zl</span> za {nights} {getNightLabel(nights)}
@@ -518,9 +546,9 @@ export function HomeClient({ sections: initialSections }: { sections: SectionCon
         </button>
       </div>
 
-      <div className="reservation-info">
-        <p>{r('info')}</p>
-      </div>
+      <div className="reservation-info"
+        dangerouslySetInnerHTML={{ __html: sanitizeHtml(r('info')) }}
+      />
     </div>
   );
 
@@ -615,7 +643,7 @@ export function HomeClient({ sections: initialSections }: { sections: SectionCon
         {isReservationView ? (
           <div
             className={`container container-white reservation-layout ${showReservationGallery ? '' : 'reservation-layout--panel-only'}`}
-            aria-label={r('title')}
+            aria-label={mw('title')}
           >
             {showReservationGallery ? (
               <div className="reservation-layout__top reservation-layout__top--places">
@@ -625,44 +653,34 @@ export function HomeClient({ sections: initialSections }: { sections: SectionCon
 
                 <div className="reservation-promo reservation-promo--places">
                   <h2 className="reservation-promo__title">
-                    {r('title')}
+                    {mw('title')}
                   </h2>
-                  <p className="reservation-promo__text">
-                    {r('description')}
-                  </p>
-                  <p className="reservation-promo__text reservation-promo__text--secondary">
-                    {r('description2')}
-                  </p>
+                  <div className="reservation-promo__text"
+                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(mw('description')) }}
+                  />
+                  <div className="reservation-promo__text reservation-promo__text--secondary"
+                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(mw('description2')) }}
+                  />
                 </div>
 
                 <div className="reservation-visual-gallery reservation-visual-gallery--places">
-                  <figure className="reservation-visual-item reservation-visual-item--wide">
-                    <Image
-                      src="/assets/gal_00.webp"
-                      alt="Hommm"
-                      fill
-                      priority
-                      sizes="(max-width: 768px) 92vw, 34vw"
-                    />
-                  </figure>
-                  <figure className="reservation-visual-item reservation-visual-item--tall reservation-visual-item--tall-left">
-                    <Image
-                      src="/assets/gal_01.webp"
-                      alt="Hommm"
-                      fill
-                      priority
-                      sizes="(max-width: 768px) 44vw, 16vw"
-                    />
-                  </figure>
-                  <figure className="reservation-visual-item reservation-visual-item--tall reservation-visual-item--tall-right">
-                    <Image
-                      src="/assets/gal_02.webp"
-                      alt="Hommm"
-                      fill
-                      priority
-                      sizes="(max-width: 768px) 44vw, 16vw"
-                    />
-                  </figure>
+                  {(() => {
+                    const dbGal = miejsceSection?.galleryImages;
+                    const gal = (dbGal && dbGal.length > 0) ? dbGal : GALLERY_FALLBACK.sec3;
+                    const imgs = [gal[0], gal[1], gal[2]].filter(Boolean);
+                    const cls = ['reservation-visual-item--wide', 'reservation-visual-item--tall reservation-visual-item--tall-left', 'reservation-visual-item--tall reservation-visual-item--tall-right'];
+                    return imgs.map((img, i) => (
+                      <figure key={img.src} className={`reservation-visual-item ${cls[i] ?? ''}`}>
+                        <Image
+                          src={img.src}
+                          alt={locale === 'pl' ? (img.altPl || '') : (img.altEn || '')}
+                          fill
+                          priority
+                          sizes="(max-width: 768px) 92vw, 34vw"
+                        />
+                      </figure>
+                    ));
+                  })()}
                 </div>
               </div>
             ) : null}
@@ -695,9 +713,10 @@ export function HomeClient({ sections: initialSections }: { sections: SectionCon
               {c(konceptSection, 'subheading') || 'KONCEPT HOMMM'}
             </h2>
 
-            <div className="story-text-block">
-              <p>{c(konceptSection, 'body') || ''}</p>
-            </div>
+            <div
+              className="story-text-block"
+              dangerouslySetInnerHTML={{ __html: sanitizeHtml(c(konceptSection, 'body') || '') }}
+            />
 
             <button
               type="button"
@@ -726,9 +745,10 @@ export function HomeClient({ sections: initialSections }: { sections: SectionCon
               {c(miejsceSection, 'subheading') || ''}
             </h3>
 
-            <div className="story-text-block">
-              <p>{c(miejsceSection, 'body') || ''}</p>
-            </div>
+            <div
+              className="story-text-block"
+              dangerouslySetInnerHTML={{ __html: sanitizeHtml(c(miejsceSection, 'body') || '') }}
+            />
 
             <button
               type="button"
@@ -802,9 +822,9 @@ export function HomeClient({ sections: initialSections }: { sections: SectionCon
             >
               <h3 className="footer-column__title">{c(stopkaSection, 'corporate_title') || t('footer.corporate')}</h3>
               <div className="footer-column__content">
-                <p>{c(stopkaSection, 'company')}</p>
-                <p>{c(stopkaSection, 'address')}</p>
-                <p>NIP {c(stopkaSection, 'nip')}</p>
+                <p>{settings.companyName}</p>
+                <p>{settings.companyAddress}</p>
+                <p>NIP {settings.companyNip}</p>
               </div>
             </div>
 
@@ -815,48 +835,55 @@ export function HomeClient({ sections: initialSections }: { sections: SectionCon
               <h3 className="footer-column__title">{c(stopkaSection, 'contact_title') || t('footer.contact')}</h3>
               <div className="footer-column__content footer-contact">
                 <a
-                  href={`mailto:${c(stopkaSection, 'email')}`}
+                  href={`mailto:${settings.contactEmail}`}
                   className="footer-contact__link"
                 >
                   <MailIcon />
-                  <span>{c(stopkaSection, 'email')}</span>
+                  <span>{settings.contactEmail}</span>
                 </a>
 
-                <a href={`tel:${c(stopkaSection, 'phone')}`} className="footer-contact__link">
+                <a href={`tel:${settings.contactPhone}`} className="footer-contact__link">
                   <PhoneIcon />
-                  <span>{c(stopkaSection, 'phone')?.replace('+48 ', '')}</span>
+                  <span>{settings.contactPhone.replace('+48 ', '')}</span>
                 </a>
 
                 <div className="footer-socials">
-                  <a
-                    href="#"
-                    aria-label="Instagram"
-                    className="footer-socials__link"
-                    onClick={handleSocialClick}
-                  >
-                    <InstagramIcon />
-                    <span>Instagram</span>
-                  </a>
-
-                  <a
-                    href="#"
-                    aria-label="TikTok"
-                    className="footer-socials__link"
-                    onClick={handleSocialClick}
-                  >
-                    <TikTokIcon />
-                    <span>TikTok</span>
-                  </a>
-
-                  <a
-                    href="#"
-                    aria-label="Facebook"
-                    className="footer-socials__link"
-                    onClick={handleSocialClick}
-                  >
-                    <FacebookIcon />
-                    <span>Facebook</span>
-                  </a>
+                  {settings.socialInstagram && (
+                    <a
+                      href={settings.socialInstagram}
+                      aria-label="Instagram"
+                      className="footer-socials__link"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <InstagramIcon />
+                      <span>Instagram</span>
+                    </a>
+                  )}
+                  {settings.socialTiktok && (
+                    <a
+                      href={settings.socialTiktok}
+                      aria-label="TikTok"
+                      className="footer-socials__link"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <TikTokIcon />
+                      <span>TikTok</span>
+                    </a>
+                  )}
+                  {settings.socialFacebook && (
+                    <a
+                      href={settings.socialFacebook}
+                      aria-label="Facebook"
+                      className="footer-socials__link"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <FacebookIcon />
+                      <span>Facebook</span>
+                    </a>
+                  )}
                 </div>
               </div>
             </div>

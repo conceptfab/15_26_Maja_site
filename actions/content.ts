@@ -5,6 +5,9 @@ import { verifySession } from '@/lib/auth';
 import { sanitizeHtml } from '@/lib/sanitize';
 
 export async function getContent() {
+  const session = await verifySession();
+  if (!session) return { error: 'Brak autoryzacji' };
+
   const sections = await prisma.section.findMany({
     where: { page: { isHome: true } },
     orderBy: { order: 'asc' },

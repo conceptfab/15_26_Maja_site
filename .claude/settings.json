@@ -4,7 +4,11 @@
       "Bash(npm uninstall:*)",
       "Bash(npx prisma:*)",
       "mcp__claude_ai_Vercel__search_vercel_documentation",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(pwsh -Command \"npx prisma db push 2>&1 | Tee-Object -FilePath C:/temp/p.txt; Get-Content C:/temp/p.txt\")",
+      "Bash(pwsh -Command \"Set-Location ''f:/___APPS/15_26_Maja_site''; npx prisma db push 2>&1\")",
+      "Bash(pwsh.exe -NoProfile -Command \"Set-Location ''f:\\\\___APPS\\\\15_26_Maja_site''; & npx prisma db push 2>&1 | Out-String\")",
+      "Bash(cmd /c \"cd /d f:\\\\___APPS\\\\15_26_Maja_site && npx prisma db push 2>&1\")"
     ]
   }
 }

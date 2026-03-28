@@ -6,6 +6,7 @@ import { AdminShell } from '@/components/admin/AdminShell';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { SECTION_ICONS } from '@/lib/section-icons';
+import { Map, File } from 'lucide-react';
 
 function getPreviewText(content: unknown): string {
   if (typeof content === 'object' && content !== null) {
@@ -37,6 +38,28 @@ export default async function ContentListPage() {
         </div>
 
         <div className="grid gap-4">
+          {/* Statyczny wpis dla widoku MIEJSCA */}
+          <Link href="/admin/content/miejsca" className="block group">
+            <Card className="transition-colors hover:border-primary/50 border-dashed">
+              <CardContent className="flex items-start gap-4 p-4">
+                <div className="shrink-0 mt-0.5 flex items-center justify-center w-8 h-8 rounded-md bg-muted">
+                  <Map className="w-4 h-4" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="font-semibold group-hover:text-primary transition-colors">MIEJSCA</h3>
+                    <span className="text-xs font-mono text-muted-foreground">/admin/content/miejsca</span>
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0">Widok menu</Badge>
+                  </div>
+                  <p className="text-sm text-muted-foreground truncate">
+                    Tytuł, opisy i galeria widoku po kliknięciu "MIEJSCA" w nawigacji
+                  </p>
+                </div>
+                <div className="text-muted-foreground/50 group-hover:text-primary transition-colors shrink-0">→</div>
+              </CardContent>
+            </Card>
+          </Link>
+
           {sections.map((section) => {
             const contentPl = section.contentPl as Record<string, unknown> | null;
             const previewPl = getPreviewText(contentPl);
@@ -49,8 +72,8 @@ export default async function ContentListPage() {
               >
                 <Card className="transition-colors hover:border-primary/50">
                   <CardContent className="flex items-start gap-4 p-4">
-                    <div className="text-2xl shrink-0 mt-0.5">
-                      {SECTION_ICONS[section.slug] ?? '📄'}
+                    <div className="shrink-0 mt-0.5 flex items-center justify-center w-8 h-8 rounded-md bg-muted">
+                      {(() => { const Icon = SECTION_ICONS[section.slug]; return Icon ? <Icon className="w-4 h-4" /> : <File className="w-4 h-4" />; })()}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">

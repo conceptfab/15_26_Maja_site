@@ -34,6 +34,10 @@ export async function GET(request: NextRequest) {
       try {
         const { sendEmail } = await import('@/lib/mail');
         const json = JSON.stringify(exportData, null, 2);
+        const safeJson = json.slice(0, 50000)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;');
 
         await sendEmail({
           to: adminEmail,
@@ -41,7 +45,7 @@ export async function GET(request: NextRequest) {
           html: `<h2>Eksport danych HOMMM</h2>
            <p>Eksport z ${new Date().toLocaleString('pl-PL')}.</p>
            <p>Rezerwacji: ${reservations.length}, Stron: ${pages.length}, Sekcji: ${sections.length}</p>
-           <details><summary>Dane JSON</summary><pre style="font-size:11px;max-height:600px;overflow:auto">${json.slice(0, 50000)}</pre></details>`,
+           <details><summary>Dane JSON</summary><pre style="font-size:11px;max-height:600px;overflow:auto">${safeJson}</pre></details>`,
         });
       } catch {
         // Email opcjonalny — nie blokuj eksportu

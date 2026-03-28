@@ -17,7 +17,8 @@ type Props = {
 export function SeoForm({ initialData, initialLlmsTxt }: Props) {
   const [data, setData] = useState(initialData);
   const [llmsTxt, setLlmsTxt] = useState(initialLlmsTxt);
-  const [saving, setSaving] = useState(false);
+  const [savingSeo, setSavingSeo] = useState(false);
+  const [savingLlms, setSavingLlms] = useState(false);
   const [msg, setMsg] = useState('');
 
   const handleChange = (field: keyof GlobalSeoData, value: string) => {
@@ -25,19 +26,19 @@ export function SeoForm({ initialData, initialLlmsTxt }: Props) {
   };
 
   const handleSaveSeo = async () => {
-    setSaving(true);
+    setSavingSeo(true);
     setMsg('');
     const res = await updateGlobalSeo(data);
     setMsg(res.success ? 'Zapisano ustawienia SEO' : res.error ?? 'Błąd');
-    setSaving(false);
+    setSavingSeo(false);
   };
 
   const handleSaveLlms = async () => {
-    setSaving(true);
+    setSavingLlms(true);
     setMsg('');
     const res = await updateLlmsTxt(llmsTxt);
     setMsg(res.success ? 'Zapisano llms.txt' : res.error ?? 'Błąd');
-    setSaving(false);
+    setSavingLlms(false);
   };
 
   return (
@@ -112,8 +113,8 @@ export function SeoForm({ initialData, initialLlmsTxt }: Props) {
                 className="font-mono text-xs"
               />
             </div>
-            <Button onClick={handleSaveSeo} disabled={saving}>
-              {saving ? 'Zapisywanie...' : 'Zapisz SEO'}
+            <Button onClick={handleSaveSeo} disabled={savingSeo}>
+              {savingSeo ? 'Zapisywanie...' : 'Zapisz SEO'}
             </Button>
           </CardContent>
         </Card>
@@ -134,8 +135,8 @@ export function SeoForm({ initialData, initialLlmsTxt }: Props) {
               onChange={(e) => handleChange('aiRobotsRules', e.target.value)}
               className="font-mono text-xs"
             />
-            <Button onClick={handleSaveSeo} disabled={saving}>
-              {saving ? 'Zapisywanie...' : 'Zapisz reguły AI'}
+            <Button onClick={handleSaveSeo} disabled={savingSeo}>
+              {savingSeo ? 'Zapisywanie...' : 'Zapisz reguły AI'}
             </Button>
           </CardContent>
         </Card>
@@ -158,8 +159,8 @@ export function SeoForm({ initialData, initialLlmsTxt }: Props) {
               className="font-mono text-xs"
               placeholder={`# HOMMM — Domek na wyłączność\n\n## Lokalizacja\n...\n\n## Oferta\n...\n\n## Cennik\n...\n\n## Kontakt\n...`}
             />
-            <Button onClick={handleSaveLlms} disabled={saving}>
-              {saving ? 'Zapisywanie...' : 'Zapisz llms.txt'}
+            <Button onClick={handleSaveLlms} disabled={savingLlms}>
+              {savingLlms ? 'Zapisywanie...' : 'Zapisz llms.txt'}
             </Button>
           </CardContent>
         </Card>

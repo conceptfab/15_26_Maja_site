@@ -1,40 +1,71 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-
-type SectionLink = { slug: string; titlePl: string | null };
+import {
+  LayoutDashboard,
+  FileText,
+  Image as ImageIcon,
+  CalendarDays,
+  CalendarRange,
+  Network,
+  Search,
+  Settings,
+  Map,
+  File,
+  Mail,
+  Menu,
+  ChevronDown,
+  ChevronRight,
+  LogOut,
+} from 'lucide-react';
 
 import { SECTION_ICONS } from '@/lib/section-icons';
 
+type SectionLink = { slug: string; titlePl: string | null };
+
 const OTHER_NAV_ITEMS = [
-  { href: '/admin/gallery', label: 'Galeria', icon: '🖼' },
-  { href: '/admin/reservations', label: 'Rezerwacje', icon: '📅' },
-  { href: '/admin/calendar', label: 'Kalendarz', icon: '🗓' },
-  { href: '/admin/site-structure', label: 'Struktura', icon: '🗺' },
-  { href: '/admin/seo', label: 'SEO', icon: '🔍' },
-  { href: '/admin/settings', label: 'Ustawienia', icon: '⚙' },
+  { href: '/admin/gallery', label: 'Galeria', Icon: ImageIcon },
+  { href: '/admin/reservations', label: 'Rezerwacje', Icon: CalendarDays },
+  { href: '/admin/calendar', label: 'Kalendarz', Icon: CalendarRange },
+  { href: '/admin/mailing', label: 'Mailing', Icon: Mail },
+  { href: '/admin/site-structure', label: 'Struktura', Icon: Network },
+  { href: '/admin/seo', label: 'SEO', Icon: Search },
+  { href: '/admin/settings', label: 'Ustawienia', Icon: Settings },
 ];
+
+function SectionIcon({ slug }: { slug: string }) {
+  const Icon = SECTION_ICONS[slug];
+  return Icon ? <Icon className="w-4 h-4 shrink-0" /> : <File className="w-4 h-4 shrink-0" />;
+}
 
 function NavLinks({
   pathname,
   sections,
   onClick,
+  large,
 }: {
   pathname: string;
   sections: SectionLink[];
   onClick?: () => void;
+  large?: boolean;
 }) {
   const isContentActive = pathname.startsWith('/admin/content');
   const [contentOpen, setContentOpen] = useState(isContentActive);
 
-  // Otwieraj automatycznie gdy jesteśmy w /admin/content
   useEffect(() => {
     if (isContentActive) setContentOpen(true);
   }, [isContentActive]);
+
+  const iconCls = large ? 'w-7 h-7 shrink-0' : 'w-4 h-4 shrink-0';
+  const itemCls = large ? 'gap-4 px-3 py-3 text-xl' : 'gap-3 px-3 py-2 text-sm';
+  const subIconCls = large ? 'w-6 h-6 shrink-0' : 'w-4 h-4 shrink-0';
+  const subItemCls = large ? 'gap-3 px-3 py-2.5 text-lg' : 'gap-2 px-2 py-1.5 text-xs';
+  const chevronCls = large ? 'w-5 h-5 text-sidebar-foreground/40' : 'w-3 h-3 text-sidebar-foreground/40';
 
   return (
     <nav className="flex flex-col gap-0.5" aria-label="Panel administracyjny">
@@ -42,13 +73,13 @@ function NavLinks({
       <Link
         href="/admin/dashboard"
         onClick={onClick}
-        className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors ${
+        className={`flex items-center rounded-md transition-colors ${itemCls} ${
           pathname.startsWith('/admin/dashboard')
             ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium'
             : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground'
         }`}
       >
-        <span aria-hidden="true">📊</span>
+        <LayoutDashboard className={iconCls} />
         Dashboard
       </Link>
 
@@ -57,17 +88,17 @@ function NavLinks({
         <button
           type="button"
           onClick={() => setContentOpen((prev) => !prev)}
-          className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors w-full text-left ${
+          className={`flex items-center rounded-md transition-colors w-full text-left ${itemCls} ${
             isContentActive
               ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium'
               : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground'
           }`}
         >
-          <span aria-hidden="true">📝</span>
+          <FileText className={iconCls} />
           <span className="flex-1">Treści</span>
-          <span className="text-[10px] text-sidebar-foreground/40">
-            {contentOpen ? '▼' : '▶'}
-          </span>
+          {contentOpen
+            ? <ChevronDown className={chevronCls} />
+            : <ChevronRight className={chevronCls} />}
         </button>
 
         {contentOpen && (
@@ -76,21 +107,34 @@ function NavLinks({
               const href = `/admin/content/${section.slug}`;
               const isActive = pathname === href;
               return (
-                <Link
-                  key={section.slug}
-                  href={href}
-                  onClick={onClick}
-                  className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-colors ${
-                    isActive
-                      ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium'
-                      : 'text-sidebar-foreground/50 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground'
-                  }`}
-                >
-                  <span aria-hidden="true" className="text-[10px]">
-                    {SECTION_ICONS[section.slug] ?? '📄'}
-                  </span>
-                  {section.titlePl || section.slug}
-                </Link>
+                <React.Fragment key={section.slug}>
+                  <Link
+                    href={href}
+                    onClick={onClick}
+                    className={`flex items-center rounded-md transition-colors ${subItemCls} ${
+                      isActive
+                        ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium'
+                        : 'text-sidebar-foreground/50 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground'
+                    }`}
+                  >
+                    <SectionIcon slug={section.slug} />
+                    {section.titlePl || section.slug}
+                  </Link>
+                  {section.slug === 'miejsce' && (
+                    <Link
+                      href="/admin/content/miejsca"
+                      onClick={onClick}
+                      className={`flex items-center rounded-md transition-colors ${subItemCls} ${
+                        pathname === '/admin/content/miejsca'
+                          ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium'
+                          : 'text-sidebar-foreground/50 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground'
+                      }`}
+                    >
+                      <Map className={subIconCls} />
+                      MIEJSCA
+                    </Link>
+                  )}
+                </React.Fragment>
               );
             })}
           </div>
@@ -103,13 +147,13 @@ function NavLinks({
           key={item.href}
           href={item.href}
           onClick={onClick}
-          className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors ${
+          className={`flex items-center rounded-md transition-colors ${itemCls} ${
             pathname.startsWith(item.href)
               ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium'
               : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground'
           }`}
         >
-          <span aria-hidden="true">{item.icon}</span>
+          <item.Icon className={iconCls} />
           {item.label}
         </Link>
       ))}
@@ -117,17 +161,23 @@ function NavLinks({
   );
 }
 
+type BuildInfo = { branch: string | null; sha: string | null; env: string | null; deployedAt: string | null };
+
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sections, setSections] = useState<SectionLink[]>([]);
+  const [buildInfo, setBuildInfo] = useState<BuildInfo | null>(null);
 
-  // Pobierz listę sekcji dla menu
   useEffect(() => {
     fetch('/api/content/sections')
       .then((res) => res.ok ? res.json() : [])
       .then((data: SectionLink[]) => setSections(data))
+      .catch(() => {});
+    fetch('/api/admin/build-info')
+      .then((res) => res.ok ? res.json() : null)
+      .then((data: BuildInfo | null) => { if (data) setBuildInfo(data); })
       .catch(() => {});
   }, []);
 
@@ -140,24 +190,47 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     <div className="flex min-h-screen">
       {/* Desktop sidebar */}
       <aside className="hidden md:flex w-64 flex-col border-r border-sidebar-border bg-sidebar p-4">
-        <div className="mb-8">
-          <Link href="/admin/dashboard" className="text-xl font-bold tracking-tight">
-            HOMMM
-          </Link>
-          <p className="text-xs text-sidebar-foreground/50 mt-1">Panel admina</p>
+        <div className="mb-8 flex flex-col items-center text-center">
+          <a href="/" target="_blank" rel="noopener noreferrer">
+            <Image src="/assets/logo.png" alt="HOMMM" width={90} height={90} className="object-contain mb-2 [filter:none] hover:[filter:brightness(0.5)_sepia(1)_saturate(700%)_hue-rotate(330deg)] transition-[filter]" draggable={false} />
+          </a>
+          <p className="text-xl font-bold tracking-tight">HOMMM</p>
+          <p className="text-xs text-sidebar-foreground/50 mt-0.5">Panel admina</p>
         </div>
 
         <NavLinks pathname={pathname} sections={sections} />
 
-        <div className="mt-auto pt-4 border-t border-sidebar-border">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="w-full justify-start text-sidebar-foreground/70"
-            onClick={handleLogout}
-          >
-            Wyloguj
-          </Button>
+        <div className="mt-auto">
+          <div className="flex flex-col items-center pb-3 gap-1.5">
+            <a href="https://conceptfab.com" target="_blank" rel="noopener noreferrer" className="opacity-40 hover:opacity-100 transition-opacity [filter:none] hover:[filter:brightness(0.6)_sepia(1)_saturate(600%)_hue-rotate(245deg)]">
+              <img src="/assets/cfab_logo_2026.svg" alt="CFAB" className="w-[120px] h-auto" draggable={false} />
+            </a>
+            <div className="flex flex-col items-center gap-0.5 min-h-[28px]">
+              {buildInfo ? (
+                <>
+                  <span className="text-[11px] font-mono text-sidebar-foreground/60 truncate max-w-[150px]">
+                    {buildInfo.branch ?? '—'}{buildInfo.sha ? ` · ${buildInfo.sha}` : ''}
+                  </span>
+                  {buildInfo.deployedAt && (
+                    <span className="text-[10px] font-mono text-sidebar-foreground/40">
+                      {new Date(buildInfo.deployedAt).toLocaleString('pl-PL', { dateStyle: 'short', timeStyle: 'short' })}
+                    </span>
+                  )}
+                </>
+              ) : null}
+            </div>
+          </div>
+          <div className="pt-4 border-t border-sidebar-border">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full justify-center text-sidebar-foreground/70 gap-2"
+              onClick={handleLogout}
+            >
+              <LogOut className="w-4 h-4" />
+              Wyloguj
+            </Button>
+          </div>
         </div>
       </aside>
 
@@ -170,23 +243,44 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
           <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
             <SheetTrigger className="inline-flex items-center justify-center rounded-md px-2 py-1.5 text-sm hover:bg-accent" aria-label="Menu">
-              ☰
+              <Menu className="w-5 h-5" />
             </SheetTrigger>
-            <SheetContent side="left" className="w-64 bg-sidebar p-4">
-              <div className="mb-6">
-                <p className="text-xl font-bold">HOMMM</p>
-                <p className="text-xs text-sidebar-foreground/50 mt-1">Panel admina</p>
+            <SheetContent side="left" className="dark w-64 bg-sidebar p-4">
+              <div className="mb-6 flex flex-col items-center text-center">
+                <img src="/assets/hommm.svg" alt="HOMMM" className="w-[110px] h-auto mb-3" />
+                <p className="text-xs text-sidebar-foreground/50">Panel admina</p>
               </div>
-              <NavLinks pathname={pathname} sections={sections} onClick={() => setSheetOpen(false)} />
-              <div className="mt-8 pt-4 border-t border-sidebar-border">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="w-full justify-start"
-                  onClick={handleLogout}
-                >
-                  Wyloguj
-                </Button>
+              <NavLinks pathname={pathname} sections={sections} onClick={() => setSheetOpen(false)} large />
+              <div className="mt-8">
+                <div className="flex flex-col items-center pb-3 gap-1.5">
+                  <a href="https://conceptfab.com" target="_blank" rel="noopener noreferrer" className="opacity-40 hover:opacity-100 transition-opacity [filter:none] hover:[filter:brightness(0.6)_sepia(1)_saturate(600%)_hue-rotate(245deg)]">
+                    <img src="/assets/cfab_logo_2026.svg" alt="CFAB" className="w-[110px] h-auto" draggable={false} />
+                  </a>
+                  <div className="flex flex-col items-center gap-0.5 min-h-[28px]">
+                    {buildInfo ? (
+                      <>
+                        <span className="text-[11px] font-mono text-sidebar-foreground/60 truncate max-w-[150px]">
+                          {buildInfo.branch ?? '—'}{buildInfo.sha ? ` · ${buildInfo.sha}` : ''}
+                        </span>
+                        {buildInfo.deployedAt && (
+                          <span className="text-[10px] font-mono text-sidebar-foreground/40">
+                            {new Date(buildInfo.deployedAt).toLocaleString('pl-PL', { dateStyle: 'short', timeStyle: 'short' })}
+                          </span>
+                        )}
+                      </>
+                    ) : null}
+                  </div>
+                </div>
+                <div className="pt-4 border-t border-sidebar-border">
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-center gap-4 text-xl py-3 h-auto"
+                    onClick={handleLogout}
+                  >
+                    <LogOut className="w-7 h-7 shrink-0" />
+                    Wyloguj
+                  </Button>
+                </div>
               </div>
             </SheetContent>
           </Sheet>

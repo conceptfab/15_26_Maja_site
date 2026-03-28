@@ -77,22 +77,25 @@ export async function updateReservationStatus(id: string, status: ReservationSta
   const session = await verifySession();
   if (!session) return unauthorized();
 
-  const reservation = await prisma.reservation.findUnique({ where: { id } });
-  if (!reservation) return { error: 'Rezerwacja nie znaleziona' };
-
-  const updated = await prisma.reservation.update({
-    where: { id },
-    data: {
-      status,
-      isPaid: status === 'PAID' || status === 'COMPLETED',
-    },
-  });
+  let updated;
+  try {
+    updated = await prisma.reservation.update({
+      where: { id },
+      data: {
+        status,
+        isPaid: status === 'PAID' || status === 'COMPLETED',
+      },
+    });
+  } catch {
+    return { error: 'Rezerwacja nie znaleziona' };
+  }
 
   // Email do gościa o zmianie statusu
-  const emailContent = buildStatusChangeEmail(reservation.guestName, status);
-  if (emailContent) {
-    sendEmail({ to: reservation.guestEmail, ...emailContent }).catch(() => {});
-  }
+  buildStatusChangeEmail(updated.guestName, status).then((emailContent) => {
+    if (emailContent) {
+      sendEmail({ to: updated.guestEmail, ...emailContent }).catch(() => {});
+    }
+  }).catch(() => {});
 
   return { success: true, reservation: updated };
 }
@@ -132,9 +135,14 @@ export async function addBlockedDate(date: string, reason?: string) {
   const session = await verifySession();
   if (!session) return unauthorized();
 
+  const parsed = new Date(date);
+  if (isNaN(parsed.getTime())) {
+    return { error: 'Nieprawidłowy format daty' };
+  }
+
   const blocked = await prisma.blockedDate.create({
     data: {
-      date: new Date(date),
+      date: parsed,
       reason: reason || null,
     },
   });

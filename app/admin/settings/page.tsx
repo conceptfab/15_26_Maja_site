@@ -1,4 +1,5 @@
 import { getSettings, getAdminWhitelist } from '@/actions/settings';
+import { AdminShell } from '@/components/admin/AdminShell';
 import { SettingsClient } from './client';
 
 export const dynamic = 'force-dynamic';
@@ -10,13 +11,15 @@ export default async function SettingsPage() {
   ]);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Ustawienia</h1>
-        <p className="text-sm text-muted-foreground">Konfiguracja globalna serwisu i zarządzanie adminami.</p>
-      </div>
+    <AdminShell>
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold">Ustawienia</h1>
+          <p className="text-sm text-muted-foreground">Konfiguracja globalna serwisu i zarządzanie adminami.</p>
+        </div>
 
-      <SettingsClient initialSettings={settings} initialAdmins={admins} />
-    </div>
+        <SettingsClient initialSettings={settings} initialAdmins={admins} />
+      </div>
+    </AdminShell>
   );
 }

@@ -48,6 +48,7 @@ export function GalleryManager({ initialImages, sections }: Props) {
   const [images, setImages] = useState(initialImages);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadStatuses, setUploadStatuses] = useState<Record<string, 'uploading' | 'done' | 'error'>>({});
   const [editImage, setEditImage] = useState<GalleryImage | null>(null);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
@@ -56,26 +57,40 @@ export function GalleryManager({ initialImages, sections }: Props) {
   // ── Upload ──────────────────────────────────────────
 
   const handleUpload = useCallback(async (files: FileList) => {
+    const fileList = Array.from(files);
     setUploading(true);
     setUploadError(null);
-    try {
-      for (const file of Array.from(files)) {
+    setUploadStatuses(Object.fromEntries(fileList.map((f) => [f.name, 'uploading' as const])));
+
+    const results = await Promise.allSettled(
+      fileList.map(async (file) => {
         const fd = new FormData();
         fd.append('file', file);
         const result = await uploadImage(fd);
-        if (result.success && result.image) {
-          setImages((prev) => [...prev, result.image as unknown as GalleryImage]);
-        } else if ('error' in result) {
-          setUploadError(result.error as string);
-          break;
-        }
+        if ('error' in result) throw new Error(result.error as string);
+        setUploadStatuses((prev) => ({ ...prev, [file.name]: 'done' }));
+        return result.image;
+      }),
+    );
+
+    const newImages: GalleryImage[] = [];
+    const errors: string[] = [];
+
+    results.forEach((r, i) => {
+      if (r.status === 'fulfilled' && r.value) {
+        newImages.push(r.value as unknown as GalleryImage);
+      } else if (r.status === 'rejected') {
+        setUploadStatuses((prev) => ({ ...prev, [fileList[i].name]: 'error' }));
+        errors.push(`${fileList[i].name}: ${r.reason?.message ?? 'Błąd'}`);
       }
-    } catch (err) {
-      setUploadError(err instanceof Error ? err.message : 'Błąd przesyłania');
-    } finally {
-      setUploading(false);
-      if (fileRef.current) fileRef.current.value = '';
-    }
+    });
+
+    if (newImages.length > 0) setImages((prev) => [...prev, ...newImages]);
+    if (errors.length > 0) setUploadError(errors.join(' • '));
+
+    setUploading(false);
+    if (fileRef.current) fileRef.current.value = '';
+    setTimeout(() => setUploadStatuses({}), 4000);
   }, []);
 
   // ── Drop zone ─────────────────────────────────────
@@ -118,6 +133,7 @@ export function GalleryManager({ initialImages, sections }: Props) {
       return;
     }
 
+    const prevImages = images;
     const newImages = [...images];
     const [moved] = newImages.splice(dragIdx, 1);
     newImages.splice(targetIdx, 0, moved);
@@ -125,7 +141,10 @@ export function GalleryManager({ initialImages, sections }: Props) {
     setDragIdx(null);
     setDragOverIdx(null);
 
-    await updateImageOrder(newImages.map((img) => img.id));
+    const result = await updateImageOrder(newImages.map((img) => img.id));
+    if (result && 'error' in result) {
+      setImages(prevImages);
+    }
   };
 
   // ── Save alt text ─────────────────────────────────
@@ -178,6 +197,21 @@ export function GalleryManager({ initialImages, sections }: Props) {
             {uploadError && (
               <p className="text-destructive text-sm mb-3">{uploadError}</p>
             )}
+            {Object.keys(uploadStatuses).length > 0 && (
+              <ul className="text-xs text-left mb-3 space-y-1 max-w-xs mx-auto">
+                {Object.entries(uploadStatuses).map(([name, status]) => (
+                  <li key={name} className="flex items-center gap-2 truncate">
+                    <span className={
+                      status === 'done' ? 'text-green-500' :
+                      status === 'error' ? 'text-destructive' : 'text-muted-foreground'
+                    }>
+                      {status === 'done' ? '✓' : status === 'error' ? '✗' : '…'}
+                    </span>
+                    <span className="truncate">{name}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
             <input
               ref={fileRef}
               type="file"
@@ -190,8 +224,11 @@ export function GalleryManager({ initialImages, sections }: Props) {
               onClick={() => fileRef.current?.click()}
               disabled={uploading}
             >
-              {uploading ? 'Przesyłanie...' : 'Wybierz pliki'}
+              {uploading ? `Przesyłanie (${Object.values(uploadStatuses).filter(s => s === 'done').length}/${Object.keys(uploadStatuses).length})…` : 'Wybierz pliki'}
             </Button>
+            <p className="text-xs text-muted-foreground mt-2">
+              Pliki są automatycznie konwertowane do WebP — pełna rozdzielczość, mobilna (800px) i miniatura (400px)
+            </p>
           </div>
         </CardContent>
       </Card>

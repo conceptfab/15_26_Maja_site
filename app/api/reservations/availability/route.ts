@@ -7,11 +7,13 @@ export async function GET(request: Request) {
     const from = searchParams.get('from');
     const to = searchParams.get('to');
 
-    // Domyślnie: 3 miesiące do przodu
+    // Domyślnie: 3 miesiące do przodu, max 12 miesięcy
     const startDate = from ? new Date(from) : new Date();
-    const endDate = to
+    const maxEnd = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+    const requestedEnd = to
       ? new Date(to)
       : new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
+    const endDate = requestedEnd > maxEnd ? maxEnd : requestedEnd;
 
     // Rezerwacje aktywne w tym okresie
     const reservations = await prisma.reservation.findMany({
@@ -23,7 +25,6 @@ export async function GET(request: Request) {
       select: {
         checkIn: true,
         checkOut: true,
-        status: true,
       },
     });
 
@@ -42,7 +43,6 @@ export async function GET(request: Request) {
       reservations: reservations.map((r) => ({
         checkIn: r.checkIn.toISOString().split('T')[0],
         checkOut: r.checkOut.toISOString().split('T')[0],
-        status: r.status,
       })),
       blockedDates: blockedDates.map((b) => ({
         date: b.date.toISOString().split('T')[0],

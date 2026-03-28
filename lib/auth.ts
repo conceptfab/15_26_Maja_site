@@ -3,7 +3,8 @@ import { cookies } from 'next/headers';
 import { prisma } from './db';
 import { getJwtSecret } from './env';
 const COOKIE_NAME = 'admin_session';
-const SESSION_DURATION_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+const SESSION_DURATION_MS = 7 * 24 * 60 * 60 * 1000; // 7 days (cookie/DB)
+const JWT_DURATION_MS = 24 * 60 * 60 * 1000; // 24h (JWT expiry — shorter for security)
 
 export async function createSession(adminId: string) {
   // Clean expired sessions
@@ -13,9 +14,10 @@ export async function createSession(adminId: string) {
 
   const expiresAt = new Date(Date.now() + SESSION_DURATION_MS);
 
+  const jwtExpiresAt = new Date(Date.now() + JWT_DURATION_MS);
   const token = await new SignJWT({ adminId })
     .setProtectedHeader({ alg: 'HS256' })
-    .setExpirationTime(expiresAt)
+    .setExpirationTime(jwtExpiresAt)
     .setIssuedAt()
     .sign(getJwtSecret());
 
@@ -42,8 +44,7 @@ export async function verifySession() {
   if (!token) return null;
 
   try {
-    const { payload } = await jwtVerify(token, getJwtSecret());
-    const adminId = payload.adminId as string;
+    await jwtVerify(token, getJwtSecret());
 
     const session = await prisma.session.findUnique({
       where: { token },

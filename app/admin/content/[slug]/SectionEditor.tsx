@@ -50,6 +50,11 @@ const SLUG_TO_ANCHOR: Record<string, string> = {
   stopka: 'sec4-wrapper',
 };
 
+// Slug → widok menu do aktywacji w podglądzie
+const SLUG_TO_VIEW: Record<string, string> = {
+  rezerwacja: 'rezerwuj',
+};
+
 // Slug → czytelne nazwy pól
 const FIELD_LABELS: Record<string, Record<string, { label: string; description: string; multiline?: boolean }>> = {
   hero: {
@@ -69,9 +74,6 @@ const FIELD_LABELS: Record<string, Record<string, { label: string; description: 
     intro: { label: 'Wstęp (rozwinięcie)', description: 'Krótki wstęp po kliknięciu "Czytaj więcej"', multiline: true },
   },
   rezerwacja: {
-    title: { label: 'Tytuł sekcji', description: 'Nagłówek nad kalendarzem (np. "Zarezerwuj swój czas")' },
-    description: { label: 'Opis główny', description: 'Tekst zachęcający pod tytułem', multiline: true },
-    description2: { label: 'Opis dodatkowy', description: 'Drugi akapit opisu', multiline: true },
     checkin: { label: 'Etykieta: zameldowanie', description: 'Tekst przy polu daty przyjazdu' },
     checkout: { label: 'Etykieta: wymeldowanie', description: 'Tekst przy polu daty wyjazdu' },
     guests_label: { label: 'Etykieta: goście', description: 'Tekst przy selektorze gości' },
@@ -90,18 +92,7 @@ const FIELD_LABELS: Record<string, Record<string, { label: string; description: 
     miejsca_label: { label: 'Link: Miejsca', description: 'Nazwa pozycji menu nawigacyjnego' },
     rezerwuj_label: { label: 'Link: Rezerwuj', description: 'Nazwa pozycji menu nawigacyjnego' },
   },
-  stopka: {
-    koncept_label: { label: 'Link: Koncept', description: 'Nazwa linku w stopce' },
-    miejsca_label: { label: 'Link: Miejsca', description: 'Nazwa linku w stopce' },
-    rezerwuj_label: { label: 'Link: Rezerwuj', description: 'Nazwa linku w stopce' },
-    corporate_title: { label: 'Tytuł: Dane korporacyjne', description: 'Nagłówek sekcji firm' },
-    contact_title: { label: 'Tytuł: Kontakt', description: 'Nagłówek sekcji kontaktu' },
-    email: { label: 'Email kontaktowy', description: 'Wyświetlany w stopce' },
-    phone: { label: 'Telefon', description: 'Z numerem kierunkowym (+48...)' },
-    company: { label: 'Nazwa firmy', description: 'Dane korporacyjne' },
-    address: { label: 'Adres', description: 'Pełny adres firmy' },
-    nip: { label: 'NIP', description: 'Numer identyfikacji podatkowej' },
-  },
+  stopka: {},
 };
 
 const GALLERY_SECTIONS = new Set(['koncept', 'miejsce']);
@@ -130,9 +121,7 @@ export function SectionEditor({ section, galleryImages }: Props) {
   const [galleryThumbs, setGalleryThumbs] = useState<{ id: string; webpUrl: string; thumbUrl: string | null; altPl: string | null }[]>([]);
 
   const fieldMeta = FIELD_LABELS[section.slug] ?? {};
-  const allKeys = Array.from(
-    new Set([...Object.keys(fieldsPl), ...Object.keys(fieldsEn), ...Object.keys(fieldMeta)]),
-  );
+  const allKeys = Object.keys(fieldMeta);
 
   // Wysyłaj live preview do iframe przy każdej zmianie pól
   const sendLivePreview = useCallback(() => {
@@ -145,15 +134,20 @@ export function SectionEditor({ section, galleryImages }: Props) {
       titleEn,
       contentPl: { ...fieldsPl },
       contentEn: { ...fieldsEn },
-    }, '*');
-  }, [section.slug, titlePl, titleEn, fieldsPl, fieldsEn]);
+      bgImage: bgImage || null,
+      bgColor: bgColor || null,
+    }, window.location.origin);
+  }, [section.slug, titlePl, titleEn, fieldsPl, fieldsEn, bgImage, bgColor]);
 
   useEffect(() => {
     sendLivePreview();
   }, [sendLivePreview]);
 
   const anchor = SLUG_TO_ANCHOR[section.slug] ?? '';
-  const iframeSrc = `/#${anchor}`;
+  const viewParam = SLUG_TO_VIEW[section.slug];
+  const iframeSrc = viewParam
+    ? `/?view=${viewParam}`
+    : `/#${anchor}`;
 
   const reloadPreview = useCallback(() => {
     const iframe = iframeRef.current;
@@ -231,11 +225,26 @@ export function SectionEditor({ section, galleryImages }: Props) {
                 <p className="text-xs text-muted-foreground">{meta.description}</p>
               )}
               {meta?.multiline ? (
-                <RichTextEditor
-                  value={value}
-                  onChange={(html) => setFields((prev) => ({ ...prev, [key]: html }))}
-                  placeholder={meta.description}
-                />
+                <>
+                  <RichTextEditor
+                    value={value}
+                    onChange={(html) => setFields((prev) => ({ ...prev, [key]: html }))}
+                    placeholder={meta.description}
+                  />
+                  <details className="mt-1">
+                    <summary className="text-xs text-muted-foreground cursor-pointer select-none hover:text-foreground transition-colors">
+                      Pomoc: dostępne formatowanie
+                    </summary>
+                    <div className="mt-2 text-xs text-muted-foreground space-y-1 bg-muted/50 rounded p-3 leading-relaxed">
+                      <p><strong>B</strong> — pogrubienie &nbsp;|&nbsp; <em>I</em> — kursywa &nbsp;|&nbsp; <u>U</u> — podkreślenie &nbsp;|&nbsp; <s>S</s> — przekreślenie</p>
+                      <p><strong>H2 / H3</strong> — nagłówki (śródtytuły)</p>
+                      <p><strong>•— / 1.</strong> — lista punktowana / numerowana</p>
+                      <p><strong>❝</strong> — cytat blokowy</p>
+                      <p><strong>🔗</strong> — link (zaznacz tekst, kliknij, wpisz URL)</p>
+                      <p className="pt-1 border-t border-border">Klawisze: <kbd>Ctrl+B</kbd> pogrubienie, <kbd>Ctrl+I</kbd> kursywa, <kbd>Ctrl+Z</kbd> cofnij</p>
+                    </div>
+                  </details>
+                </>
               ) : (
                 <Input
                   id={`${lang}-${key}`}
@@ -358,11 +367,11 @@ export function SectionEditor({ section, galleryImages }: Props) {
                   </Button>
                 </div>
                 {bgImage && (
-                  <div className="mt-2 rounded border border-border overflow-hidden">
+                  <div className="mt-2 rounded border border-border overflow-hidden aspect-square w-32">
                     <img
                       src={bgImage}
                       alt="Podgląd tła"
-                      className="w-full h-24 object-cover"
+                      className="w-full h-full object-cover"
                     />
                   </div>
                 )}
@@ -442,6 +451,9 @@ export function SectionEditor({ section, galleryImages }: Props) {
               src={iframeSrc}
               className="w-full h-full border-0"
               title="Podgląd strony"
+              onLoad={() => {
+                sendLivePreview();
+              }}
             />
           </div>
         </div>

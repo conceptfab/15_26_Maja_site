@@ -1,4 +1,6 @@
 import nodemailer from 'nodemailer';
+import { getEmailTemplates, getMailingLogoUrl } from '@/lib/email-templates';
+import { interpolate } from '@/lib/email-template-defaults';
 
 type SendEmailParams = {
   to: string;
@@ -32,7 +34,7 @@ export async function sendEmail({ to, subject, html }: SendEmailParams) {
     return { success: false, reason: 'smtp_not_configured' } as const;
   }
 
-  const from = process.env.SMTP_USER || 'noreply@hommm.eu';
+  const from = process.env.SMTP_FROM || process.env.SMTP_USER || 'noreply@hommm.eu';
 
   try {
     await transport.sendMail({ from, to, subject, html });
@@ -43,25 +45,41 @@ export async function sendEmail({ to, subject, html }: SendEmailParams) {
   }
 }
 
-// --- Szablony email ---
+// --- Layout wrappera emaila ---
 
 const BRAND_COLOR = '#be1622';
 
-function emailLayout(content: string) {
-  return `
-    <div style="font-family: 'Helvetica Neue', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px;">
-      <div style="text-align: center; margin-bottom: 32px;">
-        <h1 style="color: ${BRAND_COLOR}; font-size: 28px; letter-spacing: 4px; margin: 0;">HOMMM</h1>
+function toAbsoluteUrl(path: string): string {
+  if (path.startsWith('http')) return path;
+  const base = (process.env.NEXT_PUBLIC_SITE_URL || process.env.VERCEL_URL || '').replace(/\/$/, '');
+  return base ? `${base.startsWith('http') ? '' : 'https://'}${base}${path}` : path;
+}
+
+function escapeAttr(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function emailLayout(content: string, logoUrl: string | null) {
+  const logoHtml = logoUrl
+    ? `<img src="${escapeAttr(toAbsoluteUrl(logoUrl))}" alt="HOMMM" width="120" style="display:block;margin:0 auto 16px" />`
+    : '';
+  return `<!doctype html><html><body style="margin:0;background:#f3f4f6">
+    <div style="font-family:'Helvetica Neue',Arial,sans-serif;max-width:600px;margin:24px auto;padding:24px;background:#fff;border-radius:8px">
+      <div style="text-align:center;margin-bottom:32px">
+        ${logoHtml}
+        <h1 style="color:${BRAND_COLOR};font-size:28px;letter-spacing:4px;margin:0">HOMMM</h1>
       </div>
       ${content}
-      <div style="margin-top: 32px; padding-top: 16px; border-top: 1px solid #eee; font-size: 12px; color: #999; text-align: center;">
+      <div style="margin-top:32px;padding-top:16px;border-top:1px solid #eee;font-size:12px;color:#999;text-align:center">
         HOMMM &mdash; Your Special Time
       </div>
     </div>
-  `;
+  </body></html>`;
 }
 
-type ReservationEmailData = {
+// --- Typy danych ---
+
+export type ReservationEmailData = {
   guestName: string;
   guestEmail: string;
   guestPhone: string;
@@ -73,80 +91,55 @@ type ReservationEmailData = {
   comment?: string;
 };
 
-export function buildGuestConfirmationEmail(data: ReservationEmailData) {
+// --- Szablony z DB (z fallback na defaults) ---
+
+export async function loadEmailContext() {
+  return Promise.all([getEmailTemplates(), getMailingLogoUrl()]);
+}
+
+export async function buildGuestConfirmationEmail(
+  data: ReservationEmailData,
+  ctx?: [Awaited<ReturnType<typeof getEmailTemplates>>, string | null],
+) {
+  const [templates, logoUrl] = ctx ?? await loadEmailContext();
+  const tmpl = templates.guestConfirmation;
+  const vars = { ...data, nights: String(data.nights), guests: String(data.guests), totalPrice: String(data.totalPrice) };
   return {
-    subject: 'HOMMM — Otrzymaliśmy Twoją rezerwację',
-    html: emailLayout(`
-      <h2 style="color: #333;">Dziękujemy, ${data.guestName}!</h2>
-      <p>Otrzymaliśmy Twoje zgłoszenie rezerwacji. Wkrótce się z Tobą skontaktujemy.</p>
-      <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
-        <tr><td style="padding: 8px 0; color: #666;">Zameldowanie</td><td style="padding: 8px 0; font-weight: bold;">${data.checkIn}</td></tr>
-        <tr><td style="padding: 8px 0; color: #666;">Wymeldowanie</td><td style="padding: 8px 0; font-weight: bold;">${data.checkOut}</td></tr>
-        <tr><td style="padding: 8px 0; color: #666;">Noce</td><td style="padding: 8px 0; font-weight: bold;">${data.nights}</td></tr>
-        <tr><td style="padding: 8px 0; color: #666;">Goście</td><td style="padding: 8px 0; font-weight: bold;">${data.guests}</td></tr>
-        <tr><td style="padding: 8px 0; color: #666;">Cena</td><td style="padding: 8px 0; font-weight: bold;">${data.totalPrice} zł</td></tr>
-      </table>
-      ${data.comment ? `<p style="color: #666;"><strong>Komentarz:</strong> ${data.comment}</p>` : ''}
-      <div style="margin-top: 16px; padding: 12px; background: #f5f5f5; border-radius: 6px; font-size: 13px; color: #666;">
-        <strong>Twoje dane kontaktowe:</strong><br/>
-        ${data.guestEmail} &bull; ${data.guestPhone}
-      </div>
-    `),
+    subject: interpolate(tmpl.subject, vars),
+    html: emailLayout(interpolate(tmpl.body, vars), logoUrl),
   };
 }
 
-export function buildAdminNotificationEmail(data: ReservationEmailData) {
+export async function buildAdminNotificationEmail(
+  data: ReservationEmailData,
+  ctx?: [Awaited<ReturnType<typeof getEmailTemplates>>, string | null],
+) {
+  const [templates, logoUrl] = ctx ?? await loadEmailContext();
+  const tmpl = templates.adminNotification;
+  const vars = { ...data, nights: String(data.nights), guests: String(data.guests), totalPrice: String(data.totalPrice) };
   return {
-    subject: `Nowa rezerwacja od ${data.guestName}`,
-    html: emailLayout(`
-      <h2 style="color: #333;">Nowa rezerwacja</h2>
-      <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
-        <tr><td style="padding: 8px 0; color: #666;">Gość</td><td style="padding: 8px 0; font-weight: bold;">${data.guestName}</td></tr>
-        <tr><td style="padding: 8px 0; color: #666;">Email</td><td style="padding: 8px 0;">${data.guestEmail}</td></tr>
-        <tr><td style="padding: 8px 0; color: #666;">Telefon</td><td style="padding: 8px 0;">${data.guestPhone}</td></tr>
-        <tr><td style="padding: 8px 0; color: #666;">Zameldowanie</td><td style="padding: 8px 0; font-weight: bold;">${data.checkIn}</td></tr>
-        <tr><td style="padding: 8px 0; color: #666;">Wymeldowanie</td><td style="padding: 8px 0; font-weight: bold;">${data.checkOut}</td></tr>
-        <tr><td style="padding: 8px 0; color: #666;">Noce</td><td style="padding: 8px 0; font-weight: bold;">${data.nights}</td></tr>
-        <tr><td style="padding: 8px 0; color: #666;">Goście</td><td style="padding: 8px 0; font-weight: bold;">${data.guests}</td></tr>
-        <tr><td style="padding: 8px 0; color: #666;">Cena</td><td style="padding: 8px 0; font-weight: bold;">${data.totalPrice} zł</td></tr>
-      </table>
-      ${data.comment ? `<p style="color: #666;"><strong>Komentarz:</strong> ${data.comment}</p>` : ''}
-    `),
+    subject: interpolate(tmpl.subject, vars),
+    html: emailLayout(interpolate(tmpl.body, vars), logoUrl),
   };
 }
 
-export function buildStatusChangeEmail(guestName: string, status: string) {
-  const messages: Record<string, { subject: string; heading: string; text: string }> = {
-    DEPOSIT_PAID: {
-      subject: 'HOMMM — Zaliczka otrzymana',
-      heading: 'Zaliczka potwierdzona',
-      text: 'Otrzymaliśmy Twoją zaliczkę. Rezerwacja jest wstępnie potwierdzona.',
-    },
-    PAID: {
-      subject: 'HOMMM — Rezerwacja potwierdzona',
-      heading: 'Rezerwacja potwierdzona!',
-      text: 'Twoja rezerwacja została w pełni potwierdzona. Do zobaczenia!',
-    },
-    CANCELLED: {
-      subject: 'HOMMM — Rezerwacja anulowana',
-      heading: 'Rezerwacja anulowana',
-      text: 'Twoja rezerwacja została anulowana. Jeśli masz pytania, skontaktuj się z nami.',
-    },
-    COMPLETED: {
-      subject: 'HOMMM — Dziękujemy za pobyt!',
-      heading: 'Dziękujemy!',
-      text: 'Dziękujemy za pobyt w HOMMM. Mamy nadzieję, że wrócisz!',
-    },
+export async function buildStatusChangeEmail(guestName: string, status: string) {
+  const [templates, logoUrl] = await Promise.all([getEmailTemplates(), getMailingLogoUrl()]);
+
+  const keyMap: Record<string, keyof typeof templates> = {
+    DEPOSIT_PAID: 'statusDepositPaid',
+    PAID: 'statusPaid',
+    CANCELLED: 'statusCancelled',
+    COMPLETED: 'statusCompleted',
   };
 
-  const msg = messages[status];
-  if (!msg) return null;
+  const tmplKey = keyMap[status];
+  if (!tmplKey) return null;
 
+  const tmpl = templates[tmplKey];
+  const vars = { guestName };
   return {
-    subject: msg.subject,
-    html: emailLayout(`
-      <h2 style="color: #333;">${msg.heading}</h2>
-      <p>${guestName}, ${msg.text}</p>
-    `),
+    subject: interpolate(tmpl.subject, vars),
+    html: emailLayout(interpolate(tmpl.body, vars), logoUrl),
   };
 }

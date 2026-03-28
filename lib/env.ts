@@ -8,24 +8,35 @@ function readRequiredEnv(name: string) {
   return value;
 }
 
+// Cache na poziomie modułu — enkodowanie raz przy starcie procesu
+let _jwtSecret: Uint8Array | null = null;
+
 export function getJwtSecret() {
+  if (_jwtSecret) return _jwtSecret;
+
   const jwtSecret = readRequiredEnv('JWT_SECRET');
 
   if (jwtSecret.length < 32) {
     throw new Error('JWT_SECRET must be at least 32 characters long');
   }
 
-  return new TextEncoder().encode(jwtSecret);
+  _jwtSecret = new TextEncoder().encode(jwtSecret);
+  return _jwtSecret;
 }
 
+let _adminSecretCode: string | null = null;
+
 export function getAdminSecretCode() {
+  if (_adminSecretCode) return _adminSecretCode;
+
   const adminSecretCode = readRequiredEnv('ADMIN_SECRET_CODE');
 
   if (adminSecretCode.length < 12) {
     throw new Error('ADMIN_SECRET_CODE must be at least 12 characters long');
   }
 
-  return adminSecretCode;
+  _adminSecretCode = adminSecretCode;
+  return _adminSecretCode;
 }
 
 export function getSeedAdminEmail() {

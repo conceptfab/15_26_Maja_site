@@ -40,6 +40,7 @@ type Props = {
 export function SectionGalleryEditor({ sectionId, initialImages }: Props) {
   const [images, setImages] = useState(initialImages);
   const [uploading, setUploading] = useState(false);
+  const [uploadStatuses, setUploadStatuses] = useState<Record<string, 'uploading' | 'done' | 'error'>>({});
   const [editItem, setEditItem] = useState<GalleryItem | null>(null);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
@@ -50,22 +51,35 @@ export function SectionGalleryEditor({ sectionId, initialImages }: Props) {
   // ── Upload ────────────────────────────────────────────
 
   const handleUpload = useCallback(async (files: FileList) => {
+    const fileList = Array.from(files);
     setUploading(true);
-    try {
-      for (const file of Array.from(files)) {
+    setUploadStatuses(Object.fromEntries(fileList.map((f) => [f.name, 'uploading' as const])));
+
+    const results = await Promise.allSettled(
+      fileList.map(async (file) => {
         const fd = new FormData();
         fd.append('file', file);
         fd.append('sectionId', sectionId);
         const result = await uploadImage(fd);
-        if (result.success && result.image) {
-          const img = result.image as GalleryItem;
-          setImages((prev) => [...prev, img]);
-        }
+        if ('error' in result) throw new Error(result.error as string);
+        setUploadStatuses((prev) => ({ ...prev, [file.name]: 'done' }));
+        return result.image as GalleryItem;
+      }),
+    );
+
+    const newImages: GalleryItem[] = [];
+    results.forEach((r, i) => {
+      if (r.status === 'fulfilled' && r.value) {
+        newImages.push(r.value);
+      } else if (r.status === 'rejected') {
+        setUploadStatuses((prev) => ({ ...prev, [fileList[i].name]: 'error' }));
       }
-    } finally {
-      setUploading(false);
-      if (fileRef.current) fileRef.current.value = '';
-    }
+    });
+
+    if (newImages.length > 0) setImages((prev) => [...prev, ...newImages]);
+    setUploading(false);
+    if (fileRef.current) fileRef.current.value = '';
+    setTimeout(() => setUploadStatuses({}), 4000);
   }, [sectionId]);
 
   // ── Unassign (nie kasuje, tylko odpina od sekcji) ─────
@@ -96,13 +110,17 @@ export function SectionGalleryEditor({ sectionId, initialImages }: Props) {
       setDragOverIdx(null);
       return;
     }
+    const prevImages = images;
     const newImages = [...images];
     const [moved] = newImages.splice(dragIdx, 1);
     newImages.splice(targetIdx, 0, moved);
     setImages(newImages);
     setDragIdx(null);
     setDragOverIdx(null);
-    await updateImageOrder(newImages.map((img) => img.id));
+    const result = await updateImageOrder(newImages.map((img) => img.id));
+    if (result && 'error' in result) {
+      setImages(prevImages);
+    }
   };
 
   // ── Caption save ──────────────────────────────────────

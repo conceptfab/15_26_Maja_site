@@ -15,6 +15,9 @@ export default async function SiteStructurePage() {
           <p className="text-sm text-muted-foreground">
             Zarządzaj drzewem stron. Kliknij węzeł, aby edytować. Przeciągnij, aby zmienić układ.
           </p>
+          <div className="mt-3 rounded-md border border-yellow-500/30 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-700 dark:text-yellow-400">
+            <strong>Funkcja eksperymentalna</strong> — ta sekcja jest w fazie rozwoju. Zalecamy nie wprowadzać tutaj zmian, aby uniknąć nieoczekiwanych problemów.
+          </div>
         </div>
 
         <SiteStructureClient

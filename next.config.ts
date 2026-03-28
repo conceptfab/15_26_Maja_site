@@ -34,10 +34,14 @@ const nextConfig: NextConfig = {
         protocol: 'https',
         hostname: '*.public.blob.vercel-storage.com',
       },
+      {
+        protocol: 'https',
+        hostname: '*.private.blob.vercel-storage.com',
+      },
     ],
     deviceSizes: [640, 800, 1080, 1200, 1920],
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
-    formats: ['image/webp'],
+    formats: ['image/avif', 'image/webp'],
   },
   experimental: {
     devtoolSegmentExplorer: false,
