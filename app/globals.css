@@ -916,7 +916,7 @@ body {
   color: #ffffff;
 }
 
-.bg-secondary {
+.section-bg-secondary {
   background-image: var(--section-bg, url('/assets/sec_2.webp'));
   background-size: cover;
   background-position: center;
@@ -1622,7 +1622,7 @@ body {
   }
 }
 
-#sec4-wrapper {
+#kontakt {
   flex-direction: column;
   justify-content: flex-start;
   align-items: center;

@@ -132,6 +132,7 @@ model BlockedDate {
   id        String   @id @default(cuid())
   date      DateTime
   reason    String?
+  type      String   @default("BLOCKED") // BLOCKED | SERVICE
   createdAt DateTime @default(now())
 
   @@index([date])

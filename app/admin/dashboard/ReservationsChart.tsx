@@ -5,7 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 type OccupancyChartPoint = {
   name: string;
-  occupied: number;
+  paid: number;
+  deposit: number;
   pending: number;
   blocked: number;
   free: number;
@@ -20,7 +21,8 @@ type Props = {
 type View = 'miesiace' | 'tygodnie';
 
 const SEGMENTS = [
-  { key: 'occupied' as const, label: 'Zajęte',       color: '#22c55e' },
+  { key: 'paid' as const,     label: 'Opłacone',     color: '#22c55e' },
+  { key: 'deposit' as const,  label: 'Zaliczka',     color: '#3b82f6' },
   { key: 'pending' as const,  label: 'Oczekujące',   color: '#f59e0b' },
   { key: 'blocked' as const,  label: 'Zablokowane',  color: '#ef4444' },
   { key: 'free' as const,     label: 'Wolne',        color: '#374151' },
@@ -30,7 +32,7 @@ function StackedBarChart({ data }: { data: OccupancyChartPoint[] }) {
   const [tooltip, setTooltip] = useState<{ idx: number; x: number; y: number } | null>(null);
   const isWeekly = data.length > 20;
 
-  const max = Math.max(...data.map((d) => d.occupied + d.pending + d.blocked + d.free), 1);
+  const max = Math.max(...data.map((d) => d.paid + d.deposit + d.pending + d.blocked + d.free), 1);
   const H = 240;
   const BAR_H = H - 28;
   const STEPS = 5;
@@ -61,7 +63,7 @@ function StackedBarChart({ data }: { data: OccupancyChartPoint[] }) {
       {/* Bars */}
       <div className="absolute flex items-end gap-0.5" style={{ top: 0, left: 32, right: 0, bottom: 28 }}>
         {data.map((d, i) => {
-          const total = d.occupied + d.pending + d.blocked + d.free;
+          const total = d.paid + d.deposit + d.pending + d.blocked + d.free;
           return (
             <div key={i} className="flex-1 flex flex-col-reverse items-stretch justify-start h-full group relative"
               onMouseEnter={(e) => setTooltip({ idx: i, x: e.clientX, y: e.clientY })}
@@ -114,7 +116,7 @@ function StackedBarChart({ data }: { data: OccupancyChartPoint[] }) {
 export function ReservationsChart({ monthlyData, weeklyData, year }: Props) {
   const [view, setView] = useState<View>('miesiace');
   const data = view === 'miesiace' ? monthlyData : weeklyData;
-  const hasData = data.some((d) => d.occupied > 0 || d.pending > 0 || d.blocked > 0);
+  const hasData = data.some((d) => d.paid > 0 || d.deposit > 0 || d.pending > 0 || d.blocked > 0);
 
   return (
     <Card>

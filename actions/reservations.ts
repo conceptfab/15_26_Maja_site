@@ -222,7 +222,7 @@ export async function getBlockedDates() {
   };
 }
 
-export async function addBlockedDate(date: string, reason?: string) {
+export async function addBlockedDate(date: string, reason?: string, type: 'BLOCKED' | 'SERVICE' = 'BLOCKED') {
   const session = await verifySession();
   if (!session) return unauthorized();
 
@@ -235,6 +235,7 @@ export async function addBlockedDate(date: string, reason?: string) {
     data: {
       date: parsed,
       reason: reason || null,
+      type,
     },
   });
 

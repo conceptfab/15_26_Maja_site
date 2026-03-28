@@ -35,6 +35,7 @@ type BlockedDate = {
   id: string;
   date: string;
   reason: string | null;
+  type: string;
   createdAt: string;
 };
 
@@ -77,9 +78,9 @@ export function CalendarView({ reservations, blockedDates }: Props) {
 
   const getReservationsForDay = (day: Date) =>
     reservations.filter((r) => {
-      const checkIn = new Date(r.checkIn);
-      const checkOut = new Date(r.checkOut);
-      return isWithinInterval(day, { start: checkIn, end: new Date(checkOut.getTime() - 86400000) });
+      const checkIn = startOfDay(new Date(r.checkIn));
+      const checkOut = startOfDay(new Date(r.checkOut));
+      return isWithinInterval(day, { start: checkIn, end: checkOut });
     });
 
   const getBlockedForDay = (day: Date) =>
@@ -91,6 +92,18 @@ export function CalendarView({ reservations, blockedDates }: Props) {
       setBlockReason('');
       router.refresh();
     });
+  };
+
+  const handleToggleService = (day: Date) => {
+    const existing = getBlockedForDay(day);
+    if (existing?.type === 'SERVICE') {
+      handleUnblockDate(existing.id);
+    } else if (!existing) {
+      startTransition(async () => {
+        await addBlockedDate(day.toISOString(), 'Serwis', 'SERVICE');
+        router.refresh();
+      });
+    }
   };
 
   const handleUnblockDate = (id: string) => {
@@ -128,19 +141,9 @@ export function CalendarView({ reservations, blockedDates }: Props) {
         <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-blue-500/30 border border-blue-500" /> Zaliczka</span>
         <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-green-500/30 border border-green-500" /> Opłacona</span>
         <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-red-500/30 border border-red-500" /> Zablokowana</span>
+        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-purple-500/30 border border-purple-500" /> Serwis</span>
       </div>
 
-      {/* Blokowanie dat */}
-      <div className="flex items-center gap-2">
-        <input
-          type="text"
-          placeholder="Powód blokady (opcjonalnie)"
-          value={blockReason}
-          onChange={(e) => setBlockReason(e.target.value)}
-          className="flex-1 rounded-md border border-input bg-background px-3 py-1.5 text-sm"
-        />
-        <p className="text-xs text-muted-foreground">Kliknij datę w kalendarzu, aby ją zablokować</p>
-      </div>
 
       {/* Siatka kalendarza (desktop) */}
       <Card className="hidden md:block">
@@ -170,40 +173,58 @@ export function CalendarView({ reservations, blockedDates }: Props) {
                   key={day.toISOString()}
                   className={`min-h-[80px] border rounded p-1 text-xs transition-colors ${
                     isCurrentDay ? 'border-white/40' : 'border-border'
-                  } ${blocked ? 'bg-red-500/10' : ''} ${isPast ? 'opacity-50' : ''}`}
+                  } ${blocked ? (blocked.type === 'SERVICE' ? 'bg-purple-500/10' : 'bg-red-500/10') : ''} ${isPast ? 'opacity-50' : ''}`}
                 >
                   <div className="flex items-center justify-between mb-1">
                     <span className={`font-medium ${isCurrentDay ? 'text-white' : 'text-muted-foreground'}`}>
                       {format(day, 'd')}
                     </span>
-                    {!isPast && (
-                      blocked ? (
+                    <div className="flex items-center gap-1">
+                      {!isPast && (
                         <button
                           type="button"
-                          className="text-red-400 hover:text-red-300 text-[10px]"
-                          onClick={() => handleUnblockDate(blocked.id)}
-                          disabled={isPending}
-                          title="Odblokuj datę"
+                          className={`text-[10px] font-bold w-4 h-4 rounded flex items-center justify-center transition-colors ${
+                            blocked?.type === 'SERVICE'
+                              ? 'bg-purple-500 text-white'
+                              : 'text-muted-foreground/30 hover:bg-purple-500/20 hover:text-purple-400'
+                          }`}
+                          onClick={() => handleToggleService(day)}
+                          disabled={isPending || (blocked != null && blocked.type !== 'SERVICE')}
+                          title={blocked?.type === 'SERVICE' ? 'Usuń serwis' : 'Dodaj serwis'}
                         >
-                          ✕
+                          S
                         </button>
-                      ) : (
-                        <button
-                          type="button"
-                          className="text-muted-foreground/30 hover:text-red-400 text-[10px]"
-                          onClick={() => handleBlockDate(day)}
-                          disabled={isPending}
-                          title="Zablokuj datę"
-                        >
-                          ⊘
-                        </button>
-                      )
-                    )}
+                      )}
+                      {!isPast && (
+                        blocked && blocked.type !== 'SERVICE' ? (
+                          <button
+                            type="button"
+                            className="text-red-400 hover:text-red-300 text-[10px]"
+                            onClick={() => handleUnblockDate(blocked.id)}
+                            disabled={isPending}
+                            title="Odblokuj datę"
+                          >
+                            ✕
+                          </button>
+                        ) : !blocked ? (
+                          <button
+                            type="button"
+                            className="text-muted-foreground/30 hover:text-red-400 text-[10px]"
+                            onClick={() => handleBlockDate(day)}
+                            disabled={isPending}
+                            title="Zablokuj datę"
+                          >
+                            ⊘
+                          </button>
+                        ) : null
+                      )}
+                    </div>
                   </div>
 
                   {blocked && (
-                    <div className="text-[10px] text-red-400 truncate" title={blocked.reason || 'Zablokowana'}>
-                      {blocked.reason || 'Zablokowana'}
+                    <div className={`text-[10px] truncate ${blocked.type === 'SERVICE' ? 'text-purple-400' : 'text-red-400'}`}
+                      title={blocked.reason || (blocked.type === 'SERVICE' ? 'Serwis' : 'Zablokowana')}>
+                      {blocked.reason || (blocked.type === 'SERVICE' ? 'Serwis' : 'Zablokowana')}
                     </div>
                   )}
 
@@ -265,16 +286,16 @@ export function CalendarView({ reservations, blockedDates }: Props) {
                   </div>
 
                   {blocked && (
-                    <div className="flex items-center justify-between text-xs text-red-400 mb-1">
-                      <span>🚫 {blocked.reason || 'Zablokowana'}</span>
+                    <div className={`flex items-center justify-between text-xs mb-1 ${blocked.type === 'SERVICE' ? 'text-purple-400' : 'text-red-400'}`}>
+                      <span>{blocked.type === 'SERVICE' ? '🔧' : '🚫'} {blocked.reason || (blocked.type === 'SERVICE' ? 'Serwis' : 'Zablokowana')}</span>
                       {!isPast && (
                         <button
                           type="button"
-                          className="hover:text-red-300"
+                          className={blocked.type === 'SERVICE' ? 'hover:text-purple-300' : 'hover:text-red-300'}
                           onClick={() => handleUnblockDate(blocked.id)}
                           disabled={isPending}
                         >
-                          Odblokuj
+                          Usuń
                         </button>
                       )}
                     </div>

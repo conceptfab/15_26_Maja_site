@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic';
 import { prisma } from '@/lib/db';
 import { AdminShell } from '@/components/admin/AdminShell';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+
 import { ReservationsChart } from './ReservationsChart';
 import { InfrastructureSection } from './InfrastructureSection';
 import { getExternalStats } from '@/lib/external-stats';
@@ -81,7 +81,7 @@ async function getStats() {
     }),
     prisma.blockedDate.findMany({
       where: { date: { gte: startOfYear, lte: endOfYear } },
-      select: { date: true },
+      select: { date: true, type: true },
     }),
   ]);
 
@@ -132,7 +132,8 @@ async function getStats() {
 
   type OccupancyChartPoint = {
     name: string;
-    occupied: number;   // dni zajęte (DEPOSIT_PAID + PAID + COMPLETED)
+    paid: number;       // dni opłacone (PAID + COMPLETED)
+    deposit: number;    // dni z zaliczką (DEPOSIT_PAID)
     pending: number;    // dni oczekujące (PENDING)
     blocked: number;    // dni zablokowane
     free: number;       // dni wolne
@@ -144,21 +145,24 @@ async function getStats() {
     const mEnd = new Date(now.getFullYear(), monthIdx + 1, 1);
     const daysInM = new Date(now.getFullYear(), monthIdx + 1, 0).getDate();
 
-    let occupied = 0;
+    let paid = 0;
+    let deposit = 0;
     let pending = 0;
     for (const r of yearlyChartData) {
       const nights = overlapNights(r.checkIn, r.checkOut, mStart, mEnd);
       if (nights <= 0) continue;
-      if (['DEPOSIT_PAID', 'PAID', 'COMPLETED'].includes(r.status)) {
-        occupied += nights;
+      if (['PAID', 'COMPLETED'].includes(r.status)) {
+        paid += nights;
+      } else if (r.status === 'DEPOSIT_PAID') {
+        deposit += nights;
       } else if (r.status === 'PENDING') {
         pending += nights;
       }
     }
     const blocked = blockedDatesYear.filter((b) => new Date(b.date).getMonth() === monthIdx).length;
-    const free = Math.max(0, daysInM - occupied - pending - blocked);
+    const free = Math.max(0, daysInM - paid - deposit - pending - blocked);
 
-    return { name, occupied, pending, blocked, free };
+    return { name, paid, deposit, pending, blocked, free };
   });
 
   // Dane tygodniowe — uproszczone (bez overlap, bo tydzień = 7 dni)
@@ -170,13 +174,16 @@ async function getStats() {
     const wStart = new Date(jan1.getTime() + ((w - 1) * 7 - jan1.getDay()) * 86400000);
     const wEnd = new Date(wStart.getTime() + 7 * 86400000);
 
-    let occupied = 0;
+    let paid = 0;
+    let deposit = 0;
     let pendingDays = 0;
     for (const r of yearlyChartData) {
       const nights = overlapNights(r.checkIn, r.checkOut, wStart, wEnd);
       if (nights <= 0) continue;
-      if (['DEPOSIT_PAID', 'PAID', 'COMPLETED'].includes(r.status)) {
-        occupied += nights;
+      if (['PAID', 'COMPLETED'].includes(r.status)) {
+        paid += nights;
+      } else if (r.status === 'DEPOSIT_PAID') {
+        deposit += nights;
       } else if (r.status === 'PENDING') {
         pendingDays += nights;
       }
@@ -185,9 +192,9 @@ async function getStats() {
       const bd = new Date(b.date);
       return bd >= wStart && bd < wEnd;
     }).length;
-    const free = Math.max(0, 7 - occupied - pendingDays - blocked);
+    const free = Math.max(0, 7 - paid - deposit - pendingDays - blocked);
 
-    return { name: `T${w}`, occupied, pending: pendingDays, blocked, free };
+    return { name: `T${w}`, paid, deposit, pending: pendingDays, blocked, free };
   });
 
   // Nowe KPI (B2)
@@ -324,14 +331,14 @@ export default async function DashboardPage() {
           <h2 className="text-sm font-medium text-muted-foreground mb-3">Rezerwacje</h2>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
             {s.upcoming7Days > 0 && (
-              <StatCard title="Nadchodzące (7 dni)" value={s.upcoming7Days} variant="success" desc="Zameldowania w ciągu tygodnia" />
+              <StatCard title="Nadchodzące (7 dni)" value={s.upcoming7Days} desc="Zameldowania w ciągu tygodnia" />
             )}
             <StatCard title="Łącznie" value={s.totalReservations} />
-            <StatCard title="Oczekujące" value={s.pendingReservations} variant={s.pendingReservations > 0 ? 'warning' : 'default'} />
+            <StatCard title="Oczekujące" value={s.pendingReservations} />
             <StatCard title="Zaliczka" value={s.depositPaid} />
-            <StatCard title="Opłacone" value={s.paidReservations} variant="success" />
+            <StatCard title="Opłacone" value={s.paidReservations} />
             <StatCard title="Zrealizowane" value={s.completedReservations} />
-            <StatCard title="Anulowane" value={s.cancelledReservations} variant={s.cancelledReservations > 0 ? 'destructive' : 'default'} />
+            <StatCard title="Anulowane" value={s.cancelledReservations} />
           </div>
         </div>
 
@@ -413,15 +420,11 @@ function StatCard({
   title,
   value,
   desc,
-  variant = 'default',
 }: {
   title: string;
   value: string | number;
   desc?: string;
-  variant?: 'default' | 'warning' | 'success' | 'destructive';
 }) {
-  const badgeVariant = variant === 'default' ? undefined : variant === 'success' ? 'default' : variant;
-
   return (
     <Card>
       <CardHeader className="pb-2">
@@ -430,13 +433,8 @@ function StatCard({
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <p className="text-3xl font-bold flex items-center gap-2">
+        <p className="text-3xl font-bold">
           {value}
-          {variant !== 'default' && badgeVariant && (
-            <Badge variant={badgeVariant as 'default' | 'destructive'} className="text-[10px]">
-              {variant === 'warning' ? '!' : variant === 'success' ? '✓' : '✕'}
-            </Badge>
-          )}
         </p>
         {desc && <p className="text-xs text-muted-foreground mt-1">{desc}</p>}
       </CardContent>

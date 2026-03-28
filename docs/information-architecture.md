@@ -10,11 +10,11 @@ Po realizacji Faz 0-2 publiczna czesc serwisu nadal dziala jako jedna strona (`/
 
 | Kolejnosc | Slug | Kotwica / obszar | Rola |
 |-----------|------|------------------|------|
-| 1 | `hero` | `#hero-start` | Pierwsze wrazenie i branding |
-| 2 | `koncept` | `#sec2-wrapper` | Opis charakteru miejsca |
-| 3 | `miejsce` | `#sec3-wrapper` | Opis przestrzeni i otoczenia |
-| 4 | `rezerwacja` | `#hero-start` | Panel dat, gosci i ceny w obrebie hero |
-| 5 | `kontakt` | `#sec4-wrapper` | Dane kontaktowe, sociale, baner |
+| 1 | `hero` | `#rezerwuj` | Pierwsze wrazenie i branding |
+| 2 | `koncept` | `#koncept` | Opis charakteru miejsca |
+| 3 | `miejsce` | `#miejsca` | Opis przestrzeni i otoczenia |
+| 4 | `rezerwacja` | `#rezerwuj` | Panel dat, gosci i ceny w obrebie hero |
+| 5 | `kontakt` | `#kontakt` | Dane kontaktowe, sociale, baner |
 
 ### Wazna decyzja IA
 
@@ -29,9 +29,9 @@ Po realizacji Faz 0-2 publiczna czesc serwisu nadal dziala jako jedna strona (`/
 
 | Element | Zachowanie |
 |---------|------------|
-| `koncept` | Scroll do `#sec2-wrapper` |
-| `miejsca` | Przelacza hero w widok galerii/rezerwacji i przewija do `#hero-start` |
-| `rezerwuj` | Przelacza hero w widok panelu rezerwacji i przewija do `#hero-start` |
+| `koncept` | Scroll do `#koncept` |
+| `miejsca` | Przelacza hero w widok galerii/rezerwacji i przewija do `#rezerwuj` |
+| `rezerwuj` | Przelacza hero w widok panelu rezerwacji i przewija do `#rezerwuj` |
 | `PL` / `EN` | Zmienia jezyk po stronie klienta przez `I18nProvider` |
 
 ### Footer

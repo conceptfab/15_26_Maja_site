@@ -43,12 +43,12 @@ type GalleryItem = {
 
 // Slug → anchor ID na stronie głównej (do scrollowania iframe)
 const SLUG_TO_ANCHOR: Record<string, string> = {
-  hero: 'hero-start',
-  rezerwacja: 'hero-start',
-  koncept: 'sec2-wrapper',
-  miejsce: 'sec3-wrapper',
-  menu: 'hero-start',
-  stopka: 'sec4-wrapper',
+  hero: 'rezerwuj',
+  rezerwacja: 'rezerwuj',
+  koncept: 'koncept',
+  miejsce: 'miejsca',
+  menu: 'rezerwuj',
+  stopka: 'kontakt',
 };
 
 // Slug → widok menu do aktywacji w podglądzie

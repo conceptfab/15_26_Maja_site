@@ -1,624 +1,542 @@
-# Raport audytu kodu — HOMMM
+# Raport audytu kodu — HOMMM (Next.js)
 
-**Data:** 2026-03-28 (aktualizacja po wcześniejszych naprawach)
-**Projekt:** HOMMM — system rezerwacji i strona internetowa
-**Stack:** Next.js 15.2.4 + React 19 + Prisma 7.5 + Neon PostgreSQL + Vercel Blob + Nodemailer
-
----
-
-## Spis treści
-
-1. [Podsumowanie](#1-podsumowanie)
-2. [Bezpieczeństwo](#2-bezpieczeństwo)
-3. [Logika i poprawność](#3-logika-i-poprawność)
-4. [Wydajność](#4-wydajność)
-5. [Optymalizacja obrazów i plików](#5-optymalizacja-obrazów-i-plików)
-6. [Nadmiarowy kod](#6-nadmiarowy-kod)
-7. [Baza danych](#7-baza-danych)
-8. [Architektura i jakość kodu](#8-architektura-i-jakość-kodu)
-9. [Sugerowane poprawki — priorytetyzacja](#9-sugerowane-poprawki--priorytetyzacja)
-10. [Historia napraw (wcześniejsze rundy)](#10-historia-napraw)
-
----
-
-## 1. Podsumowanie
-
-Aplikacja przeszła już wcześniejszy audyt i 3 rundy napraw (20 problemów naprawionych). Obecny przegląd weryfikuje stan po naprawach i identyfikuje nowe/pozostałe problemy.
-
-**Ocena ogólna: 8/10** — solidna baza, dobrze zabezpieczona, kilka miejsc do poprawy w zakresie wydajności i optymalizacji.
-
-### Statystyki
-
-| Metryka | Wartość |
-|---------|---------|
-| Pliki źródłowe (TS/TSX) | ~80 |
-| Modele DB | 12 |
-| API Routes | 14 |
-| Server Actions | 10 plików, ~50 funkcji |
-| Statyczne assety | 12 plików, ~3.4 MB |
-| Zależności produkcyjne | ~30 |
-
-### Co działa dobrze
-
-- Sanityzacja HTML (allowlist-based) + escape w szablonach emaili
-- Dwuwarstwowa autoryzacja (JWT 24h + sesja DB 7 dni) z auto-refresh
-- Transakcje Serializable na tworzeniu rezerwacji (race condition prevention)
-- Pipeline przetwarzania obrazów: 4 warianty, równoległa konwersja sharp, równoległy upload Blob
-- Formaty obrazów: AVIF + WebP w konfiguracji Next.js
-- ISR na stronie głównej (revalidate = 60)
-- Rate limiting na rezerwacjach (5 req/min per IP)
-- Pliki .env nie są w git
-- Security headers (HSTS, X-Frame-Options, X-Content-Type-Options, Permissions-Policy)
-- Spójny wzorzec autoryzacji we wszystkich Server Actions admin
-
----
-
-## 2. Bezpieczeństwo
-
-### 2.1 Middleware nie chroni `/api/admin/*` (HIGH)
-
-**Plik:** `middleware.ts:38-40`
-
-Matcher pokrywa tylko `/admin/:path*` (strony HTML). Ścieżki `/api/admin/*` (np. `/api/admin/reservations/export`, `/api/admin/notifications`, `/api/admin/build-info`) **nie są objęte matcherem**. Te route handlery wywołują `verifySession()` wewnętrznie — ale to jedyna linia obrony. Jeśli ktoś doda nowy route handler bez `verifySession()`, nie będzie żadnego sygnału.
-
-**Rekomendacja:**
-```ts
-export const config = {
-  matcher: ['/admin/:path*', '/api/admin/:path*'],
-};
-```
-
-### 2.2 Brak rate limitingu na endpointach auth (HIGH)
-
-**Plik:** `app/api/auth/login/route.ts`
-
-Endpoint logowania nie posiada rate limitingu. Choć `ADMIN_SECRET_CODE` wymaga 12+ znaków, brak limitu prób pozwala na nieograniczony brute-force. Rate limiter istnieje już w projekcie (`lib/rate-limit.ts`).
-
-**Rekomendacja:** Dodać `checkRateLimit(ip)` z limitem 5-10 prób / 15 min per IP. Opcjonalnie: sztuczne opóźnienie 500ms po błędnym kodzie.
-
-### 2.3 JWT refresh akceptuje dowolny błąd, nie tylko wygaśnięcie (MEDIUM)
-
-**Plik:** `lib/auth.ts:47-52`
-
-```ts
-try {
-  await jwtVerify(token, getJwtSecret());
-} catch {
-  jwtExpired = true; // łapie WSZYSTKIE błędy, nie tylko wygaśnięcie
-}
-```
-
-Catch łapie wszystkie wyjątki z `jwtVerify`, w tym błąd podpisu (`JWSSignatureVerificationFailed`). Jeśli atakujący ma token z prawidłowym `adminId` ale sfabrykowanym podpisem, a ten token przypadkowo istnieje w tabeli `Session` — przejdzie weryfikację DB i dostanie nowy podpisany token.
-
-**Rekomendacja:**
-```ts
-import { errors } from 'jose';
-try {
-  await jwtVerify(token, getJwtSecret());
-} catch (err) {
-  if (err instanceof errors.JWTExpired) {
-    jwtExpired = true;
-  } else {
-    return null; // nieprawidłowy podpis — odrzuć
-  }
-}
-```
-
-### 2.4 Rate limiter — fence-post error (LOW)
-
-**Plik:** `lib/rate-limit.ts:38`
-
-```ts
-if (entry.count > MAX_REQUESTS) { // pozwala na 6 zamiast 5
-```
-
-Warunek `>` zamiast `>=` oznacza, że dozwolone jest `MAX_REQUESTS + 1` żądań (6 zamiast 5).
-
-**Rekomendacja:** Zmienić na `entry.count >= MAX_REQUESTS`.
-
-### 2.5 Rate limiter in-memory — ograniczona skuteczność (LOW-INFO)
-
-**Plik:** `lib/rate-limit.ts`
-
-Rate limiter oparty na `Map` w pamięci. Na Vercel cold starty tworzą nową instancję z pustym `Map`. Komentarz w kodzie prawidłowo dokumentuje ograniczenie. Wystarczające dla małego ruchu, ale nie chroni przed zaawansowanymi atakami.
-
-### 2.6 SSRF w `syncICalFeed` — fetch na dowolny URL z bazy (MEDIUM)
-
-**Plik:** `actions/ical.ts:92-93`
-
-`syncICalFeed` pobiera `feed.url` z bazy i wykonuje na nim bezpośredni `fetch`. Admin może wpisać URL wskazujący na wewnętrzne zasoby infrastruktury (np. `http://169.254.169.254/` na AWS/GCP metadata, `http://localhost/`). Choć wymaga sesji admin, to naruszenie zasady defense-in-depth.
-
-**Rekomendacja:** Walidować URL przed fetch:
-```ts
-const parsed = new URL(feed.url);
-if (parsed.protocol !== 'https:') throw new Error('Tylko HTTPS');
-if (['localhost', '127.0.0.1', '::1'].includes(parsed.hostname)) throw new Error('Niedozwolony host');
-```
-
-### 2.7 Sanitizer — brak `rel="noopener noreferrer"` dla `target="_blank"` (MEDIUM)
-
-**Plik:** `lib/sanitize.ts:9-11`
-
-Sanitizer zezwala na `<a href="..." target="_blank">` bez wymuszania `rel="noopener noreferrer"`. Strony otwierane przez takie linki mają dostęp do `window.opener` (tab nabbing attack).
-
-**Rekomendacja:** Dodać `transformTags` do konfiguracji sanitize-html:
-```ts
-transformTags: {
-  a: (tagName, attribs) => ({
-    tagName,
-    attribs: {
-      ...attribs,
-      ...(attribs.target === '_blank' ? { rel: 'noopener noreferrer' } : {}),
-    },
-  }),
-},
-```
-
-### 2.7 Middleware nie weryfikuje sesji w DB (LOW)
-
-**Plik:** `middleware.ts`
-
-Middleware sprawdza jedynie podpis JWT (24h), nie waliduje sesji w bazie danych. Po wylogowaniu na innym urządzeniu token jest akceptowany do wygaśnięcia JWT.
-
-**Łagodzenie:** Server Actions wywołują `verifySession()` (sprawdza DB) — dane są chronione. JWT skrócony do 24h — okno ataku jest małe.
-
-### 2.8 Fallback `admin@example.com` może wyciekać dane (LOW)
-
-**Plik:** `lib/env.ts:43`
-
-```ts
-return process.env.ADMIN_EMAIL?.trim() || 'admin@example.com';
-```
-
-Jeśli `ADMIN_EMAIL` nie jest ustawiony, powiadomienia o rezerwacjach (z danymi osobowymi gości) idą na `admin@example.com` — zewnętrzna domena.
-
-**Rekomendacja:** Rzucać błędem przy braku zmiennej zamiast cichego fallbacku.
-
-### 2.9 Hardcoded Umami website-id w kodzie (MEDIUM)
-
-**Plik:** `app/layout.tsx:92`
-
-```tsx
-data-website-id="cf55bcf0-9eb0-474a-8706-159480187605"
-```
-
-ID analityki zahardkodowane w kodzie zamiast zmiennej środowiskowej. Narusza zasadę nieumieszczania identyfikatorów infrastruktury w repo.
-
-**Rekomendacja:** Przenieść do `process.env.NEXT_PUBLIC_UMAMI_WEBSITE_ID`.
-
-### 2.10 `'use server'` na Route Handler — nieprawidłowa dyrektywa (LOW)
-
-**Plik:** `app/api/admin/reservations/export/route.ts:1`
-
-Dyrektywa `'use server'` nie ma zastosowania do Route Handlerów. Myląca, choć nie powoduje błędu.
-
-### 2.11 Brak Content-Security-Policy (LOW)
-
-### 2.12 Token iCal eksportu w URL (LOW)
-
-### 2.13 Sanityzacja i escape — poprawne (OK)
-
-- `dangerouslySetInnerHTML` używane tylko z `sanitizeHtml()` (w `HomeClient.tsx`)
-- `interpolate()` w szablonach emaili — escape HTML
-- `escapeAttr()` na logo URL w emailach
-- Pliki .env nie są w git
-
----
-
-## 3. Logika i poprawność
-
-### 3.1 Podwójne zapytanie do DB w `[...slug]/page.tsx` (MEDIUM)
-
-**Plik:** `app/[...slug]/page.tsx`
-
-Funkcje `generateMetadata()` i komponent strony wywołują `getPageBySlug()` osobno — dwa identyczne zapytania do DB per request.
-
-**Rekomendacja:** Użyć React `cache()`:
-```ts
-import { cache } from 'react';
-const getPageBySlug = cache(async (slugSegments: string[]) => { ... });
-```
-
-### 3.2 `force-dynamic` na `[...slug]/page.tsx` (MEDIUM)
-
-**Plik:** `app/[...slug]/page.tsx`
-
-Podstrony CMS mają `force-dynamic` — każdy odwiedzający generuje nowe zapytanie DB. Treść CMS zmienia się rzadko.
-
-**Rekomendacja:** Zmienić na `revalidate = 60` (jak strona główna) lub użyć on-demand revalidation po edycji w admin.
-
-### 3.3 `force-dynamic` na robots.ts i sitemap.ts (LOW)
-
-**Pliki:** `app/robots.ts`, `app/sitemap.ts`
-
-Endpointy SEO z `force-dynamic` — SSR na każdym requeście. Treść zmienia się rzadko.
-
-**Rekomendacja:** Zmienić na `revalidate = 3600` (1h).
-
-### 3.4 Walidacja `maxGuests` — niespójna z settings (LOW)
-
-**Plik:** `app/api/reservations/route.ts`
-
-Walidacja Zod pozwala `guests: 1-6` (hardcoded), ale `maxGuests` z ustawień (domyślnie 6) nie jest sprawdzane. Jeśli admin zmieni `maxGuests` na 4, formularz dalej zaakceptuje 6.
-
-**Rekomendacja:** Walidować `guests <= settings.maxGuests` w endpoincie POST po pobraniu settings.
-
-### 3.5 `minNightsWeekend` — ustawienie nigdzie nie jest sprawdzane (LOW)
-
-**Plik:** `actions/settings.ts`
-
-Pole `minNightsWeekend` istnieje w typach, schemacie i UI, ale logika rezerwacji sprawdza tylko `minNights`. Pole jest martwe.
-
-**Rekomendacja:** Zaimplementować walidację weekendowego minimum lub usunąć pole.
-
-### 3.6 iCal sync — N+1 queries (MEDIUM)
-
-**Plik:** `actions/ical.ts:99-124`
-
-Synchronizacja iCal wykonuje `findFirst` + `create` dla każdego dnia każdego eventu, wewnątrz zagnieżdżonych pętli. Przy dużym kalendarzu: setki zapytań.
-
-**Rekomendacja:** Pobrać istniejące `BlockedDate` w zakresie jednym zapytaniem, filtrować w pamięci, użyć `createMany` dla nowych.
-
-### 3.7 Stale closure w `ReservationModal.handleClose` (MEDIUM)
-
-**Plik:** `components/ReservationModal.tsx:56-70`
-
-`resetForm` jest zwykłą funkcją (nie `useCallback`), ale jest wywoływana z `handleClose` opakowaneego w `useCallback([onOpenChange])`. Jeśli `onOpenChange` się nie zmieni, `handleClose` pamięta starą referencję `resetForm`. W praktyce może powodować niepełne czyszczenie formularza przy wielokrotnym otwieraniu/zamykaniu modala.
-
-**Rekomendacja:** Przenieść logikę resetu bezpośrednio do `handleClose`:
-```ts
-const handleClose = useCallback(() => {
-  setFormState('summary');
-  setErrorMsg('');
-  setTouched({});
-  setName(''); setEmail(''); setPhone(''); setComment('');
-  setRodo(false);
-  onOpenChange(false);
-}, [onOpenChange]);
-```
-
-### 3.8 Sortowanie klientów po computed fields — działa tylko na bieżącej stronie (MEDIUM)
-
-**Plik:** `actions/clients.ts:46-98`
-
-Gdy `sortBy` to `reservationCount` lub `totalSpent`, Prisma pobiera jedną stronę (`skip`/`take`) i sortuje ją. Klient z wyższymi wydatkami na kolejnej stronie nie pojawi się na właściwej pozycji. Sortowanie po polach wyliczanych nie działa z paginacją.
-
-**Rekomendacja:** Agregować wartości w bazie (raw SQL / view) lub denormalizować kolumny `totalSpent`/`reservationCount` w modelu `Client`.
-
-### 3.9 `syncAllFeeds` sekwencyjny — ryzyko timeout (MEDIUM)
-
-**Plik:** `actions/ical.ts:142-159`
-
-Pętla `for` woła `syncICalFeed` sekwencyjnie. Każdy feed ma timeout 15s. Przy 5 feedach: 75s — przekroczy limit Vercel Functions.
-
-**Rekomendacja:** `Promise.allSettled(feeds.map(f => syncICalFeed(f.id)))`.
-
-### 3.10 Dashboard `allReservations` — brak limitu na zapytaniu (LOW)
-
-**Plik:** `app/admin/dashboard/page.tsx:53-56`
-
-Pobiera wszystkie rezerwacje bez `take`. Przy rosnącej bazie obciąża pamięć przy każdym odświeżeniu dashboardu.
-
-**Rekomendacja:** Dodać filtr czasowy (np. ostatnie 2 lata) lub limit.
-
-### 3.11 Podwójne odczyty `siteSettings` per request (LOW)
-
-**Plik:** `app/layout.tsx:19` + `app/page.tsx:8`
-
-`generateMetadata` w layout.tsx robi `findUnique({ key: 'globalSeo' })`, a `page.tsx` wywołuje `getSettings()` z `findMany()`. Dwa osobne roundtrips do tej samej tabeli per request.
-
-**Rekomendacja:** Użyć `React.cache()` na poziomie zapytania settings.
-
----
-
-## 4. Wydajność
-
-### 4.1 HomeClient.tsx — monolityczny komponent kliencki (947 linii) (MEDIUM)
-
-**Plik:** `components/HomeClient.tsx`
-
-Cały front strony głównej to jeden komponent `'use client'` (947 linii). Obejmuje system rezerwacji, galerie, animacje scroll, nawigację i stopkę. Cały kod wysyłany do przeglądarki.
-
-**Rekomendacja:**
-- Wydzielić `ReservationSystem` jako lazy-loaded komponent
-- Stopka (statyczna dane firmy) mogłaby być Server Component
-- Lightbox — dynamic import
-
-### 4.2 `react-datepicker` — duży bundle w main chunk (MEDIUM)
-
-Biblioteka `react-datepicker` (~50 KB minified) importowana synchronicznie w `HomeClient.tsx`.
-
-**Rekomendacja:** Dynamic import:
-```ts
-const DatePicker = dynamic(() => import('react-datepicker'), { ssr: false });
-```
-
-### 4.3 `new Date()` przy każdym renderze jako `minDate` (LOW)
-
-**Plik:** `components/HomeClient.tsx:149`
-
-`const today = new Date()` obliczane przy każdym renderze (a `HomeClient` re-renderuje się przy scroll). Używane jako `minDate` w DatePicker — przy zmieniającej się referencji może powodować niepotrzebne re-rendery kalendarza.
-
-**Rekomendacja:** `useMemo(() => new Date(), [])` lub `useRef(new Date())`.
-
-### 4.4 Scroll listener re-rejestrowany przy zmianie `reservationRange` (LOW)
-
-**Plik:** `components/HomeClient.tsx:332`
-
-`reservationRange` w deps `useEffect` powoduje re-rejestrację scroll listenera przy każdej zmianie dat. Wartość jest używana tylko do `reservationRange[0] !== null` — wystarczy ref.
-
-**Rekomendacja:** Użyć `useRef` dla flag `hasReservationDates` zamiast state w deps.
-
-### 4.5 Brak `loading.tsx` w publicznych route'ach (LOW)
-
-Podstrony (`/[...slug]`) i admin nie mają `loading.tsx` — brak streamowania UI, użytkownik widzi pustą stronę do załadowania.
-
-**Rekomendacja:** Dodać `loading.tsx` w `app/admin/` i `app/[...slug]/`.
-
-### 4.4 `getSettings()` — brak cache'owania (LOW)
-
-**Plik:** `actions/settings.ts`
-
-Każde wywołanie `getSettings()` to `findMany` na `SiteSettings`. Na stronie głównej wywoływane per request.
-
-**Rekomendacja:** React `cache()` z TTL ~60s. Ustawienia zmieniają się rzadko.
-
-### 4.5 Statyczne assety — `gal_00.webp` ma 1.4 MB (MEDIUM)
-
-| Plik | Rozmiar |
-|------|---------|
-| `gal_00.webp` | **1.4 MB** |
-| `hero.webp` | 449 KB |
-| `sec_3.webp` | 446 KB |
-| `sec_2.webp` | 364 KB |
-| `gal_01.webp` | 333 KB |
-| `footer.webp` | 153 KB |
-| `gal_02.webp` | 114 KB |
-| `hommm.svg` | 80 KB |
-| `logo.png` | 74 KB |
-
-`gal_00.webp` (1.4 MB) to fallback galerii — używany gdy brak zdjęć z DB. Ładowany na frontendzie przez `<Image>` (next/image optymalizuje), ale duży rozmiar spowalnia pierwsze załadowanie.
-
-**Rekomendacja:**
-- Zoptymalizować `gal_00.webp` do max ~300 KB (mniejsza rozdzielczość/jakość)
-- `hommm.svg` (80 KB) — zoptymalizować przez SVGO (typowo 30-60% redukcji)
-
----
-
-## 5. Optymalizacja obrazów i plików
-
-### 5.1 Pipeline przetwarzania galerii (OK)
-
-**Plik:** `actions/gallery.ts`
-
-Poprawnie zaprojektowany:
-- 4 warianty: original (95% WebP), standard (82%), mobile (800px, 80%), thumbnail (400px, 82%)
-- Równoległa konwersja `Promise.all` z sharp
-- Równoległy upload do Vercel Blob
-- Walidacja: max 10 MB, tylko JPEG/PNG/WebP/AVIF
-- Losowe nazwy plików (`crypto.randomBytes`)
-- Usuwanie: wszystkie 4 warianty kasowane z Blob
-
-### 5.2 Konfiguracja Next.js Image (OK)
-
-**Plik:** `next.config.ts`
-
-- Remote patterns: Vercel Blob (public + private)
-- Formaty: `image/avif`, `image/webp` — poprawna kolejność (avif preferowany)
-- Device sizes i image sizes — sensowne
-
-### 5.3 `<img>` zamiast `<Image>` w podstronach CMS (MEDIUM)
-
-**Plik:** `app/[...slug]/page.tsx:98-101`
-
-```tsx
-<img src={img.webpUrl} alt={img.altPl || ''} className="..." loading="lazy" />
-```
-
-Podstrony CMS używają zwykłego `<img>` zamiast `next/image`. Obrazy z Vercel Blob nie przechodzą przez optymalizację Next.js (brak responsywnych wariantów, brak AVIF negotiation, brak `srcset`).
-
-**Rekomendacja:**
-```tsx
-import Image from 'next/image';
-<Image src={img.webpUrl} alt={img.altPl || ''} width={400} height={300}
-       sizes="(max-width:768px) 50vw, 33vw" />
-```
-
-### 5.4 Wariant `mobileUrl` — niewykorzystany na frontendzie (LOW)
-
-Pipeline generuje wariant mobilny (800px), ale `HomeClient.tsx` i `[...slug]/page.tsx` używają tylko `webpUrl` lub `thumbUrl`. Wariant `mobileUrl` jest generowany, uploadowany i przechowywany, ale nigdy nie serwowany na stronie publicznej.
-
-**Rekomendacja:** Wykorzystać `mobileSrc` na urządzeniach mobilnych — np. przez `<Image>` z responsive `sizes` lub warunkowo.
-
-### 5.5 `logo.png` — prawdopodobnie nieużywany (LOW)
-
-Plik `public/assets/logo.png` (74 KB) nie jest referencjonowany w kodzie. Aplikacja używa `hommm.svg`.
-
-**Rekomendacja:** Zweryfikować i usunąć jeśli nieużywany.
-
----
-
-## 6. Nadmiarowy kod
-
-### 6.1 Martwy endpoint `api/uploads/[...path]/route.ts` (LOW)
-
-Endpoint zwraca 404 z komentarzem "pliki są serwowane przez Vercel Blob CDN".
-
-**Rekomendacja:** Usunąć plik.
-
-### 6.2 `minNightsWeekend` — martwe ustawienie (LOW)
-
-Pole istnieje w typach, schemacie, defaults i UI, ale logika biznesowa go nie używa.
-
-**Rekomendacja:** Zaimplementować lub usunąć.
-
-### 6.3 `.astro/` i `dist/` — artefakty z innego frameworka (LOW)
-
-W root projektu istnieją katalogi `.astro/` i `dist/`, pozostałości po wcześniejszym użyciu Astro.
-
-**Rekomendacja:** Dodać do `.gitignore` lub usunąć.
-
----
-
-## 7. Baza danych
-
-### 7.1 Schema — dobrze zorganizowana (OK)
-
-- Indeksy na kluczowych polach (`checkIn+checkOut`, `status`, `clientId`, `reservationId`, `date`)
-- Relacje z `onDelete: Cascade` / `SetNull` — poprawne
-- Unikalny index na `[pageId, slug]` w `Section`
-- Prisma singleton w `lib/db.ts` — poprawny wzorzec
-
-### 7.2 Brak indeksu na `GalleryImage.sectionId` (LOW)
-
-Zapytania `findMany({ where: { sectionId } })` mogą być wolniejsze przy dużej galerii.
-
-**Rekomendacja:** Dodać `@@index([sectionId])` w modelu `GalleryImage`.
-
-### 7.3 Brak indeksu na `Session.expiresAt` (LOW)
-
-`createSession()` wykonuje `deleteMany({ where: { expiresAt: { lt: new Date() } } })` — skan pełnej tabeli.
-
-**Rekomendacja:** Dodać `@@index([expiresAt])` w modelu `Session`.
-
-### 7.4 `BlockedDate.date` — brak unikatowości (LOW)
-
-Indeks na `date` istnieje, ale nie jest `@unique`. Synchronizacja iCal sprawdza duplikaty ręcznie (`findFirst`), ale panel admin nie zapobiega duplikatom.
-
-**Rekomendacja:** Dodać `@@unique([date])` lub walidację w `addBlockedDate()`.
-
----
-
-## 8. Architektura i jakość kodu
-
-### 8.1 Separacja server/client (OK)
-
-- Server Components dla stron, Client Components dla interakcji
-- `'use client'` tylko tam gdzie potrzebne (17 plików)
-- Server Actions z weryfikacją sesji
-- Publiczny API Route z transakcją Serializable
-
-### 8.2 Wzorzec autoryzacji — spójny (OK)
-
-Każda Server Action w panelu admin zaczyna od `verifySession()`. Wyjątki to celowe publiczne odczyty (galeria, treści CMS).
-
-### 8.3 Obsługa błędów — konsekwentna (OK)
-
-- Publiczne API: generyczne komunikaty
-- Logi: `console.error` z kontekstem
-- Emaile: fire-and-forget, nie blokują odpowiedzi
-- Fallback content gdy DB niedostępna (build time)
-
-### 8.4 i18n — prosty ale wystarczający (OK)
-
-`I18nProvider` + `useLocale()` z plikami JSON. PL/EN. Treści CMS z osobnymi polami w DB.
-
-### 8.5 Emaile — dobrze zorganizowane (OK)
-
-Szablony edytowalne z admin, fallback do defaults, interpolacja z escape HTML, reusable `loadEmailContext()`.
-
----
-
-## 9. Sugerowane poprawki — priorytetyzacja
-
-### Priorytet WYSOKI
-
-| # | Problem | Plik | Kategoria |
-|---|---------|------|-----------|
-| 1 | Middleware nie chroni `/api/admin/*` | `middleware.ts` | Bezpieczeństwo |
-| 2 | Rate limiting na login | `app/api/auth/login/route.ts` | Bezpieczeństwo |
-| 3 | JWT refresh akceptuje dowolny błąd | `lib/auth.ts` | Bezpieczeństwo |
-| 4 | `<img>` zamiast `<Image>` w CMS | `app/[...slug]/page.tsx` | SEO/wydajność |
-| 5 | Podwójne zapytanie DB (cache) | `app/[...slug]/page.tsx` | Wydajność |
-
-### Priorytet MEDIUM
-
-| # | Problem | Plik | Kategoria |
-|---|---------|------|-----------|
-| 6 | SSRF w syncICalFeed | `actions/ical.ts` | Bezpieczeństwo |
-| 7 | Sanitizer: brak `rel="noopener"` | `lib/sanitize.ts` | Bezpieczeństwo |
-| 8 | Stale closure w ReservationModal | `components/ReservationModal.tsx` | Logika/Bug |
-| 9 | Hardcoded Umami website-id | `app/layout.tsx` | Bezpieczeństwo |
-| 10 | Sortowanie klientów po computed fields | `actions/clients.ts` | Logika/Bug |
-| 11 | `syncAllFeeds` sekwencyjny — timeout | `actions/ical.ts` | Wydajność |
-| 12 | `force-dynamic` na CMS subpages | `app/[...slug]/page.tsx` | Wydajność |
-| 13 | N+1 queries w iCal sync | `actions/ical.ts` | Wydajność DB |
-| 14 | Optymalizacja `gal_00.webp` (1.4 MB) | `public/assets/` | Wydajność |
-| 15 | Dynamic import DatePicker | `components/HomeClient.tsx` | Bundle size |
-| 16 | Walidacja `maxGuests` z settings | `app/api/reservations/route.ts` | Logika |
-| 17 | Rozbicie HomeClient.tsx (947 linii) | `components/HomeClient.tsx` | Utrzymanie |
-
-### Priorytet NISKI
-
-| # | Problem | Plik | Kategoria |
-|---|---------|------|-----------|
-| 18 | Dashboard allReservations bez limitu | `app/admin/dashboard/page.tsx` | Wydajność |
-| 19 | Rate limiter fence-post error (6 vs 5) | `lib/rate-limit.ts` | Bezpieczeństwo |
-| 16 | Fallback `admin@example.com` | `lib/env.ts` | Bezpieczeństwo |
-| 17 | Podwójne odczyty siteSettings per request | `layout.tsx` + `page.tsx` | Wydajność |
-| 18 | `new Date()` przy każdym renderze | `components/HomeClient.tsx` | Wydajność |
-| 19 | Scroll listener re-rejestrowany na datach | `components/HomeClient.tsx` | Wydajność |
-| 20 | `'use server'` na route handler | `app/api/admin/.../export/route.ts` | Porządek |
-| 21 | `loading.tsx` w kluczowych route'ach | `app/admin/`, `app/[...slug]/` | UX |
-| 22 | CSP header | `next.config.ts` | Bezpieczeństwo |
-| 23 | Cache `getSettings()` | `actions/settings.ts` | Wydajność |
-| 24 | Revalidation na robots/sitemap | `app/robots.ts`, `app/sitemap.ts` | Wydajność |
-| 25 | Usunąć martwy endpoint uploads | `app/api/uploads/[...path]/` | Porządek |
-| 26 | Indeks `GalleryImage.sectionId` | `prisma/schema.prisma` | DB |
-| 27 | Indeks `Session.expiresAt` | `prisma/schema.prisma` | DB |
-| 28 | Usunąć/zaimplementować `minNightsWeekend` | `actions/settings.ts` | Porządek |
-| 29 | Zoptymalizować `hommm.svg` (80 KB) | `public/assets/hommm.svg` | Wydajność |
-| 30 | Usunąć `.astro/` i `dist/` | root | Porządek |
-| 31 | Token iCal w header zamiast URL | `app/api/ical/export/route.ts` | Bezpieczeństwo |
-| 32 | Wykorzystać wariant `mobileUrl` | Frontend publiczny | UX mobilny |
-| 33 | Usunąć `logo.png` jeśli nieużywany | `public/assets/` | Porządek |
-
----
-
-## 10. Historia napraw (wcześniejsze rundy)
-
-Poniższe problemy zostaly wykryte i naprawione we wcześniejszych rundach audytu:
-
-| # | Problem | Status |
-|---|---------|--------|
-| XSS w szablonach emaili (`interpolate` bez escape) | NAPRAWIONE |
-| XSS w `logoUrl` emaila (brak `escapeAttr`) | NAPRAWIONE |
-| `force-dynamic` na stronie glownej → ISR `revalidate=60` | NAPRAWIONE |
-| Availability endpoint ujawniał statusy płatności | NAPRAWIONE |
-| Brak walidacji daty w `addBlockedDate` | NAPRAWIONE |
-| `postMessage` z `'*'` targetOrigin | NAPRAWIONE |
-| Hardkodowany `UMAMI_WEBSITE_ID` | NAPRAWIONE |
-| Cron export — sanityzacja JSON w HTML emaila | NAPRAWIONE |
-| Podwójne DB queries przy emailach → `loadEmailContext()` | NAPRAWIONE |
-| Dashboard 13 → 9 zapytań (groupBy na statusach) | NAPRAWIONE |
-| Brak AVIF w formatach obrazów | NAPRAWIONE |
-| Martwa zależność `pg` | NAPRAWIONE |
-| `@types/sharp` przeniesiony do devDependencies | NAPRAWIONE |
-| Martwy kod: `handleSocialClick`, `SLUG_TO_EXPAND`, unused `adminId` | NAPRAWIONE |
-| Cache w `getAdminSecretCode` | NAPRAWIONE |
-| AdminShell `<img>` → `next/image` | NAPRAWIONE |
-| Preconnect do `p.typekit.net` | NAPRAWIONE |
-| Rate limiting na rezerwacjach (in-memory) | NAPRAWIONE |
-| JWT expiry skrócony z 7 dni do 24h | NAPRAWIONE |
-| Typekit — preconnect dodany | NAPRAWIONE |
-
-**Łącznie naprawionych: 20 problemów w 18 plikach.**
+**Data:** 2026-03-28 | **Aktualizacja:** 2026-03-28 (weryfikacja po zmianach kodu)
+**Zakres:** Bezpieczeństwo, logika biznesowa, wydajność, optymalizacja obrazów, konfiguracja, jakość kodu, nadmiarowy kod
 
 ---
 
 ## Podsumowanie
 
-Aplikacja jest dobrze zaprojektowana z konsekwentnym wzorcem bezpieczeństwa, walidacją danych i poprawną konfiguracją. Pipeline przetwarzania obrazów jest wydajny. Po wcześniejszych 3 rundach napraw znaleziono **37 nowych/pozostałych problemów** (5 HIGH, 12 MEDIUM, 20 LOW).
+| Priorytet | Ilość | W tym naprawionych | Opis |
+|-----------|-------|--------------------|------|
+| KRYTYCZNE | 2 | 0 | Wyciek sekretów, brak poolingu SMTP |
+| WYSOKIE | 8 | 0 | iCal bez tokena, brak walidacji, duplikacja kodu, N+1 queries |
+| ŚREDNIE | 16 | 1 | Rate limiter in-memory, CSP unsafe-eval, brak dynamic imports, schema issues |
+| NISKIE | 12 | 0 | Kosmetyka, drobne edge case'y, typowanie |
 
-**TOP 8 rekomendacji (szybkie, duży wpływ):**
+> **Uwaga po weryfikacji:** Kod zmienił się od pierwotnego audytu. Usunięto relikty (`index.html`, `style.css`), rozbudowano kalendarz o typ `SERVICE`, zmieniono wyświetlanie statusów rezerwacji (nowe kolory), rozdzielono dane wykresu na `paid`/`deposit`. Punkty naprawione oznaczono ✅. Dodano nowe uwagi tam, gdzie zmiany wprowadziły nowe kwestie.
 
-1. **Middleware matcher → dodać `/api/admin/*`** — jedna linia, chroni API admin
-2. **Rate limiting na login** — reuse istniejącego `checkRateLimit()`
-3. **JWT refresh → łapać tylko `JWTExpired`** — import `errors` z jose + warunek
-4. **SSRF w iCal sync → walidacja URL** — sprawdzić protokół i host przed fetch
-5. **Stale closure w ReservationModal** — przenieść logikę resetu do `handleClose`
-6. **`<img>` → `<Image>` w podstronach CMS** — SEO + optymalizacja automatyczna
-7. **React `cache()` na `getPageBySlug`** — eliminacja podwójnego zapytania DB
-8. **Umami website-id → env var** — usunąć hardcoded ID z kodu
+---
 
-Żaden z problemów nie jest krytyczny w sensie natychmiastowego exploitu — ale punkty 1-4 powinny zostać zaadresowane przed kolejnym deployem produkcyjnym.
+## 1. BEZPIECZEŃSTWO
+
+### 1.1 [KRYTYCZNE] Sekrety w pliku `.env` — rotacja konieczna
+
+**Plik:** `.env`
+
+Plik `.env` jest wprawdzie w `.gitignore`, ale zawiera pełne wartości: `JWT_SECRET`, `ADMIN_SECRET_CODE`, `SMTP_PASS`, `BLOB_READ_WRITE_TOKEN`, `VERCEL_TOKEN`, `NEON_API_KEY`, `DATABASE_URL` (z hasłem), `UMAMI_API_KEY`. Jeśli plik kiedykolwiek trafił do historii git, wszystkie sekrety są skompromitowane.
+
+**Naprawa:**
+- Natychmiast zrotować WSZYSTKIE sekrety.
+- Przeskanować historię git: `git log --all --diff-filter=A -- .env`.
+- Przenieść sekrety wyłącznie do Vercel Environment Variables.
+
+---
+
+### 1.2 [WYSOKIE] iCal export — brak tokena = otwarty dostęp
+
+**Plik:** `app/api/ical/export/route.ts`
+
+Jeśli `ICAL_EXPORT_TOKEN` nie jest ustawiony w env (a nie ma go w `.env`), cały warunek `if (ICAL_TOKEN)` jest pomijany i endpoint jest **całkowicie otwarty**. Każdy może pobrać pełną listę rezerwacji z imionami gości. Dodatkowo token w query string jest logowany w access logach.
+
+**Naprawa:**
+- Wymagać obecności `ICAL_EXPORT_TOKEN` (throw jeśli brak).
+- Wymagać wyłącznie headera `Authorization: Bearer ...` zamiast query param.
+- Dodać rate limiting.
+
+---
+
+### 1.3 [WYSOKIE] Middleware — brak weryfikacji sesji w DB
+
+**Plik:** `middleware.ts:22-25`
+
+Middleware weryfikuje tylko podpis JWT, nie sprawdza czy sesja istnieje w DB ani czy admin jest aktywny. Dezaktywowany admin zachowuje dostęp do panelu do 24h (czas życia JWT).
+
+**Naprawa:** Akceptowalny kompromis, o ile `verifySession()` jest wywoływany w KAŻDYM Server Action i Route Handler (co jest spełnione).
+
+---
+
+### 1.4 [ŚREDNIE] Rate limiter in-memory — nieskuteczny na Vercel
+
+**Plik:** `lib/rate-limit.ts`
+
+Rate limiter używa `Map` w pamięci procesu. Na Vercel Serverless każde wywołanie może trafić na inną instancję — limity nie są współdzielone.
+
+**Naprawa:** Wdrożyć `@upstash/ratelimit` z Redis lub użyć Vercel Firewall Rules.
+
+---
+
+### 1.5 [ŚREDNIE] Brak ochrony CSRF dla Route Handlerów API
+
+**Pliki:** `app/api/auth/login/route.ts`, `app/api/reservations/route.ts`
+
+Server Actions mają wbudowaną ochronę CSRF (header `Next-Action`). Route handlery API (`/api/...`) nie mają weryfikacji headera `Origin`/`Referer`.
+
+**Naprawa:** Dodać weryfikację headera `Origin` w endpointach POST API.
+
+---
+
+### 1.6 [ŚREDNIE] CSP pozwala na `unsafe-inline` i `unsafe-eval`
+
+**Plik:** `next.config.ts:32`
+
+```
+script-src 'self' 'unsafe-inline' 'unsafe-eval' ...
+```
+
+`unsafe-eval` i `unsafe-inline` praktycznie nullifikują ochronę CSP przed XSS.
+
+**Naprawa:** Usunąć `unsafe-eval` (Next.js w produkcji go nie wymaga). Zamienić `unsafe-inline` na nonce-based CSP.
+
+---
+
+### 1.7 [ŚREDNIE] Endpoint `/api/reservations/availability` — brak rate limitingu
+
+**Plik:** `app/api/reservations/availability/route.ts`
+
+Publiczny endpoint bez rate limitingu. Umożliwia masowe skanowanie kalendarza i obciążenie bazy.
+
+**Naprawa:** Dodać `checkRateLimit()` analogicznie do `/api/reservations` POST.
+
+---
+
+### 1.8 [ŚREDNIE] Brak walidacji `guestName` przed wstawieniem do iCal/CSV
+
+**Pliki:** `app/api/ical/export/route.ts`, `lib/validations.ts`
+
+`guestName` jest walidowane jako `string().min(2)` — brak limitu długości i filtrowania znaków specjalnych. `escapeIcal()` nie escapuje `\r` (iCal injection).
+
+**Naprawa:** Dodać `.max(100)` i `.regex()` do `guestName`. W `escapeIcal()` dodać escapowanie `\r` i znaków kontrolnych.
+
+---
+
+### 1.9 [ŚREDNIE] `postMessage(..., '*')` zamiast origin
+
+**Plik:** `app/admin/content/miejsca/MiejscaEditor.tsx:68`
+
+`iframe.contentWindow.postMessage({...}, '*')` — wysyłanie wiadomości z origin `'*'` jest ryzykowne. W `SectionEditor.tsx` poprawnie użyto `window.location.origin`.
+
+**Naprawa:** Zmienić `'*'` na `window.location.origin`.
+
+---
+
+### 1.10 [ŚREDNIE] `execSync` w route handlerze
+
+**Plik:** `app/api/admin/build-info/route.ts:6`
+
+`execSync('git rev-parse...')` w route handlerze. Na Vercel nie ma gita (fallback na env vars), więc jest zbędny.
+
+**Naprawa:** Usunąć `execSync` i polegać wyłącznie na `process.env.VERCEL_*`.
+
+---
+
+### 1.11 [NISKIE] Brak `.max()` na polach walidacyjnych
+
+**Plik:** `lib/validations.ts`
+
+- `guestName: z.string().min(2)` — brak `.max()`.
+- `guestPhone: z.string().min(9)` — brak `.max()` i regex.
+
+**Naprawa:** `guestName: z.string().min(2).max(100)`, `guestPhone: z.string().min(9).max(20).regex(/^[\d\s+()-]+$/)`.
+
+---
+
+### 1.12 [NISKIE] Brak sanityzacji URL w `updateMailingLogoUrl`
+
+**Plik:** `actions/mailing.ts:14-24`
+
+Przyjmuje dowolny `url` i zapisuje go do bazy. Używany w `<img src=...>` w emailach.
+
+**Naprawa:** Walidować, że URL zaczyna się od `https://` lub `/`.
+
+---
+
+### 1.13 [NISKIE] Sesja 7 dni bez możliwości unieważnienia wszystkich
+
+**Plik:** `lib/auth.ts`
+
+Brak funkcji "wyloguj ze wszystkich urządzeń".
+
+**Naprawa:** Dodać Server Action `destroyAllSessions(adminId)`.
+
+---
+
+## 2. LOGIKA BIZNESOWA
+
+### 2.1 [WYSOKIE] `getClients` — ładowanie WSZYSTKICH klientów przy sortowaniu
+
+**Plik:** `actions/clients.ts:47-53`
+
+Gdy `sortBy` to `reservationCount` lub `totalSpent`, zapytanie pobiera wszystkich klientów z bazy (bez `skip`/`take`) razem z rezerwacjami. Przy dużej liczbie klientów — ryzyko OOM.
+
+**Naprawa:** Użyć raw SQL z `COUNT`/`SUM` jako subquery albo dodać kolumny denormalizowane.
+
+---
+
+### 2.2 [WYSOKIE] Brak walidacji danych w `updateClient`
+
+**Plik:** `actions/clients.ts:137-156`
+
+`updateClient` przyjmuje dowolne `data` i przekazuje je bezpośrednio do Prisma bez walidacji Zod. Można przekazać `rating: 999`, `discount: -50`.
+
+**Naprawa:** Dodać schemat Zod.
+
+---
+
+### 2.3 [WYSOKIE] Brak walidacji inputu w `addAdminNote`
+
+**Plik:** `actions/reservations.ts:194-204`
+
+Nie waliduje długości `note`. Można wstawić dowolnie długi string.
+
+**Naprawa:** Dodać `.max(2000)`.
+
+---
+
+### 2.4 [ŚREDNIE] iCal parser — brak obsługi line folding (RFC 5545)
+
+**Plik:** `actions/ical.ts:36-65`
+
+Parser nie obsługuje "line folding" (linie > 75 znaków zawijane ze spacjami/tabami) ani parametrów TZID.
+
+**Naprawa:** Dodać: `const unfolded = icalText.replace(/\r?\n[ \t]/g, '');`
+
+---
+
+### 2.5 [ŚREDNIE] `[...slug]/page.tsx` — content renderowany jako plain text, nie HTML
+
+**Plik:** `app/[...slug]/page.tsx:89-92`
+
+Treść z bazy (WYSIWYG) jest renderowana przez `split('\n\n').map(p => <p>)` — jako plain text. W `HomeClient.tsx` ta sama treść jest renderowana przez `dangerouslySetInnerHTML` z sanityzacją.
+
+**Naprawa:** Użyć `dangerouslySetInnerHTML` z `sanitizeHtml()`.
+
+---
+
+### 2.6 [ŚREDNIE] Brak autoryzacji w publicznych akcjach
+
+**Pliki:** `actions/pages.ts:65-95`, `actions/seo.ts:6-33`
+
+`getPageTree()`, `getSectionsForGraph()`, `getPageFlat()`, `getSeoSettings()`, `getGlobalSeo()` nie sprawdzają sesji. Ujawniają strukturę stron i dane SEO.
+
+**Naprawa:** Jeśli celowe — OK. Jeśli nie — dodać `verifySession()`.
+
+---
+
+### 2.7 [NISKIE] Select gości z hardcoded max 6
+
+**Plik:** `components/HomeClient.tsx:527-530`
+
+Selector gości ma hardcoded `[1,2,3,4,5,6]`, ale `settings.maxGuests` może być inny.
+
+**Naprawa:** Generować opcje na podstawie `settings.maxGuests`.
+
+---
+
+### 2.8 [NISKIE] `removeBlockedDate` nie obsługuje nieistniejącego ID
+
+**Plik:** `actions/reservations.ts:244-249`
+
+Prisma rzuci `RecordNotFound`. Brak obsługi.
+
+**Naprawa:** Dodać `try/catch`.
+
+---
+
+### 2.9 [NISKIE] `[...slug]/page.tsx` — brak nawigacji powrotnej
+
+Podstrony dynamiczne nie mają TopMenu ani nawigacji powrotnej na stronę główną.
+
+---
+
+## 3. WYDAJNOŚĆ
+
+### 3.1 [KRYTYCZNE] Nodemailer transport tworzony przy każdym wywołaniu
+
+**Plik:** `lib/mail.ts:11-27`
+
+`getTransport()` tworzy nowy `nodemailer.createTransport()` przy każdym `sendEmail()`. Przy burscie — timeouty lub odmowa SMTP.
+
+**Naprawa:** Użyć wzorca singleton (analogicznie do `prisma`):
+```ts
+const globalForMail = globalThis as unknown as { smtpTransport?: nodemailer.Transporter };
+function getTransport() {
+  if (globalForMail.smtpTransport) return globalForMail.smtpTransport;
+  const transport = nodemailer.createTransport({...});
+  globalForMail.smtpTransport = transport;
+  return transport;
+}
+```
+
+---
+
+### 3.2 [WYSOKIE] Dashboard — 12 równoległych zapytań Prisma
+
+**Plik:** `app/admin/dashboard/page.tsx:38-86`
+
+Funkcja `getStats()` wykonuje 9 zapytań w `Promise.all`, potem 3 kolejne. Wiele z tych danych to te same rekordy z różnymi filtrami.
+
+**Naprawa:** Zredukować do 3-4 zapytań:
+- Jedno po rezerwacje z bieżącego roku.
+- Jedno `groupBy` po statusach.
+- Jedno po `blockedDates`.
+- Jedno po `upcomingCheckIns` + alerty.
+
+---
+
+### 3.3 [ŚREDNIE] HomeClient — ogromny komponent (~950 linii) bez memoizacji
+
+**Plik:** `components/HomeClient.tsx`
+
+~950 linii, 10+ useState, 8+ useEffect. Funkcje renderujące wewnątrz komponentu tworzą nowe referencje przy każdym renderze. `calculatePrice` wywoływane przy każdym renderze.
+
+**Naprawa:**
+- Wydzielić `ReservationSystem` i `ExpandedContent` jako osobne `React.memo` komponenty.
+- Owinąć `priceResult` w `useMemo`.
+- Podzielić na mniejsze komponenty per sekcja.
+
+---
+
+### 3.4 [ŚREDNIE] Lightbox ładuje pełnorozmiarowe obrazy na mobile
+
+**Plik:** `components/Lightbox.tsx:74`
+
+Używa `current.src` (pełnorozmiarowy `webpUrl`) zamiast `mobileUrl` na urządzeniach mobilnych.
+
+**Naprawa:** Użyć responsywnego `sizes` lub warunkowego src.
+
+---
+
+### 3.5 [ŚREDNIE] GalleryManager — brak limitu jednoczesnych uploadów
+
+**Plik:** `app/admin/gallery/GalleryManager.tsx:65`
+
+Brak limitu plików. 100 plików = 100 konwersji sharp + 400 uploadów do Vercel Blob jednocześnie.
+
+**Naprawa:** Limit 10 plików i/lub przetwarzanie w batchach po 3.
+
+---
+
+### 3.6 [ŚREDNIE] `updateImageOrder` — N operacji w transakcji
+
+**Plik:** `actions/gallery.ts:83-94`
+
+N osobnych `update` w `$transaction`. Przy 100+ zdjęciach = 100+ zapytań.
+
+**Naprawa:** Użyć raw SQL z `CASE WHEN` w jednym UPDATE.
+
+---
+
+### 3.7 [ŚREDNIE] Brak `next/dynamic` dla ciężkich komponentów
+
+**Pliki:** `SiteStructureGraph.tsx` (@xyflow/react), `RichTextEditor.tsx` (tiptap), `CalendarView.tsx`
+
+Ciężkie biblioteki ładowane synchronicznie. Powinny być ładowane dynamicznie.
+
+**Naprawa:** `const SiteStructureGraph = dynamic(() => import(...), { loading: () => <Spinner /> })`.
+
+---
+
+### 3.8 [NISKIE] `today` w HomeClient nie odświeży się o północy
+
+**Plik:** `components/HomeClient.tsx:153`
+
+```tsx
+const today = useRef(new Date()).current;
+```
+
+Jeśli użytkownik trzyma kartę otwartą przez noc, `minDate` w DatePicker się nie zaktualizuje.
+
+---
+
+### 3.9 [NISKIE] `getSettings()` — `cache()` nie działa w Server Actions
+
+**Plik:** `actions/settings.ts:80`
+
+`cache()` z Reacta działa tylko w kontekście renderowania Server Components. W server action/route handler nie deduplikuje.
+
+---
+
+## 4. OPTYMALIZACJA OBRAZÓW
+
+### 4.1 Status: Poprawnie zaimplementowana
+
+**Plik:** `lib/uploads.ts`
+
+System używa `sharp` do generowania 4 wariantów każdego obrazu (desktop webp, mobile webp, thumb, original). Obrazy są uploadowane do Vercel Blob. Frontend korzysta z `next/image` w większości miejsc.
+
+**Drobne uwagi:**
+- Hero/logo używają `<img>` zamiast `next/image` (SVG — akceptowalne).
+- Lightbox na mobile ładuje pełnorozmiarowe obrazy (patrz 3.4).
+- Publiczne pliki w `/public/assets/` są w formacie WebP — poprawnie.
+
+---
+
+## 5. DUPLIKACJA KODU
+
+### 5.1 [WYSOKIE] `formatPLN()` — zduplikowana w 3 plikach
+
+**Pliki:**
+- `app/admin/reports/ReportsClient.tsx:14`
+- `app/admin/clients/ClientsClient.tsx:26`
+- `app/admin/clients/[id]/ClientDetail.tsx:58`
+
+**Naprawa:** Wyciągnąć do `lib/format.ts`.
+
+---
+
+### 5.2 [WYSOKIE] `overlapNights()` — zduplikowana w 2 plikach
+
+**Pliki:**
+- `actions/reports.ts:12-17`
+- `app/admin/dashboard/page.tsx:20-25`
+
+**Naprawa:** Wyciągnąć do `lib/date-utils.ts`.
+
+---
+
+### 5.3 [ŚREDNIE] `STATUS_CONFIG` — zduplikowane w 4+ plikach (pogorszone po zmianach)
+
+**Pliki:** `ReservationsClient.tsx`, `[id]/page.tsx`, `ReservationActions.tsx` (2x: `STATUS_OPTIONS` + `STATUS_BADGE_CLASS`), `CalendarView.tsx`, `ClientDetail.tsx`
+
+Najnowsze zmiany dodały identyczne mapy kolorów CSS (`bg-amber-500/20 text-amber-400 border-amber-500/30` itd.) w **co najmniej 4 plikach**. W `ReservationActions.tsx` powstały aż 3 równoległe struktury: `STATUS_OPTIONS` (z `color` i `activeClass`), `STATUS_LABELS`, i `STATUS_BADGE_CLASS`. To zwiększa ryzyko rozbieżności.
+
+**Naprawa:** Pilne — wyciągnąć do `lib/reservation-status.ts` jedną wspólną mapę z polami `label`, `badgeClass`, `color`, `activeClass`.
+
+---
+
+### 5.4 [ŚREDNIE] `SECTION_ICONS` — 2 niezgodne wersje
+
+**Pliki:** `lib/section-icons.ts` (Lucide), `SiteStructureGraph.tsx:22` (emoji)
+
+**Naprawa:** Ujednolicić — dodać pole `emoji` do `lib/section-icons.ts`.
+
+---
+
+### 5.5 [NISKIE] Typ `GalleryItem` — powtórzony w 3 plikach
+
+**Pliki:** `SectionGalleryEditor.tsx`, `SectionEditor.tsx`, `MiejscaEditor.tsx`
+
+**Naprawa:** Wyciągnąć do `types/gallery.ts`.
+
+---
+
+## 6. KONFIGURACJA I JAKOŚĆ
+
+### 6.1 [ŚREDNIE] `prisma` w dependencies zamiast devDependencies
+
+**Plik:** `package.json`
+
+Prisma CLI jest potrzebna tylko podczas budowania/migracji, nie w runtime.
+
+**Naprawa:** Przenieść do devDependencies (skrypt `postinstall` nadal go znajdzie).
+
+---
+
+### 6.2 [ŚREDNIE] Prisma schema — `tags` jako String zamiast Json
+
+**Plik:** `prisma/schema.prisma`
+
+`Section.tags` i `Client.tags` to `String @default("[]")` — przechowywanie JSON w stringu. Niespójne z `contentPl`/`contentEn` które są `Json`.
+
+**Naprawa:** Zmienić na typ `Json`.
+
+---
+
+### 6.3 [ŚREDNIE] Brak indeksu `Page.parentId`
+
+**Plik:** `prisma/schema.prisma`
+
+Zapytania o dzieci strony będą wolniejsze bez indeksu.
+
+**Naprawa:** Dodać `@@index([parentId])`.
+
+---
+
+### 6.4 [ŚREDNIE] `globals.css` — 2405 linii monolityczny plik
+
+**Plik:** `app/globals.css`
+
+Brak metodologii nazewnictwa, dużo powtarzających się `clamp()` i media queries. Potencjalne konflikty specyficzności.
+
+**Naprawa:** Rozważyć podział na mniejsze pliki per sekcja.
+
+---
+
+### 6.5 [ŚREDNIE] `JsonLd` — hardkodowane dane
+
+**Plik:** `components/JsonLd.tsx`
+
+Schema.org `LodgingBusiness` ma hardkodowane wartości (pusty `telephone`). Powinien ciągać dane z `SiteSettings`.
+
+**Naprawa:** Pobierać dane z bazy.
+
+---
+
+### 6.6 ✅ [ŚREDNIE] `index.html` i `style.css` — relikty w repo — NAPRAWIONE
+
+Pliki zostały usunięte z repo.
+
+---
+
+### 6.7 [NISKIE] Nieużywane zależności w `package.json`
+
+- `concurrently` — brak w żadnym skrypcie npm.
+- `@types/sharp` — Sharp 0.33+ ma wbudowane typy.
+- `shadcn` — narzędzie CLI, można przenieść do devDependencies.
+
+---
+
+### 6.8 [NISKIE] `tsconfig.json` — brak `noUncheckedIndexedAccess`
+
+Warto dodać dla lepszego bezpieczeństwa typów.
+
+---
+
+### 6.9 [NISKIE] `lib/i18n.ts` — `.ts` zamiast `.tsx`
+
+Używa `createElement` zamiast JSX. Zmiana rozszerzenia na `.tsx` poprawi czytelność.
+
+---
+
+### 6.10 [NISKIE] `not-found.tsx` — brak metadata, tylko po polsku
+
+Strona 404 nie eksportuje `metadata` i jest hardkodowana po polsku.
+
+---
+
+### 6.11 [NISKIE] Sitemap bez hreflang
+
+Sitemap nie generuje alternatywnych URL-i dla wersji EN.
+
+---
+
+## 7. PRIORYTETOWY PLAN NAPRAW
+
+### Natychmiast (dzień 1)
+1. Zrotować wszystkie sekrety z `.env`, przenieść do Vercel env vars.
+2. Ustawić `ICAL_EXPORT_TOKEN` jako wymagany, wyłączyć query param fallback.
+3. Naprawić `postMessage(..., '*')` → `window.location.origin`.
+
+### Pilne (tydzień 1)
+4. Singleton na SMTP transport (`lib/mail.ts`).
+5. Dodać walidację Zod w `updateClient` i `addAdminNote`.
+6. Dodać `.max()` i regex do pól walidacyjnych.
+7. Wyciągnąć duplikaty: `formatPLN`, `overlapNights`, `STATUS_CONFIG`.
+8. Naprawić renderowanie HTML w `[...slug]/page.tsx`.
+
+### Ważne (tydzień 2-3)
+9. Wdrożyć Upstash rate limiting.
+10. Zoptymalizować zapytania dashboardu (12 → 3-4).
+11. Dodać paginację w `getClients` dla computed sort.
+12. Usunąć `unsafe-eval` z CSP.
+13. Dodać `next/dynamic` dla ciężkich komponentów.
+14. Dodać indeks `Page.parentId` w Prisma.
+
+### Ulepszenia (backlog)
+15. Podzielić `HomeClient.tsx` na mniejsze komponenty.
+16. Podzielić `globals.css` na mniejsze pliki.
+17. Zmienić `tags` na typ `Json` w Prisma.
+18. Dynamiczne dane w `JsonLd`.
+19. Usunąć relikty (`index.html`, `style.css`).
+20. Posprzątać nieużywane zależności.

@@ -147,13 +147,13 @@ export function TopMenu({ activeView = "home", onNavigate, forceColors = null, m
 
     if (view === "miejsca" || view === "rezerwuj") {
       onNavigate?.(view);
-      scrollToSection("hero-start");
+      scrollToSection("rezerwuj");
       setIsMobileMenuOpen(false);
       return;
     }
 
     onNavigate?.("home");
-    scrollToSection(view === "koncept" ? "sec2-wrapper" : "sec3-wrapper");
+    scrollToSection(view === "koncept" ? "koncept" : "miejsca");
     setIsMobileMenuOpen(false);
   };
 
@@ -201,7 +201,7 @@ export function TopMenu({ activeView = "home", onNavigate, forceColors = null, m
             {MENU_ITEMS.map((item) => (
               <a
                 key={item.id}
-                href={`#${item.id === "koncept" ? "sec2-wrapper" : "hero-start"}`}
+                href={`#${item.id === "koncept" ? "koncept" : "rezerwuj"}`}
                 onClick={(event) => handleMenuClick(event, item.id)}
                 className={activeView === item.id ? "is-current" : undefined}
               >

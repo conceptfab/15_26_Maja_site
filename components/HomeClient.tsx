@@ -196,7 +196,7 @@ export function HomeClient({ sections: initialSections, settings }: { sections: 
 
   const scrollToHeroStart = () => {
     document
-      .getElementById('hero-start')
+      .getElementById('rezerwuj')
       ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
@@ -282,7 +282,7 @@ export function HomeClient({ sections: initialSections, settings }: { sections: 
 
           if (isReservationView) {
             if (!hasReservationDates) {
-              const heroSec = document.getElementById('hero-start');
+              const heroSec = document.getElementById('rezerwuj');
               if (
                 heroSec &&
                 isScrollingDown &&
@@ -293,7 +293,7 @@ export function HomeClient({ sections: initialSections, settings }: { sections: 
               }
             }
           } else {
-            const sec2 = document.getElementById('sec2-wrapper');
+            const sec2 = document.getElementById('koncept');
             if (sec2) {
               const sec2Top = sec2.getBoundingClientRect().top;
               if (
@@ -311,7 +311,7 @@ export function HomeClient({ sections: initialSections, settings }: { sections: 
 
         if (expandedSection && isMobileRef.current) {
           const expandedWrapperId =
-            expandedSection === 'sec2' ? 'sec2-wrapper' : 'sec3-wrapper';
+            expandedSection === 'sec2' ? 'koncept' : 'miejsca';
           const expandedWrapper = document.getElementById(expandedWrapperId);
 
           if (expandedWrapper) {
@@ -387,7 +387,7 @@ export function HomeClient({ sections: initialSections, settings }: { sections: 
 
   const handleReadMoreClick = (section: ExpandableSection) => {
     setExpandedSection(section);
-    const targetId = section === 'sec2' ? 'sec2-wrapper' : 'sec3-wrapper';
+    const targetId = section === 'sec2' ? 'koncept' : 'miejsca';
     document
       .getElementById(targetId)
       ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -635,7 +635,7 @@ export function HomeClient({ sections: initialSections, settings }: { sections: 
       >
         <a
           className="floating-menu-logo__link"
-          href="#hero-start"
+          href="#rezerwuj"
           aria-label={t('footer.backToTop')}
           onClick={handleFloatingLogoClick}
         >
@@ -645,7 +645,7 @@ export function HomeClient({ sections: initialSections, settings }: { sections: 
 
       <section
         className="section h-100vh bg-slider"
-        id="hero-start"
+        id="rezerwuj"
         style={bgStyle(heroSection)}
         data-menu-font={isReservationView ? BRAND_COLOR : '#ffffff'}
         data-menu-logo={isReservationView ? BRAND_COLOR : '#ffffff'}
@@ -708,8 +708,8 @@ export function HomeClient({ sections: initialSections, settings }: { sections: 
       </section>
 
       <section
-        className={`section h-100vh bg-secondary ${expandedSection === 'sec2' ? '' : 'section-story'}`}
-        id="sec2-wrapper"
+        className={`section h-100vh section-bg-secondary ${expandedSection === 'sec2' ? '' : 'section-story'}`}
+        id="koncept"
         style={bgStyle(konceptSection)}
         data-menu-font={expandedSection === 'sec2' ? BRAND_COLOR : '#ffffff'}
         data-menu-logo={expandedSection === 'sec2' ? BRAND_COLOR : '#ffffff'}
@@ -741,7 +741,7 @@ export function HomeClient({ sections: initialSections, settings }: { sections: 
 
       <section
         className={`section h-100vh bg-dark ${expandedSection === 'sec3' ? '' : 'section-story'}`}
-        id="sec3-wrapper"
+        id="miejsca"
         style={bgStyle(miejsceSection)}
         data-menu-font={expandedSection === 'sec3' ? BRAND_COLOR : '#ffffff'}
         data-menu-logo={expandedSection === 'sec3' ? BRAND_COLOR : '#ffffff'}
@@ -773,7 +773,7 @@ export function HomeClient({ sections: initialSections, settings }: { sections: 
 
       <section
         className="section bg-light"
-        id="sec4-wrapper"
+        id="kontakt"
         style={bgStyle(stopkaSection)}
         data-menu-font="#ffffff"
         data-menu-logo="#ffffff"
@@ -781,7 +781,7 @@ export function HomeClient({ sections: initialSections, settings }: { sections: 
         <div className="container footer-container">
           <div className="footer-brand reveal reveal--scale">
             <a
-              href="#hero-start"
+              href="#rezerwuj"
               onClick={handleFloatingLogoClick}
               className="footer-logo-link"
             >
@@ -794,9 +794,9 @@ export function HomeClient({ sections: initialSections, settings }: { sections: 
 
             <div className="footer-nav-group">
               <a
-                href="#sec2-wrapper"
+                href="#koncept"
                 className="footer-nav-link"
-                onClick={(event) => handleFooterNavClick(event, 'sec2-wrapper')}
+                onClick={(event) => handleFooterNavClick(event, 'koncept')}
               >
                 {c(stopkaSection, 'koncept_label') || t('menu.koncept').toUpperCase()}
               </a>
