@@ -195,6 +195,10 @@ export async function addAdminNote(id: string, note: string) {
   const session = await verifySession();
   if (!session) return unauthorized();
 
+  if (note.length > 2000) {
+    return { error: 'Notatka nie może przekraczać 2000 znaków' };
+  }
+
   const updated = await prisma.reservation.update({
     where: { id },
     data: { adminNote: note },
@@ -222,9 +226,15 @@ export async function getBlockedDates() {
   };
 }
 
+const BLOCKED_DATE_TYPES = ['BLOCKED', 'SERVICE'] as const;
+
 export async function addBlockedDate(date: string, reason?: string, type: 'BLOCKED' | 'SERVICE' = 'BLOCKED') {
   const session = await verifySession();
   if (!session) return unauthorized();
+
+  if (!BLOCKED_DATE_TYPES.includes(type)) {
+    return { error: 'Nieprawidłowy typ blokady' };
+  }
 
   const parsed = new Date(date);
   if (isNaN(parsed.getTime())) {
@@ -234,7 +244,7 @@ export async function addBlockedDate(date: string, reason?: string, type: 'BLOCK
   const blocked = await prisma.blockedDate.create({
     data: {
       date: parsed,
-      reason: reason || null,
+      reason: reason?.slice(0, 200) || null,
       type,
     },
   });
@@ -246,7 +256,11 @@ export async function removeBlockedDate(id: string) {
   const session = await verifySession();
   if (!session) return unauthorized();
 
-  await prisma.blockedDate.delete({ where: { id } });
+  try {
+    await prisma.blockedDate.delete({ where: { id } });
+  } catch {
+    return { error: 'Nie znaleziono wpisu do usunięcia' };
+  }
   return { success: true };
 }
 

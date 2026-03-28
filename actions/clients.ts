@@ -1,11 +1,23 @@
 'use server';
 
+import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { verifySession } from '@/lib/auth';
 
 function unauthorized() {
   return { error: 'Brak autoryzacji' };
 }
+
+const updateClientSchema = z.object({
+  name: z.string().min(1).max(200).optional(),
+  phone: z.string().max(20).optional(),
+  rating: z.number().int().min(0).max(5).nullable().optional(),
+  tags: z.string().max(1000).optional(),
+  adminNote: z.string().max(2000).optional(),
+  discount: z.number().min(0).max(100).optional(),
+  isBlacklisted: z.boolean().optional(),
+  blacklistReason: z.string().max(500).optional(),
+});
 
 type ClientFilters = {
   search?: string;
@@ -147,9 +159,14 @@ export async function updateClient(id: string, data: {
   const session = await verifySession();
   if (!session) return unauthorized();
 
+  const parsed = updateClientSchema.safeParse(data);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? 'Nieprawidłowe dane' };
+  }
+
   await prisma.client.update({
     where: { id },
-    data,
+    data: parsed.data,
   });
 
   return { success: true };

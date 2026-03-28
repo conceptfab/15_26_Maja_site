@@ -8,22 +8,30 @@ type SendEmailParams = {
   html: string;
 };
 
+const globalForMail = globalThis as unknown as { _smtpTransport?: nodemailer.Transporter | null; _smtpChecked?: boolean };
+
 function getTransport() {
+  if (globalForMail._smtpChecked) return globalForMail._smtpTransport ?? null;
+
   const host = process.env.SMTP_HOST;
   const port = Number(process.env.SMTP_PORT) || 465;
   const user = process.env.SMTP_USER;
   const pass = process.env.SMTP_PASS;
 
+  globalForMail._smtpChecked = true;
+
   if (!host || !user || !pass) {
+    globalForMail._smtpTransport = null;
     return null;
   }
 
-  return nodemailer.createTransport({
+  globalForMail._smtpTransport = nodemailer.createTransport({
     host,
     port,
     secure: port === 465,
     auth: { user, pass },
   });
+  return globalForMail._smtpTransport;
 }
 
 export async function sendEmail({ to, subject, html }: SendEmailParams) {

@@ -9,22 +9,8 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { updateClient } from '@/actions/clients';
-
-const STATUS_LABELS: Record<string, string> = {
-  PENDING: 'Oczekująca',
-  DEPOSIT_PAID: 'Zaliczka',
-  PAID: 'Opłacona',
-  COMPLETED: 'Zakończona',
-  CANCELLED: 'Anulowana',
-};
-
-const STATUS_COLORS: Record<string, string> = {
-  PENDING: 'bg-yellow-500/20 text-yellow-400',
-  DEPOSIT_PAID: 'bg-blue-500/20 text-blue-400',
-  PAID: 'bg-green-500/20 text-green-400',
-  COMPLETED: 'bg-gray-500/20 text-gray-400',
-  CANCELLED: 'bg-red-500/20 text-red-400',
-};
+import { formatPLN } from '@/lib/format';
+import { getStatusInfo } from '@/lib/reservation-status';
 
 type Reservation = {
   id: string;
@@ -53,10 +39,6 @@ type Client = {
   createdAt: Date;
   reservations: Reservation[];
 };
-
-function formatPLN(amount: number) {
-  return new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN', maximumFractionDigits: 0 }).format(amount);
-}
 
 export function ClientDetail({ client }: { client: Client }) {
   const router = useRouter();
@@ -201,8 +183,8 @@ export function ClientDetail({ client }: { client: Client }) {
                       <td className="px-4 py-2">{r.nights}</td>
                       <td className="px-4 py-2">{formatPLN(r.totalPrice)}</td>
                       <td className="px-4 py-2">
-                        <span className={`text-xs px-2 py-0.5 rounded ${STATUS_COLORS[r.status] || ''}`}>
-                          {STATUS_LABELS[r.status] || r.status}
+                        <span className={`text-xs px-2 py-0.5 rounded ${getStatusInfo(r.status).badgeClass || ''}`}>
+                          {getStatusInfo(r.status).label || r.status}
                         </span>
                       </td>
                     </tr>
@@ -217,8 +199,8 @@ export function ClientDetail({ client }: { client: Client }) {
                       <span className="text-sm font-medium">
                         {new Date(r.checkIn).toLocaleDateString('pl-PL')} – {new Date(r.checkOut).toLocaleDateString('pl-PL')}
                       </span>
-                      <span className={`text-xs px-2 py-0.5 rounded ${STATUS_COLORS[r.status] || ''}`}>
-                        {STATUS_LABELS[r.status] || r.status}
+                      <span className={`text-xs px-2 py-0.5 rounded ${getStatusInfo(r.status).badgeClass || ''}`}>
+                        {getStatusInfo(r.status).label || r.status}
                       </span>
                     </div>
                     <p className="text-xs text-muted-foreground">{r.nights} nocy · {formatPLN(r.totalPrice)}</p>

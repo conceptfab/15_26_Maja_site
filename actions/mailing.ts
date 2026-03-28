@@ -15,6 +15,10 @@ export async function updateMailingLogoUrl(url: string) {
   const session = await verifySession();
   if (!session) return { error: 'Brak autoryzacji' };
 
+  if (!url.startsWith('https://') && !url.startsWith('/')) {
+    return { error: 'URL musi zaczynać się od https:// lub /' };
+  }
+
   await prisma.siteSettings.upsert({
     where: { key: LOGO_KEY },
     create: { id: crypto.randomUUID(), key: LOGO_KEY, value: { url } },

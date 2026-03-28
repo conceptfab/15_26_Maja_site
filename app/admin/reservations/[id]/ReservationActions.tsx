@@ -9,30 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { updateReservationStatus, addAdminNote, updateReservation, getStatusHistory, sendGuestEmail, type EmailTemplateType } from '@/actions/reservations';
 import type { ReservationStatus } from '@/lib/validations';
-
-const STATUS_OPTIONS: { value: ReservationStatus; label: string; color: string; activeClass: string }[] = [
-  { value: 'PENDING', label: 'Oczekująca', color: '#f59e0b', activeClass: 'bg-amber-500 hover:bg-amber-600 text-white border-amber-500' },
-  { value: 'DEPOSIT_PAID', label: 'Zaliczka opłacona', color: '#3b82f6', activeClass: 'bg-blue-500 hover:bg-blue-600 text-white border-blue-500' },
-  { value: 'PAID', label: 'Opłacona', color: '#22c55e', activeClass: 'bg-green-500 hover:bg-green-600 text-white border-green-500' },
-  { value: 'COMPLETED', label: 'Zakończona', color: '#374151', activeClass: 'bg-gray-600 hover:bg-gray-700 text-white border-gray-600' },
-  { value: 'CANCELLED', label: 'Anulowana', color: '#ef4444', activeClass: 'bg-red-500 hover:bg-red-600 text-white border-red-500' },
-];
-
-const STATUS_LABELS: Record<string, string> = {
-  PENDING: 'Oczekująca',
-  DEPOSIT_PAID: 'Zaliczka',
-  PAID: 'Opłacona',
-  CANCELLED: 'Anulowana',
-  COMPLETED: 'Zakończona',
-};
-
-const STATUS_BADGE_CLASS: Record<string, string> = {
-  PENDING: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
-  DEPOSIT_PAID: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
-  PAID: 'bg-green-500/20 text-green-400 border-green-500/30',
-  CANCELLED: 'bg-red-500/20 text-red-400 border-red-500/30',
-  COMPLETED: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
-};
+import { STATUS_OPTIONS, getStatusInfo } from '@/lib/reservation-status';
 
 type HistoryEntry = {
   id: string;
@@ -240,9 +217,9 @@ export function ReservationActions({ id, currentStatus, adminNote, checkIn, chec
                   <div className="w-2 h-2 rounded-full bg-muted-foreground mt-1.5 shrink-0" />
                   <div>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <Badge className={`text-xs ${STATUS_BADGE_CLASS[entry.oldStatus] || ''}`}>{STATUS_LABELS[entry.oldStatus] || entry.oldStatus}</Badge>
+                      <Badge className={`text-xs ${getStatusInfo(entry.oldStatus).badgeClass}`}>{getStatusInfo(entry.oldStatus).label}</Badge>
                       <span className="text-muted-foreground">→</span>
-                      <Badge className={`text-xs ${STATUS_BADGE_CLASS[entry.newStatus] || ''}`}>{STATUS_LABELS[entry.newStatus] || entry.newStatus}</Badge>
+                      <Badge className={`text-xs ${getStatusInfo(entry.newStatus).badgeClass}`}>{getStatusInfo(entry.newStatus).label}</Badge>
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">
                       {new Date(entry.createdAt).toLocaleString('pl-PL')}

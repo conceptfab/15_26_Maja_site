@@ -80,7 +80,8 @@ export function CalendarView({ reservations, blockedDates }: Props) {
     reservations.filter((r) => {
       const checkIn = startOfDay(new Date(r.checkIn));
       const checkOut = startOfDay(new Date(r.checkOut));
-      return isWithinInterval(day, { start: checkIn, end: checkOut });
+      // checkout = dzień wyjazdu (gość nie nocuje), więc ostatni nocleg = checkOut - 1 dzień
+      return isWithinInterval(day, { start: checkIn, end: new Date(checkOut.getTime() - 86400000) });
     });
 
   const getBlockedForDay = (day: Date) =>

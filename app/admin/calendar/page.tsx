@@ -2,7 +2,12 @@ export const dynamic = 'force-dynamic';
 
 import { prisma } from '@/lib/db';
 import { AdminShell } from '@/components/admin/AdminShell';
-import { CalendarView } from './CalendarView';
+import nextDynamic from 'next/dynamic';
+
+const CalendarView = nextDynamic(
+  () => import('./CalendarView').then((m) => m.CalendarView),
+  { loading: () => <div className="flex items-center justify-center h-64 text-muted-foreground">Ładowanie kalendarza...</div> }
+);
 
 async function getData() {
   const now = new Date();

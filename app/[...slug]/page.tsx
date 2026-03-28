@@ -1,7 +1,9 @@
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { jsonToRecord } from '@/lib/json-utils';
+import { sanitizeHtml } from '@/lib/sanitize';
 import Image from 'next/image';
+import Link from 'next/link';
 import { cache } from 'react';
 import type { Metadata } from 'next';
 
@@ -59,6 +61,9 @@ export default async function SubPage({ params }: Props) {
 
   return (
     <main className="min-h-screen">
+      <nav className="px-4 py-3 border-b">
+        <Link href="/" className="text-sm text-muted-foreground hover:text-foreground">← Strona główna</Link>
+      </nav>
       <section className="py-16 px-4">
         <div className="max-w-4xl mx-auto">
           <h1 className="text-3xl font-bold mb-8">{page.title}</h1>
@@ -85,11 +90,10 @@ export default async function SubPage({ params }: Props) {
                 )}
 
                 {content.body && (
-                  <div className="prose max-w-none">
-                    {content.body.split('\n\n').map((paragraph, i) => (
-                      <p key={i}>{paragraph}</p>
-                    ))}
-                  </div>
+                  <div
+                    className="prose max-w-none"
+                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(content.body) }}
+                  />
                 )}
 
                 {section.galleryImages.length > 0 && (

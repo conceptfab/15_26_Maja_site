@@ -7,14 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { ReservationActions } from './ReservationActions';
-
-const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
-  PENDING: { label: 'Oczekująca', className: 'bg-amber-500/20 text-amber-400 border-amber-500/30' },
-  DEPOSIT_PAID: { label: 'Zaliczka', className: 'bg-blue-500/20 text-blue-400 border-blue-500/30' },
-  PAID: { label: 'Opłacona', className: 'bg-green-500/20 text-green-400 border-green-500/30' },
-  CANCELLED: { label: 'Anulowana', className: 'bg-red-500/20 text-red-400 border-red-500/30' },
-  COMPLETED: { label: 'Zakończona', className: 'bg-gray-500/20 text-gray-400 border-gray-500/30' },
-};
+import { getStatusInfo } from '@/lib/reservation-status';
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -26,14 +19,14 @@ export default async function ReservationDetailPage({ params }: PageProps) {
 
   if (!reservation) notFound();
 
-  const status = STATUS_CONFIG[reservation.status] || { label: reservation.status, className: '' };
+  const status = getStatusInfo(reservation.status);
 
   return (
     <AdminShell>
       <div className="space-y-6 max-w-3xl">
         <div className="flex items-center gap-4">
           <h1 className="text-2xl font-bold">Rezerwacja</h1>
-          <Badge className={`text-sm ${status.className}`}>{status.label}</Badge>
+          <Badge className={`text-sm ${status.badgeClass}`}>{status.label}</Badge>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">

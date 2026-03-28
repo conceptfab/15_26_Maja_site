@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { getClients } from '@/actions/clients';
+import { formatPLN } from '@/lib/format';
 
 type ClientRow = {
   id: string;
@@ -21,10 +22,6 @@ type ClientRow = {
   lastStay: string | null;
   createdAt: string;
 };
-
-function formatPLN(amount: number) {
-  return new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN', maximumFractionDigits: 0 }).format(amount);
-}
 
 export function ClientsClient() {
   const [clients, setClients] = useState<ClientRow[]>([]);

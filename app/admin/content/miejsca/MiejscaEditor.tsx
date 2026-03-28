@@ -64,7 +64,7 @@ export function MiejscaEditor({ section, galleryImages }: Props) {
       slug: 'miejsce',
       contentPl: { ...fieldsPl },
       contentEn: { ...fieldsEn },
-    }, '*');
+    }, window.location.origin);
   }, [fieldsPl, fieldsEn]);
 
   useEffect(() => {

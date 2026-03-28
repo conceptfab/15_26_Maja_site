@@ -7,14 +7,9 @@ function unauthorized() {
   return { error: 'Brak autoryzacji' };
 }
 
-const CONFIRMED_STATUSES = ['DEPOSIT_PAID', 'PAID', 'COMPLETED'] as const;
+import { overlapNights } from '@/lib/date-utils';
 
-function overlapNights(checkIn: Date, checkOut: Date, rangeStart: Date, rangeEnd: Date): number {
-  const overlapStart = checkIn > rangeStart ? checkIn : rangeStart;
-  const overlapEnd = checkOut < rangeEnd ? checkOut : rangeEnd;
-  const diff = Math.floor((overlapEnd.getTime() - overlapStart.getTime()) / (1000 * 60 * 60 * 24));
-  return Math.max(0, diff);
-}
+const CONFIRMED_STATUSES = ['DEPOSIT_PAID', 'PAID', 'COMPLETED'] as const;
 
 export async function getMonthlyReport(year: number, month: number) {
   const session = await verifySession();

@@ -2,7 +2,12 @@
 
 import { useRouter } from 'next/navigation';
 import { useCallback } from 'react';
-import { SiteStructureGraph } from '@/components/admin/SiteStructureGraph';
+import dynamic from 'next/dynamic';
+
+const SiteStructureGraph = dynamic(
+  () => import('@/components/admin/SiteStructureGraph').then((m) => m.SiteStructureGraph),
+  { loading: () => <div className="flex items-center justify-center h-64 text-muted-foreground">Ładowanie grafu...</div> }
+);
 import type { PageNode, SectionNode } from '@/actions/pages';
 
 type Props = {

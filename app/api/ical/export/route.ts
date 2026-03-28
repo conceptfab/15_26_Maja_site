@@ -6,7 +6,13 @@ export const dynamic = 'force-dynamic';
 const ICAL_TOKEN = process.env.ICAL_EXPORT_TOKEN;
 
 function escapeIcal(text: string) {
-  return text.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n');
+  return text
+    .replace(/\\/g, '\\\\')
+    .replace(/;/g, '\\;')
+    .replace(/,/g, '\\,')
+    .replace(/\n/g, '\\n')
+    .replace(/\r/g, '')
+    .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g, '');
 }
 
 function formatDate(d: Date) {
@@ -14,14 +20,14 @@ function formatDate(d: Date) {
 }
 
 export async function GET(request: NextRequest) {
-  // Zabezpieczenie tokenem — akceptuje header Authorization lub query param (legacy)
-  if (ICAL_TOKEN) {
-    const authHeader = request.headers.get('authorization');
-    const headerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
-    const queryToken = request.nextUrl.searchParams.get('token');
-    if (headerToken !== ICAL_TOKEN && queryToken !== ICAL_TOKEN) {
-      return new NextResponse('Unauthorized', { status: 401 });
-    }
+  // Zabezpieczenie tokenem — wymagany header Authorization: Bearer ...
+  if (!ICAL_TOKEN) {
+    return new NextResponse('iCal export not configured (ICAL_EXPORT_TOKEN missing)', { status: 503 });
+  }
+  const authHeader = request.headers.get('authorization');
+  const headerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  if (headerToken !== ICAL_TOKEN) {
+    return new NextResponse('Unauthorized', { status: 401 });
   }
   const reservations = await prisma.reservation.findMany({
     where: { status: { not: 'CANCELLED' } },

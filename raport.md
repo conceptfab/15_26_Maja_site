@@ -511,7 +511,39 @@ Sitemap nie generuje alternatywnych URL-i dla wersji EN.
 
 ---
 
-## 7. PRIORYTETOWY PLAN NAPRAW
+## 7. NOWE UWAGI (po zmianach kodu)
+
+### 7.1 [ŚREDNIE] `BlockedDate.type` — brak walidacji w `addBlockedDate`
+
+**Plik:** `actions/reservations.ts:224`
+
+Nowy parametr `type: 'BLOCKED' | 'SERVICE'` jest dodany do sygnatury, ale nie jest walidowany przez Zod — klient może przekazać dowolny string. W Prisma schema typ to `String @default("BLOCKED")` bez constraintów.
+
+**Naprawa:** Dodać walidację `z.enum(['BLOCKED', 'SERVICE'])` lub użyć enum w Prisma.
+
+---
+
+### 7.2 [ŚREDNIE] `CalendarView` — zmiana logiki `getReservationsForDay` może powodować off-by-one
+
+**Plik:** `app/admin/calendar/CalendarView.tsx:80-83`
+
+Zmieniono z `end: new Date(checkOut.getTime() - 86400000)` na `end: checkOut` (bez odejmowania dnia). To może powodować wyświetlanie rezerwacji w dniu checkout-u jako "zajęty", co jest niespójne z logiką rezerwacji (checkout = dzień wyjazdu, nie nocleg).
+
+**Naprawa:** Zweryfikować czy checkout powinien być wyświetlany w kalendarzu jako zajęty dzień. Standardowo checkout = gość wyjeżdża, więc ten dzień jest wolny.
+
+---
+
+### 7.3 [NISKIE] Dashboard `StatCard` — usunięto warianty kolorystyczne
+
+**Plik:** `app/admin/dashboard/page.tsx`
+
+Usunięto `variant` z `StatCard` i Badge — teraz wszystkie karty wyglądają identycznie. Utracono wizualne rozróżnienie oczekujących/anulowanych rezerwacji.
+
+**Naprawa:** Rozważyć przywrócenie subtelnego kolorystycznego rozróżnienia (np. kolorowa obwódka lub ikona) dla kluczowych stanów.
+
+---
+
+## 8. PRIORYTETOWY PLAN NAPRAW
 
 ### Natychmiast (dzień 1)
 1. Zrotować wszystkie sekrety z `.env`, przenieść do Vercel env vars.
@@ -520,9 +552,9 @@ Sitemap nie generuje alternatywnych URL-i dla wersji EN.
 
 ### Pilne (tydzień 1)
 4. Singleton na SMTP transport (`lib/mail.ts`).
-5. Dodać walidację Zod w `updateClient` i `addAdminNote`.
+5. Dodać walidację Zod w `updateClient`, `addAdminNote`, `addBlockedDate`.
 6. Dodać `.max()` i regex do pól walidacyjnych.
-7. Wyciągnąć duplikaty: `formatPLN`, `overlapNights`, `STATUS_CONFIG`.
+7. **Wyciągnąć duplikaty: `formatPLN`, `overlapNights`, `STATUS_CONFIG`** — pilniejsze po zmianach (STATUS_CONFIG teraz w 4+ plikach).
 8. Naprawić renderowanie HTML w `[...slug]/page.tsx`.
 
 ### Ważne (tydzień 2-3)
@@ -532,11 +564,12 @@ Sitemap nie generuje alternatywnych URL-i dla wersji EN.
 12. Usunąć `unsafe-eval` z CSP.
 13. Dodać `next/dynamic` dla ciężkich komponentów.
 14. Dodać indeks `Page.parentId` w Prisma.
+15. Zweryfikować logikę `getReservationsForDay` po zmianie (off-by-one w checkout).
 
 ### Ulepszenia (backlog)
-15. Podzielić `HomeClient.tsx` na mniejsze komponenty.
-16. Podzielić `globals.css` na mniejsze pliki.
-17. Zmienić `tags` na typ `Json` w Prisma.
-18. Dynamiczne dane w `JsonLd`.
-19. Usunąć relikty (`index.html`, `style.css`).
-20. Posprzątać nieużywane zależności.
+16. Podzielić `HomeClient.tsx` na mniejsze komponenty.
+17. Podzielić `globals.css` na mniejsze pliki.
+18. Zmienić `tags` na typ `Json` w Prisma.
+19. Dynamiczne dane w `JsonLd`.
+20. ~~Usunąć relikty (`index.html`, `style.css`).~~ ✅ Naprawione.
+21. Posprzątać nieużywane zależności.

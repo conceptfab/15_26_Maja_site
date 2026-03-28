@@ -4,15 +4,12 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { getMonthlyReport, getYearlyReport } from '@/actions/reports';
+import { formatPLN } from '@/lib/format';
 
 const MONTH_NAMES_FULL = [
   'Styczeń', 'Luty', 'Marzec', 'Kwiecień', 'Maj', 'Czerwiec',
   'Lipiec', 'Sierpień', 'Wrzesień', 'Październik', 'Listopad', 'Grudzień',
 ];
-
-function formatPLN(amount: number) {
-  return new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN', maximumFractionDigits: 0 }).format(amount);
-}
 
 function Delta({ current, previous, unit = '' }: { current: number; previous: number; unit?: string }) {
   if (previous === 0) return null;

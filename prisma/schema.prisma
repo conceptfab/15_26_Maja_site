@@ -41,6 +41,8 @@ model Page {
   seo       SeoSettings?
   updatedAt DateTime @updatedAt
   createdAt DateTime @default(now())
+
+  @@index([parentId])
 }
 
 model Section {

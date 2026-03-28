@@ -16,23 +16,12 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { format } from 'date-fns';
+import { getStatusInfo, STATUS_CONFIG } from '@/lib/reservation-status';
 
 const STATUS_OPTIONS = [
   { value: '', label: 'Wszystkie statusy' },
-  { value: 'PENDING', label: 'Oczekująca' },
-  { value: 'DEPOSIT_PAID', label: 'Zaliczka' },
-  { value: 'PAID', label: 'Opłacona' },
-  { value: 'COMPLETED', label: 'Zakończona' },
-  { value: 'CANCELLED', label: 'Anulowana' },
+  ...Object.entries(STATUS_CONFIG).map(([value, info]) => ({ value, label: info.label })),
 ] as const;
-
-const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
-  PENDING: { label: 'Oczekująca', className: 'bg-amber-500/20 text-amber-400 border-amber-500/30' },
-  DEPOSIT_PAID: { label: 'Zaliczka', className: 'bg-blue-500/20 text-blue-400 border-blue-500/30' },
-  PAID: { label: 'Opłacona', className: 'bg-green-500/20 text-green-400 border-green-500/30' },
-  CANCELLED: { label: 'Anulowana', className: 'bg-red-500/20 text-red-400 border-red-500/30' },
-  COMPLETED: { label: 'Zakończona', className: 'bg-gray-500/20 text-gray-400 border-gray-500/30' },
-};
 
 type SortableColumn = 'checkIn' | 'checkOut' | 'totalPrice' | 'createdAt' | 'guests' | 'nights';
 
@@ -249,7 +238,7 @@ export function ReservationsClient({ initialStats }: { initialStats: Stats }) {
                   </TableRow>
                 ) : (
                   reservations.map((r) => {
-                    const statusInfo = STATUS_CONFIG[r.status] || { label: r.status, className: '' };
+                    const statusInfo = getStatusInfo(r.status);
                     return (
                       <TableRow key={r.id}>
                         <TableCell>
@@ -267,7 +256,7 @@ export function ReservationsClient({ initialStats }: { initialStats: Stats }) {
                         <TableCell>{r.guests}</TableCell>
                         <TableCell className="font-medium">{r.totalPrice} zł</TableCell>
                         <TableCell>
-                          <Badge className={statusInfo.className}>{statusInfo.label}</Badge>
+                          <Badge className={statusInfo.badgeClass}>{statusInfo.label}</Badge>
                         </TableCell>
                         <TableCell className="text-muted-foreground text-xs">
                           {format(new Date(r.createdAt), 'dd.MM.yyyy HH:mm')}
@@ -290,7 +279,7 @@ export function ReservationsClient({ initialStats }: { initialStats: Stats }) {
           <p className="text-center py-8 text-muted-foreground">Brak rezerwacji</p>
         ) : (
           reservations.map((r) => {
-            const statusInfo = STATUS_CONFIG[r.status] || { label: r.status, className: '' };
+            const statusInfo = getStatusInfo(r.status);
             return (
               <Link key={r.id} href={`/admin/reservations/${r.id}`} className="block">
                 <Card className="hover:ring-1 hover:ring-ring transition-all">
@@ -303,7 +292,7 @@ export function ReservationsClient({ initialStats }: { initialStats: Stats }) {
                         </div>
                         <p className="text-xs text-muted-foreground">{r.guestEmail}</p>
                       </div>
-                      <Badge className={statusInfo.className}>{statusInfo.label}</Badge>
+                      <Badge className={statusInfo.badgeClass}>{statusInfo.label}</Badge>
                     </div>
                     {r.comment && (
                       <p className="text-xs text-muted-foreground mb-2 line-clamp-2">{r.comment}</p>

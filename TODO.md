@@ -1,4 +1,4 @@
-Aplikacja działa poprawnie, ale przeanalizuj dokładnie kod pod kątem poprawności logiki, wydajności, bezpieczeństwa, możliwych optymalizacji, nadmiarowego kodu i sugerowanych rozwiązań. Sprawdz czy optymalizacja plików graficznych i pozostałcyh działa prawidłowo. Swoje uwagi i propozycje zapisz w szczegółowym raport.md
+/simplify Aplikacja działa poprawnie, ale przeanalizuj dokładnie kod pod kątem poprawności logiki, wydajności, bezpieczeństwa, możliwych optymalizacji, nadmiarowego kodu i sugerowanych rozwiązań. Sprawdz czy optymalizacja plików graficznych i pozostałcyh działa prawidłowo. Swoje uwagi i propozycje zapisz w szczegółowym raport.md
 
 
 
@@ -7,7 +7,6 @@ Aplikacja działa poprawnie, ale przeanalizuj dokładnie kod pod kątem poprawno
 - jesli w jakieś sekcji jest galeria musi mieć możliwość zarządzania zdjęciami (dodawania, usuwania, zmiana kolejności, dodawanie opisów do zdjęć) - opcja wuświetlania pojedynczego zdjęcia/galeri w osobnycm oknie
 - automatyczna optymalizacja plików graficznych dla widoków mobilnych -->
 
-https://homme-two.vercel.app/#hero-start - czy takie linki mozna zrobic czytelniejsze??
 
 - widoki mobilne
 <!-- - optymalizacja dla widoków mobilnych -->

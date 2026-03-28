@@ -10,9 +10,9 @@ export type LoginInput = z.infer<typeof loginSchema>;
 // --- Rezerwacje ---
 
 export const reservationSchema = z.object({
-  guestName: z.string().min(2, 'Imię i nazwisko jest wymagane'),
-  guestEmail: z.string().email('Nieprawidłowy adres email'),
-  guestPhone: z.string().min(9, 'Nieprawidłowy numer telefonu'),
+  guestName: z.string().min(2, 'Imię i nazwisko jest wymagane').max(100, 'Imię zbyt długie'),
+  guestEmail: z.string().email('Nieprawidłowy adres email').max(200),
+  guestPhone: z.string().min(9, 'Nieprawidłowy numer telefonu').max(20, 'Numer zbyt długi').regex(/^[\d\s+()-]+$/, 'Nieprawidłowy format numeru'),
   checkIn: z.coerce.date(),
   checkOut: z.coerce.date(),
   guests: z.number().int().min(1).max(6),
