@@ -62,7 +62,10 @@ function buildTree(pages: (PageNode & { children?: PageNode[] })[]): PageNode[] 
 
 // --- Actions ---
 
-export async function getPageTree(): Promise<PageNode[]> {
+export async function getPageTree(): Promise<PageNode[] | { error: string }> {
+  const session = await verifySession();
+  if (!session) return { error: 'Brak autoryzacji' };
+
   const pages = await prisma.page.findMany({
     orderBy: { order: 'asc' },
     include: { _count: { select: { sections: true } } },
@@ -80,7 +83,10 @@ export type SectionNode = {
   pageId: string;
 };
 
-export async function getSectionsForGraph(): Promise<SectionNode[]> {
+export async function getSectionsForGraph(): Promise<SectionNode[] | { error: string }> {
+  const session = await verifySession();
+  if (!session) return { error: 'Brak autoryzacji' };
+
   return prisma.section.findMany({
     orderBy: { order: 'asc' },
     select: { id: true, slug: true, titlePl: true, order: true, isVisible: true, pageId: true },
@@ -88,6 +94,9 @@ export async function getSectionsForGraph(): Promise<SectionNode[]> {
 }
 
 export async function getPageFlat() {
+  const session = await verifySession();
+  if (!session) return { error: 'Brak autoryzacji' };
+
   return prisma.page.findMany({
     orderBy: { order: 'asc' },
     include: { _count: { select: { sections: true } } },

@@ -9,7 +9,9 @@ import { headers } from 'next/headers';
 export async function POST(request: Request) {
   try {
     const headersList = await headers();
-    const ip = headersList.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+    const ip = headersList.get('x-real-ip')
+      || headersList.get('x-forwarded-for')?.split(',').pop()?.trim()
+      || 'unknown';
     const { allowed, retryAfterMs } = checkRateLimit(`login:${ip}`, 10, 15 * 60 * 1000);
 
     if (!allowed) {

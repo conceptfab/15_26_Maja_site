@@ -135,11 +135,11 @@ body {
   opacity: 0.9;
   transform: translateX(-50%) scale(1);
   transform-origin: center;
-  mask-image: url('/assets/logo.png');
+  mask-image: url('/assets/logo.webp');
   mask-position: center;
   mask-repeat: no-repeat;
   mask-size: contain;
-  -webkit-mask-image: url('/assets/logo.png');
+  -webkit-mask-image: url('/assets/logo.webp');
   -webkit-mask-position: center;
   -webkit-mask-repeat: no-repeat;
   -webkit-mask-size: contain;
@@ -762,10 +762,6 @@ body {
 
 /* ----- KLASY DO PERSONALIZACJI TLA ----- */
 .bg-slider {
-  background-image: var(--section-bg, url('/assets/hero.webp'));
-  background-size: cover;
-  background-position: center 70%;
-  background-repeat: no-repeat;
   color: white;
 }
 
@@ -901,26 +897,14 @@ body {
 }
 
 .bg-dark {
-  background-image: var(--section-bg, url('/assets/sec_3.webp'));
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
   color: white;
 }
 
 .bg-light {
-  background-image: var(--section-bg, url('/assets/footer.webp'));
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
   color: #ffffff;
 }
 
 .section-bg-secondary {
-  background-image: var(--section-bg, url('/assets/sec_2.webp'));
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
   color: white;
 }
 

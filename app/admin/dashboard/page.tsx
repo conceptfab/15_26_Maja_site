@@ -7,8 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ReservationsChart } from './ReservationsChart';
 import { InfrastructureSection } from './InfrastructureSection';
 import { getExternalStats } from '@/lib/external-stats';
-
-const MONTH_NAMES = ['Sty', 'Lut', 'Mar', 'Kwi', 'Maj', 'Cze', 'Lip', 'Sie', 'Wrz', 'Paź', 'Lis', 'Gru'];
+import { CONFIRMED_STATUSES, MONTH_NAMES } from '@/lib/reservation-status';
+import { formatPLN } from '@/lib/format';
 
 function getWeekOfYear(date: Date): number {
   const jan1 = new Date(date.getFullYear(), 0, 1);
@@ -17,8 +17,6 @@ function getWeekOfYear(date: Date): number {
 }
 
 import { overlapNights } from '@/lib/date-utils';
-
-const CONFIRMED_STATUSES = ['DEPOSIT_PAID', 'PAID', 'COMPLETED'] as const;
 
 async function getStats() {
   const now = new Date();
@@ -217,27 +215,35 @@ async function getStats() {
     (r) => r.checkIn >= now && r.checkIn <= in7Days && r.status !== 'CANCELLED'
   ).length;
 
-  // Nadchodzące zameldowania (3 najbliższe)
-  const upcomingCheckIns = await prisma.reservation.findMany({
-    where: {
-      checkIn: { gte: now },
-      status: { notIn: ['CANCELLED'] },
-    },
-    orderBy: { checkIn: 'asc' },
-    take: 3,
-    select: { id: true, guestName: true, checkIn: true, checkOut: true, status: true, nights: true },
-  });
-
-  // Alerty — rezerwacje w ciągu 3 dni bez wpłaty zaliczki
+  // Nadchodzące zameldowania + alerty — równoległe zapytania
   const in3Days = new Date(now.getTime() + 3 * 86400000);
+  const [upcomingCheckIns, pendingCheckingSoon, depositSoon] = await Promise.all([
+    prisma.reservation.findMany({
+      where: {
+        checkIn: { gte: now },
+        status: { notIn: ['CANCELLED'] },
+      },
+      orderBy: { checkIn: 'asc' },
+      take: 3,
+      select: { id: true, guestName: true, checkIn: true, checkOut: true, status: true, nights: true },
+    }),
+    prisma.reservation.findMany({
+      where: {
+        checkIn: { gte: now, lte: in3Days },
+        status: 'PENDING',
+      },
+      select: { id: true, guestName: true, checkIn: true },
+    }),
+    prisma.reservation.findMany({
+      where: {
+        checkIn: { gte: now, lte: in7Days },
+        status: 'DEPOSIT_PAID',
+      },
+      select: { id: true, guestName: true, checkIn: true },
+    }),
+  ]);
+
   const alerts: { type: string; message: string; href: string }[] = [];
-  const pendingCheckingSoon = await prisma.reservation.findMany({
-    where: {
-      checkIn: { gte: now, lte: in3Days },
-      status: 'PENDING',
-    },
-    select: { id: true, guestName: true, checkIn: true },
-  });
   for (const r of pendingCheckingSoon) {
     const daysUntil = Math.ceil((r.checkIn.getTime() - now.getTime()) / 86400000);
     alerts.push({
@@ -246,14 +252,6 @@ async function getStats() {
       href: `/admin/reservations/${r.id}`,
     });
   }
-
-  const depositSoon = await prisma.reservation.findMany({
-    where: {
-      checkIn: { gte: now, lte: in7Days },
-      status: 'DEPOSIT_PAID',
-    },
-    select: { id: true, guestName: true, checkIn: true },
-  });
   for (const r of depositSoon) {
     const daysUntil = Math.ceil((r.checkIn.getTime() - now.getTime()) / 86400000);
     alerts.push({
@@ -291,9 +289,7 @@ async function getStats() {
   };
 }
 
-function formatPLN(amount: number) {
-  return new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN', maximumFractionDigits: 0 }).format(amount);
-}
+
 
 export default async function DashboardPage() {
   const [s, externalStats] = await Promise.all([getStats(), getExternalStats()]);

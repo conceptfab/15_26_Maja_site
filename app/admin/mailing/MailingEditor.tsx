@@ -20,24 +20,12 @@ import {
   type TemplateKey,
   TEMPLATE_LABELS,
   TEMPLATE_VARS,
+  SAMPLE_VARS,
   getDefaultTemplate,
   interpolate,
 } from '@/lib/email-template-defaults';
 import { updateEmailTemplate, updateMailingLogoUrl, sendTestEmail } from '@/actions/mailing';
 import { getGalleryThumbs } from '@/actions/gallery';
-
-// Dane przykładowe do podglądu
-const SAMPLE_VARS: Record<string, string> = {
-  guestName: 'Jan Kowalski',
-  guestEmail: 'jan@example.com',
-  guestPhone: '+48 600 123 456',
-  checkIn: '15.07.2025',
-  checkOut: '20.07.2025',
-  nights: '5',
-  guests: '2',
-  totalPrice: '1022',
-  comment: 'Proszę o wczesne zameldowanie.',
-};
 
 function buildPreviewHtml(body: string, logoUrl: string): string {
   const logoHtml = logoUrl

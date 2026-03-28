@@ -222,7 +222,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       <aside className="hidden md:flex w-64 flex-col border-r border-sidebar-border bg-sidebar p-4">
         <div className="mb-8 flex flex-col items-center text-center">
           <a href="/" target="_blank" rel="noopener noreferrer">
-            <Image src="/assets/logo.png" alt="HOMMM" width={90} height={90} className="object-contain mb-2 [filter:none] hover:[filter:brightness(0.5)_sepia(1)_saturate(700%)_hue-rotate(330deg)] transition-[filter]" draggable={false} />
+            <Image src="/assets/logo.webp" alt="HOMMM" width={90} height={90} className="object-contain mb-2 [filter:none] hover:[filter:brightness(0.5)_sepia(1)_saturate(700%)_hue-rotate(330deg)] transition-[filter]" draggable={false} />
           </a>
           <p className="text-xl font-bold tracking-tight">HOMMM</p>
           <p className="text-xs text-sidebar-foreground/50 mt-0.5">Panel admina</p>

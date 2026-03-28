@@ -15,8 +15,8 @@ import {
 export async function POST(request: Request) {
   try {
     // Rate limiting per IP
-    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
-      || request.headers.get('x-real-ip')
+    const ip = request.headers.get('x-real-ip')
+      || request.headers.get('x-forwarded-for')?.split(',').pop()?.trim()
       || 'unknown';
     const { allowed, retryAfterMs } = checkRateLimit(ip);
     if (!allowed) {

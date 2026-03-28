@@ -1,7 +1,7 @@
 'use server';
 
 import { prisma } from '@/lib/db';
-import { verifySession } from '@/lib/auth';
+import { verifySession, unauthorized } from '@/lib/auth';
 import {
   sendEmail,
   buildStatusChangeEmail,
@@ -9,12 +9,16 @@ import {
   loadEmailContext,
   type ReservationEmailData,
 } from '@/lib/mail';
-import { format } from 'date-fns';
+import { format, differenceInCalendarDays } from 'date-fns';
+import { z } from 'zod';
 import type { ReservationStatus } from '@/lib/validations';
 
-function unauthorized() {
-  return { error: 'Brak autoryzacji' };
-}
+const updateReservationSchema = z.object({
+  checkIn: z.string().optional(),
+  checkOut: z.string().optional(),
+  guests: z.number().int().min(1).max(20).optional(),
+  totalPrice: z.number().finite().min(0).optional(),
+});
 
 type SortableColumn = 'checkIn' | 'checkOut' | 'totalPrice' | 'createdAt' | 'guests' | 'nights';
 
@@ -142,17 +146,24 @@ export async function updateReservation(
   const session = await verifySession();
   if (!session) return unauthorized();
 
+  const parsed = updateReservationSchema.safeParse(data);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? 'Nieprawidłowe dane' };
+
   const reservation = await prisma.reservation.findUnique({ where: { id } });
   if (!reservation) return { error: 'Rezerwacja nie znaleziona' };
 
-  const checkIn = data.checkIn ? new Date(data.checkIn) : reservation.checkIn;
-  const checkOut = data.checkOut ? new Date(data.checkOut) : reservation.checkOut;
+  const checkIn = parsed.data.checkIn ? new Date(parsed.data.checkIn) : reservation.checkIn;
+  const checkOut = parsed.data.checkOut ? new Date(parsed.data.checkOut) : reservation.checkOut;
+
+  if (isNaN(checkIn.getTime()) || isNaN(checkOut.getTime())) {
+    return { error: 'Nieprawidłowy format daty' };
+  }
 
   if (checkOut <= checkIn) return { error: 'Data wymeldowania musi być po zameldowaniu' };
 
-  const nights = Math.round((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
-  const guests = data.guests ?? reservation.guests;
-  const totalPrice = data.totalPrice ?? reservation.totalPrice;
+  const nights = differenceInCalendarDays(checkOut, checkIn);
+  const guests = parsed.data.guests ?? reservation.guests;
+  const totalPrice = parsed.data.totalPrice ?? reservation.totalPrice;
 
   // Sprawdź kolizje z innymi rezerwacjami (poza bieżącą)
   const overlap = await prisma.reservation.findFirst({
@@ -240,6 +251,12 @@ export async function addBlockedDate(date: string, reason?: string, type: 'BLOCK
   if (isNaN(parsed.getTime())) {
     return { error: 'Nieprawidłowy format daty' };
   }
+
+  // Sprawdź duplikat
+  const existing = await prisma.blockedDate.findFirst({
+    where: { date: parsed },
+  });
+  if (existing) return { error: 'Ta data jest już zablokowana' };
 
   const blocked = await prisma.blockedDate.create({
     data: {

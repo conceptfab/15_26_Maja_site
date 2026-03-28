@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { updateClient } from '@/actions/clients';
-import { formatPLN } from '@/lib/format';
+import { formatPLN, parseTags } from '@/lib/format';
 import { getStatusInfo } from '@/lib/reservation-status';
 
 type Reservation = {
@@ -46,9 +46,7 @@ export function ClientDetail({ client }: { client: Client }) {
   const [rating, setRating] = useState(client.rating ?? 0);
   const [note, setNote] = useState(client.adminNote ?? '');
   const [discount, setDiscount] = useState(client.discount);
-  const [tagsInput, setTagsInput] = useState(() => {
-    try { return (JSON.parse(client.tags) as string[]).join(', '); } catch { return ''; }
-  });
+  const [tagsInput, setTagsInput] = useState(() => parseTags(client.tags).join(', '));
   const [blacklisted, setBlacklisted] = useState(client.isBlacklisted);
   const [blacklistReason, setBlacklistReason] = useState(client.blacklistReason ?? '');
 

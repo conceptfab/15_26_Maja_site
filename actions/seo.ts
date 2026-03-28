@@ -4,6 +4,9 @@ import { prisma } from '@/lib/db';
 import { verifySession } from '@/lib/auth';
 
 export async function getSeoSettings() {
+  const session = await verifySession();
+  if (!session) return { error: 'Brak autoryzacji' };
+
   const pages = await prisma.page.findMany({
     orderBy: { order: 'asc' },
     include: { seo: true },
@@ -47,11 +50,10 @@ export async function updateGlobalSeo(data: GlobalSeoData) {
   const session = await verifySession();
   if (!session) return { error: 'Brak autoryzacji' };
 
-  const jsonValue = JSON.parse(JSON.stringify(data));
   await prisma.siteSettings.upsert({
     where: { key: 'globalSeo' },
-    update: { value: jsonValue },
-    create: { key: 'globalSeo', value: jsonValue },
+    update: { value: data as object },
+    create: { key: 'globalSeo', value: data as object },
   });
 
   return { success: true };
@@ -91,11 +93,10 @@ export async function updateLlmsTxt(content: string) {
   const session = await verifySession();
   if (!session) return { error: 'Brak autoryzacji' };
 
-  const jsonValue = JSON.parse(JSON.stringify({ content }));
   await prisma.siteSettings.upsert({
     where: { key: 'llmsTxt' },
-    update: { value: jsonValue },
-    create: { key: 'llmsTxt', value: jsonValue },
+    update: { value: { content } as object },
+    create: { key: 'llmsTxt', value: { content } as object },
   });
 
   return { success: true };

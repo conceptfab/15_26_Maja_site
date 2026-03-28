@@ -1,13 +1,15 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useDebounce } from '@/lib/useDebounce';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Pagination } from '@/components/ui/Pagination';
 import { getClients } from '@/actions/clients';
-import { formatPLN } from '@/lib/format';
+import { formatPLN, parseTags } from '@/lib/format';
 
 type ClientRow = {
   id: string;
@@ -28,8 +30,8 @@ export function ClientsClient() {
   const [total, setTotal] = useState(0);
   const [pages, setPages] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
   const [searchInput, setSearchInput] = useState('');
+  const search = useDebounce(searchInput, 400);
   const [page, setPage] = useState(1);
 
   const fetchData = useCallback(async () => {
@@ -49,10 +51,7 @@ export function ClientsClient() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  useEffect(() => {
-    const timer = setTimeout(() => { setSearch(searchInput); setPage(1); }, 400);
-    return () => clearTimeout(timer);
-  }, [searchInput]);
+  useEffect(() => { setPage(1); }, [search]);
 
   return (
     <div className="space-y-6">
@@ -99,9 +98,7 @@ export function ClientsClient() {
                   <tr><td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">Brak klientów</td></tr>
                 ) : (
                   clients.map((c) => {
-                    const tags: string[] = (() => {
-                      try { return JSON.parse(c.tags); } catch { return []; }
-                    })();
+                    const tags = parseTags(c.tags);
                     return (
                       <tr key={c.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
                         <td className="px-4 py-3">
@@ -144,9 +141,7 @@ export function ClientsClient() {
           <p className="text-center py-8 text-muted-foreground">Brak klientów</p>
         ) : (
           clients.map((c) => {
-            const tags: string[] = (() => {
-              try { return JSON.parse(c.tags); } catch { return []; }
-            })();
+            const tags = parseTags(c.tags);
             return (
               <Link key={c.id} href={`/admin/clients/${c.id}`} className="block">
                 <Card className="hover:ring-1 hover:ring-ring transition-all">
@@ -188,15 +183,7 @@ export function ClientsClient() {
       </div>
 
       {/* Paginacja */}
-      {pages > 1 && (
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-muted-foreground">Strona {page} z {pages} ({total} klientów)</span>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>Poprzednia</Button>
-            <Button variant="outline" size="sm" disabled={page >= pages} onClick={() => setPage(page + 1)}>Następna</Button>
-          </div>
-        </div>
-      )}
+      <Pagination page={page} pages={pages} total={total} label="klientów" onPageChange={setPage} />
     </div>
   );
 }

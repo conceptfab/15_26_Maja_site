@@ -19,7 +19,7 @@ export async function getContent() {
 
 export async function getContentBySlug(slug: string) {
   const section = await prisma.section.findFirst({
-    where: { slug, page: { isHome: true } },
+    where: { slug, page: { isHome: true }, isVisible: true },
     include: { page: { select: { slug: true } } },
   });
 

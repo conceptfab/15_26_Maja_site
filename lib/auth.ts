@@ -2,6 +2,10 @@ import { SignJWT, jwtVerify, errors } from 'jose';
 import { cookies } from 'next/headers';
 import { prisma } from './db';
 import { getJwtSecret } from './env';
+export function unauthorized() {
+  return { error: 'Brak autoryzacji' };
+}
+
 const COOKIE_NAME = 'admin_session';
 const SESSION_DURATION_MS = 7 * 24 * 60 * 60 * 1000; // 7 days (cookie/DB)
 const JWT_DURATION_MS = 24 * 60 * 60 * 1000; // 24h (JWT expiry — shorter for security)

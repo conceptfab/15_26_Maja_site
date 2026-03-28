@@ -5,7 +5,17 @@ import { SiteStructureClient } from './client';
 export const dynamic = 'force-dynamic';
 
 export default async function SiteStructurePage() {
-  const [pages, sections] = await Promise.all([getPageTree(), getSectionsForGraph()]);
+  const [pagesResult, sectionsResult] = await Promise.all([getPageTree(), getSectionsForGraph()]);
+
+  if ('error' in pagesResult || 'error' in sectionsResult) {
+    return (
+      <AdminShell>
+        <div className="rounded-md border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+          Brak autoryzacji — <a href="/admin/login" className="underline">zaloguj się</a>.
+        </div>
+      </AdminShell>
+    );
+  }
 
   return (
     <AdminShell>
@@ -21,8 +31,8 @@ export default async function SiteStructurePage() {
         </div>
 
         <SiteStructureClient
-          initialPages={pages}
-          initialSections={sections}
+          initialPages={pagesResult}
+          initialSections={sectionsResult}
           createPage={createPage}
           updatePage={updatePage}
           deletePage={deletePage}

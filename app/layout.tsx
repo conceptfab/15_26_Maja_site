@@ -81,13 +81,16 @@ export default function RootLayout({
           href="/assets/hero.webp"
           fetchPriority="high"
         />
-        {/* TypeKit — async load to avoid render-blocking (~670ms saving) */}
+        {/* Preconnect to Blob Storage for dynamic background images */}
         <link
-          rel="preload"
-          href="https://use.typekit.net/zpt0osi.css"
-          as="style"
+          rel="preconnect"
+          href="https://lp1kkgv0aginmark.public.blob.vercel-storage.com"
         />
-        <link rel="stylesheet" href="https://use.typekit.net/zpt0osi.css" />
+        {/* TypeKit — async load to avoid render-blocking */}
+        <link rel="preload" href="https://use.typekit.net/zpt0osi.css" as="style" />
+        <noscript>
+          <link rel="stylesheet" href="https://use.typekit.net/zpt0osi.css" />
+        </noscript>
       </head>
       <body>
         <a
@@ -104,6 +107,9 @@ export default function RootLayout({
         <JsonLd />
         <Analytics />
         <SpeedInsights />
+        <Script id="typekit-async" strategy="afterInteractive">
+          {`(function(){var l=document.createElement('link');l.rel='stylesheet';l.href='https://use.typekit.net/zpt0osi.css';document.head.appendChild(l)})()`}
+        </Script>
         {process.env.NEXT_PUBLIC_UMAMI_WEBSITE_ID && (
           <Script
             defer

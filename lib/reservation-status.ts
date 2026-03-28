@@ -47,3 +47,17 @@ export const STATUS_OPTIONS = (Object.entries(STATUS_CONFIG) as [ReservationStat
 export function getStatusInfo(status: string): StatusInfo {
   return STATUS_CONFIG[status as ReservationStatusKey] ?? { label: status, badgeClass: '', color: '#888', activeClass: '' };
 }
+
+/** Statusy uznawane za "potwierdzone" (z przychodem) */
+export const CONFIRMED_STATUSES: readonly ReservationStatusKey[] = ['DEPOSIT_PAID', 'PAID', 'COMPLETED'] as const;
+
+/** Klasy Tailwind border do kalendarza */
+export const STATUS_BORDER_COLORS: Record<ReservationStatusKey, string> = {
+  PENDING: 'border-amber-400',
+  DEPOSIT_PAID: 'border-blue-400',
+  PAID: 'border-green-500',
+  COMPLETED: 'border-gray-400',
+  CANCELLED: 'border-red-400',
+};
+
+export const MONTH_NAMES = ['Sty', 'Lut', 'Mar', 'Kwi', 'Maj', 'Cze', 'Lip', 'Sie', 'Wrz', 'Paź', 'Lis', 'Gru'] as const;

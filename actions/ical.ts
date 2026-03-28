@@ -1,10 +1,58 @@
 'use server';
 
 import { prisma } from '@/lib/db';
-import { verifySession } from '@/lib/auth';
+import { verifySession, unauthorized } from '@/lib/auth';
 
-function unauthorized() {
-  return { error: 'Brak autoryzacji' };
+function validateICalUrl(url: string): string | null {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return 'Nieprawidłowy URL';
+  }
+
+  if (parsed.protocol !== 'https:') {
+    return 'Tylko HTTPS jest dozwolone dla feedów iCal';
+  }
+
+  if (isBlockedHost(parsed.hostname)) {
+    return 'Niedozwolony host w URL feeda';
+  }
+
+  return null;
+}
+
+function isBlockedHost(hostname: string): boolean {
+  const blockedExact = new Set([
+    'localhost', '127.0.0.1', '::1', '0.0.0.0',
+    '169.254.169.254', // AWS metadata
+    'metadata.google.internal', // GCP metadata
+  ]);
+
+  if (blockedExact.has(hostname)) return true;
+
+  // Octal IP (0177.0.0.1 = 127.0.0.1)
+  if (/^0\d/.test(hostname)) return true;
+
+  // Decimal IP (2130706433 = 127.0.0.1)
+  if (/^\d+$/.test(hostname) && !hostname.includes('.')) return true;
+
+  // IPv6 loopback/link-local
+  const lower = hostname.toLowerCase().replace(/^\[|\]$/g, '');
+  if (lower.startsWith('fe80:') || lower === '::1' || lower.startsWith('fc') || lower.startsWith('fd')) return true;
+
+  // RFC-1918 private ranges
+  const parts = hostname.split('.').map(Number);
+  if (parts.length === 4 && parts.every((p) => !isNaN(p) && p >= 0 && p <= 255)) {
+    if (parts[0] === 10) return true; // 10.0.0.0/8
+    if (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) return true; // 172.16.0.0/12
+    if (parts[0] === 192 && parts[1] === 168) return true; // 192.168.0.0/16
+    if (parts[0] === 100 && parts[1] >= 64 && parts[1] <= 127) return true; // 100.64.0.0/10 (CGNAT/AWS)
+    if (parts[0] === 127) return true; // 127.0.0.0/8
+    if (parts[0] === 169 && parts[1] === 254) return true; // 169.254.0.0/16 link-local
+  }
+
+  return false;
 }
 
 export async function getICalFeeds() {
@@ -20,6 +68,9 @@ export async function addICalFeed(name: string, url: string) {
   if (!session) return unauthorized();
 
   if (!name.trim() || !url.trim()) return { error: 'Nazwa i URL są wymagane' };
+
+  const urlError = validateICalUrl(url.trim());
+  if (urlError) return { error: urlError };
 
   const feed = await prisma.iCalFeed.create({ data: { name: name.trim(), url: url.trim() } });
   return { feed };
@@ -90,14 +141,8 @@ export async function syncICalFeed(id: string) {
 
   try {
     // Walidacja URL — ochrona przed SSRF
-    const parsed = new URL(feed.url);
-    if (parsed.protocol !== 'https:') {
-      return { error: 'Tylko HTTPS jest dozwolone dla feedów iCal' };
-    }
-    const blockedHosts = ['localhost', '127.0.0.1', '::1', '0.0.0.0', '169.254.169.254'];
-    if (blockedHosts.includes(parsed.hostname)) {
-      return { error: 'Niedozwolony host w URL feeda' };
-    }
+    const urlError = validateICalUrl(feed.url);
+    if (urlError) return { error: urlError };
 
     const response = await fetch(feed.url, { signal: AbortSignal.timeout(15000) });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);

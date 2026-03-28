@@ -1,15 +1,10 @@
 'use server';
 
 import { prisma } from '@/lib/db';
-import { verifySession } from '@/lib/auth';
-
-function unauthorized() {
-  return { error: 'Brak autoryzacji' };
-}
+import { verifySession, unauthorized } from '@/lib/auth';
 
 import { overlapNights } from '@/lib/date-utils';
-
-const CONFIRMED_STATUSES = ['DEPOSIT_PAID', 'PAID', 'COMPLETED'] as const;
+import { CONFIRMED_STATUSES, MONTH_NAMES } from '@/lib/reservation-status';
 
 export async function getMonthlyReport(year: number, month: number) {
   const session = await verifySession();
@@ -88,8 +83,6 @@ export async function getYearlyReport(year: number) {
   });
 
   const confirmed = reservations.filter((r) => CONFIRMED_STATUSES.includes(r.status as typeof CONFIRMED_STATUSES[number]));
-
-  const MONTH_NAMES = ['Sty', 'Lut', 'Mar', 'Kwi', 'Maj', 'Cze', 'Lip', 'Sie', 'Wrz', 'Paź', 'Lis', 'Gru'];
 
   const monthlyRevenue = MONTH_NAMES.map((name, i) => {
     const mStart = new Date(year, i, 1);

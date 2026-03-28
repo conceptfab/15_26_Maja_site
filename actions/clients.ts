@@ -2,11 +2,8 @@
 
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
-import { verifySession } from '@/lib/auth';
-
-function unauthorized() {
-  return { error: 'Brak autoryzacji' };
-}
+import { verifySession, unauthorized } from '@/lib/auth';
+import { CONFIRMED_STATUSES } from '@/lib/reservation-status';
 
 const updateClientSchema = z.object({
   name: z.string().min(1).max(200).optional(),
@@ -74,7 +71,7 @@ export async function getClients(filters: ClientFilters = {}) {
 
   const clientsWithStats = clients.map((c) => {
     const confirmed = c.reservations.filter((r) =>
-      ['DEPOSIT_PAID', 'PAID', 'COMPLETED'].includes(r.status)
+      (CONFIRMED_STATUSES as readonly string[]).includes(r.status)
     );
     return {
       id: c.id,

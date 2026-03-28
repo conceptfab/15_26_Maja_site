@@ -22,6 +22,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { addBlockedDate, removeBlockedDate } from '@/actions/reservations';
+import { STATUS_CONFIG, type ReservationStatusKey } from '@/lib/reservation-status';
 
 type Reservation = {
   id: string;
@@ -52,14 +53,6 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 const WEEKDAYS = ['Pn', 'Wt', 'Śr', 'Cz', 'Pt', 'Sb', 'Nd'];
-
-const STATUS_LABELS: Record<string, string> = {
-  PENDING: 'Oczekująca',
-  DEPOSIT_PAID: 'Zaliczka',
-  PAID: 'Opłacona',
-  COMPLETED: 'Zakończona',
-  CANCELLED: 'Anulowana',
-};
 
 export function CalendarView({ reservations, blockedDates }: Props) {
   const router = useRouter();
@@ -335,7 +328,7 @@ export function CalendarView({ reservations, blockedDates }: Props) {
             {format(new Date(tooltip.r.checkIn), 'dd.MM')} – {format(new Date(tooltip.r.checkOut), 'dd.MM.yyyy')}
           </p>
           <p className="text-muted-foreground">
-            Status: {STATUS_LABELS[tooltip.r.status] || tooltip.r.status}
+            Status: {STATUS_CONFIG[tooltip.r.status as ReservationStatusKey]?.label || tooltip.r.status}
           </p>
         </div>
       )}

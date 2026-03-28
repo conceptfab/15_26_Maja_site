@@ -31,6 +31,19 @@ export const TEMPLATE_VARS = [
   '{{guestEmail}}', '{{guestPhone}}', '{{comment}}',
 ];
 
+/** Dane przykładowe do podglądu szablonów i testowych emaili */
+export const SAMPLE_VARS: Record<string, string> = {
+  guestName: 'Jan Kowalski',
+  guestEmail: 'jan@example.com',
+  guestPhone: '+48 600 123 456',
+  checkIn: '15.07.2025',
+  checkOut: '20.07.2025',
+  nights: '5',
+  guests: '2',
+  totalPrice: '1022',
+  comment: 'Proszę o wczesne zameldowanie.',
+};
+
 export const DEFAULT_TEMPLATES: EmailTemplatesMap = {
   guestConfirmation: {
     subject: 'HOMMM — Otrzymaliśmy Twoją rezerwację',

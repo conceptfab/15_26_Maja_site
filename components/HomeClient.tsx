@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, useCallback, type MouseEvent } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo, type MouseEvent } from 'react';
 import { differenceInCalendarDays, format, eachDayOfInterval } from 'date-fns';
 import { calculatePrice } from '@/lib/pricing';
 import { sanitizeHtml } from '@/lib/sanitize';
@@ -8,8 +8,10 @@ const Lightbox = dynamic(() => import('./Lightbox').then((m) => ({ default: m.Li
 import { pl as plLocale } from 'date-fns/locale';
 import { enUS as enLocale } from 'date-fns/locale';
 import dynamic from 'next/dynamic';
-import DatePicker from 'react-datepicker';
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const DatePicker = dynamic(() => import('react-datepicker') as any, { ssr: false }) as any;
 import Image from 'next/image';
+import { SectionBg } from './SectionBg';
 import { TopMenu, type MenuColors, type MenuView } from './TopMenu';
 import { ReservationModal } from './ReservationModal';
 import { useLocale } from '@/lib/i18n';
@@ -111,6 +113,20 @@ export function HomeClient({ sections: initialSections, settings }: { sections: 
   const sections = initialSections.map((s) =>
     liveOverrides[s.slug] ? { ...s, ...liveOverrides[s.slug] } : s
   );
+
+  // Memoizacja sanitizeHtml — unika powtórnego parsowania przy każdym renderze
+  const memoSanitize = useMemo(() => {
+    const cache = new Map<string, string>();
+    return (html: string) => {
+      if (!html) return '';
+      const cached = cache.get(html);
+      if (cached !== undefined) return cached;
+      const result = sanitizeHtml(html);
+      cache.set(html, result);
+      return result;
+    };
+  }, [sections, locale]);
+
   const [hasScrolled, setHasScrolled] = useState(false);
   const [expandedSection, setExpandedSection] =
     useState<ExpandableSection | null>(null);
@@ -167,9 +183,6 @@ export function HomeClient({ sections: initialSections, settings }: { sections: 
 
   const bgStyle = (section: SectionContent | undefined): React.CSSProperties => {
     const style: React.CSSProperties = {};
-    if (section?.bgImage) {
-      (style as Record<string, string>)['--section-bg'] = `url(${section.bgImage})`;
-    }
     if (section?.bgColor) style.backgroundColor = section.bgColor;
     return style;
   };
@@ -275,7 +288,8 @@ export function HomeClient({ sections: initialSections, settings }: { sections: 
         const currentScrollY = window.scrollY;
         const hasReservationDates = reservationRangeRef.current[0] !== null;
 
-        setHasScrolled(currentScrollY > SCROLL_COMPACT_THRESHOLD);
+        const shouldBeScrolled = currentScrollY > SCROLL_COMPACT_THRESHOLD;
+        setHasScrolled((prev) => prev === shouldBeScrolled ? prev : shouldBeScrolled);
 
         if (activeView !== 'home' && !navGuardRef.current) {
           const isScrollingDown = currentScrollY > lastScrollYRef.current;
@@ -456,7 +470,7 @@ export function HomeClient({ sections: initialSections, settings }: { sections: 
               increaseMonth,
               prevMonthButtonDisabled,
               customHeaderCount,
-            }) => (
+            }: { monthDate: Date; decreaseMonth: () => void; increaseMonth: () => void; prevMonthButtonDisabled: boolean; customHeaderCount: number }) => (
               <div className="reservation-datepicker__header">
                 {customHeaderCount === 0 && (
                   <button
@@ -557,7 +571,7 @@ export function HomeClient({ sections: initialSections, settings }: { sections: 
       </div>
 
       <div className="reservation-info"
-        dangerouslySetInnerHTML={{ __html: sanitizeHtml(r('info')) }}
+        dangerouslySetInnerHTML={{ __html: memoSanitize(r('info')) }}
       />
     </div>
   );
@@ -578,20 +592,20 @@ export function HomeClient({ sections: initialSections, settings }: { sections: 
     };
 
     return (
-      <div className="container container-white expanded-content-container">
+      <div className="container container-white expanded-content-container relative z-10">
         <div className="expanded-content-grid">
           <div className="expanded-content-copy-col">
             <h2 className="heading-secondary">{heading}</h2>
             {intro && (
               <div
                 className="expanded-content-intro"
-                dangerouslySetInnerHTML={{ __html: sanitizeHtml(intro) }}
+                dangerouslySetInnerHTML={{ __html: memoSanitize(intro) }}
               />
             )}
             {body && (
               <div
                 className="expanded-content-body"
-                dangerouslySetInnerHTML={{ __html: sanitizeHtml(body) }}
+                dangerouslySetInnerHTML={{ __html: memoSanitize(body) }}
               />
             )}
           </div>
@@ -644,15 +658,20 @@ export function HomeClient({ sections: initialSections, settings }: { sections: 
       </div>
 
       <section
-        className="section h-100vh bg-slider"
+        className="section h-100vh bg-slider relative"
         id="rezerwuj"
         style={bgStyle(heroSection)}
         data-menu-font={isReservationView ? BRAND_COLOR : '#ffffff'}
         data-menu-logo={isReservationView ? BRAND_COLOR : '#ffffff'}
       >
+        <SectionBg
+          src={heroSection?.bgImage || '/assets/hero.webp'}
+          objectPosition="center 70%"
+          priority
+        />
         {isReservationView ? (
           <div
-            className={`container container-white reservation-layout ${showReservationGallery ? '' : 'reservation-layout--panel-only'}`}
+            className={`container container-white reservation-layout relative z-10 ${showReservationGallery ? '' : 'reservation-layout--panel-only'}`}
             aria-label={mw('title')}
           >
             {showReservationGallery ? (
@@ -666,10 +685,10 @@ export function HomeClient({ sections: initialSections, settings }: { sections: 
                     {mw('title')}
                   </h2>
                   <div className="reservation-promo__text"
-                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(mw('description')) }}
+                    dangerouslySetInnerHTML={{ __html: memoSanitize(mw('description')) }}
                   />
                   <div className="reservation-promo__text reservation-promo__text--secondary"
-                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(mw('description2')) }}
+                    dangerouslySetInnerHTML={{ __html: memoSanitize(mw('description2')) }}
                   />
                 </div>
 
@@ -699,7 +718,7 @@ export function HomeClient({ sections: initialSections, settings }: { sections: 
           </div>
         ) : (
           <div
-            className={`hero-logo-stage ${hasScrolled ? 'is-scrolled' : ''}`}
+            className={`hero-logo-stage relative z-10 ${hasScrolled ? 'is-scrolled' : ''}`}
             aria-hidden="true"
           >
             <img src="/assets/hommm.svg" alt="" className="hero-logo-main" />
@@ -708,16 +727,17 @@ export function HomeClient({ sections: initialSections, settings }: { sections: 
       </section>
 
       <section
-        className={`section h-100vh section-bg-secondary ${expandedSection === 'sec2' ? '' : 'section-story'}`}
+        className={`section h-100vh section-bg-secondary relative ${expandedSection === 'sec2' ? '' : 'section-story'}`}
         id="koncept"
         style={bgStyle(konceptSection)}
         data-menu-font={expandedSection === 'sec2' ? BRAND_COLOR : '#ffffff'}
         data-menu-logo={expandedSection === 'sec2' ? BRAND_COLOR : '#ffffff'}
       >
+        <SectionBg src={konceptSection?.bgImage || '/assets/sec_2.webp'} />
         {expandedSection === 'sec2' ? (
           renderExpandedContent('sec2')
         ) : (
-          <div className="container story-container">
+          <div className="container story-container relative z-10">
             <h1 className="h1-brand">{c(konceptSection, 'heading') || 'YOUR SPECIAL TIME'}</h1>
             <h2 className="heading-secondary story-subtitle">
               {c(konceptSection, 'subheading') || 'KONCEPT HOMMM'}
@@ -725,7 +745,7 @@ export function HomeClient({ sections: initialSections, settings }: { sections: 
 
             <div
               className="story-text-block"
-              dangerouslySetInnerHTML={{ __html: sanitizeHtml(c(konceptSection, 'body') || '') }}
+              dangerouslySetInnerHTML={{ __html: memoSanitize(c(konceptSection, 'body') || '') }}
             />
 
             <button
@@ -740,16 +760,17 @@ export function HomeClient({ sections: initialSections, settings }: { sections: 
       </section>
 
       <section
-        className={`section h-100vh bg-dark ${expandedSection === 'sec3' ? '' : 'section-story'}`}
+        className={`section h-100vh bg-dark relative ${expandedSection === 'sec3' ? '' : 'section-story'}`}
         id="miejsca"
         style={bgStyle(miejsceSection)}
         data-menu-font={expandedSection === 'sec3' ? BRAND_COLOR : '#ffffff'}
         data-menu-logo={expandedSection === 'sec3' ? BRAND_COLOR : '#ffffff'}
       >
+        <SectionBg src={miejsceSection?.bgImage || '/assets/sec_3.webp'} />
         {expandedSection === 'sec3' ? (
           renderExpandedContent('sec3')
         ) : (
-          <div className="container story-container">
+          <div className="container story-container relative z-10">
             <h2 className="h1-brand">{c(miejsceSection, 'heading') || 'YOUR SPECIAL PLACE'}</h2>
             <h3 className="heading-secondary story-subtitle">
               {c(miejsceSection, 'subheading') || ''}
@@ -757,7 +778,7 @@ export function HomeClient({ sections: initialSections, settings }: { sections: 
 
             <div
               className="story-text-block"
-              dangerouslySetInnerHTML={{ __html: sanitizeHtml(c(miejsceSection, 'body') || '') }}
+              dangerouslySetInnerHTML={{ __html: memoSanitize(c(miejsceSection, 'body') || '') }}
             />
 
             <button
@@ -772,13 +793,14 @@ export function HomeClient({ sections: initialSections, settings }: { sections: 
       </section>
 
       <section
-        className="section bg-light"
+        className="section bg-light relative"
         id="kontakt"
         style={bgStyle(stopkaSection)}
         data-menu-font="#ffffff"
         data-menu-logo="#ffffff"
       >
-        <div className="container footer-container">
+        <SectionBg src={stopkaSection?.bgImage || '/assets/footer.webp'} />
+        <div className="container footer-container relative z-10">
           <div className="footer-brand reveal reveal--scale">
             <a
               href="#rezerwuj"

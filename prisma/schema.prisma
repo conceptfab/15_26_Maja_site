@@ -137,6 +137,7 @@ model BlockedDate {
   type      String   @default("BLOCKED") // BLOCKED | SERVICE
   createdAt DateTime @default(now())
 
+  @@unique([date])
   @@index([date])
 }
 

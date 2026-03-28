@@ -67,7 +67,7 @@ function escapeAttr(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
-function emailLayout(content: string, logoUrl: string | null) {
+export function emailLayout(content: string, logoUrl: string | null) {
   const logoHtml = logoUrl
     ? `<img src="${escapeAttr(toAbsoluteUrl(logoUrl))}" alt="HOMMM" width="120" style="display:block;margin:0 auto 16px" />`
     : '';

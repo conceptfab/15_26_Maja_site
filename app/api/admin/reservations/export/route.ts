@@ -2,14 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { verifySession } from '@/lib/auth';
 import { format } from 'date-fns';
+import { STATUS_CONFIG, type ReservationStatusKey } from '@/lib/reservation-status';
 
-const STATUS_LABELS: Record<string, string> = {
-  PENDING: 'Oczekująca',
-  DEPOSIT_PAID: 'Zaliczka',
-  PAID: 'Opłacona',
-  COMPLETED: 'Zakończona',
-  CANCELLED: 'Anulowana',
-};
+const VALID_STATUSES = new Set<string>(['PENDING', 'DEPOSIT_PAID', 'PAID', 'CANCELLED', 'COMPLETED']);
 
 function escapeCsv(value: string): string {
   if (value.includes(',') || value.includes('"') || value.includes('\n')) {
@@ -29,7 +24,12 @@ export async function GET(request: NextRequest) {
   const search = url.searchParams.get('search') || undefined;
 
   const where: Record<string, unknown> = {};
-  if (status) where.status = status;
+  if (status) {
+    if (!VALID_STATUSES.has(status)) {
+      return NextResponse.json({ error: 'Nieprawidłowy status' }, { status: 400 });
+    }
+    where.status = status;
+  }
   if (search) {
     where.OR = [
       { guestName: { contains: search, mode: 'insensitive' } },
@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
     String(r.nights),
     String(r.guests),
     String(r.totalPrice),
-    STATUS_LABELS[r.status] || r.status,
+    STATUS_CONFIG[r.status as ReservationStatusKey]?.label || r.status,
     format(r.createdAt, 'yyyy-MM-dd HH:mm'),
   ]);
 

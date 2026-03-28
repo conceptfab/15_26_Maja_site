@@ -1,11 +1,13 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useDebounce } from '@/lib/useDebounce';
 import Link from 'next/link';
 import { getReservations } from '@/actions/reservations';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Pagination } from '@/components/ui/Pagination';
 import { Input } from '@/components/ui/input';
 import {
   Table,
@@ -58,8 +60,8 @@ export function ReservationsClient({ initialStats }: { initialStats: Stats }) {
 
   // Filtry
   const [status, setStatus] = useState('');
-  const [search, setSearch] = useState('');
   const [searchInput, setSearchInput] = useState('');
+  const search = useDebounce(searchInput, 400);
   const [page, setPage] = useState(1);
   const [sortBy, setSortBy] = useState<SortableColumn>('createdAt');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
@@ -92,14 +94,10 @@ export function ReservationsClient({ initialStats }: { initialStats: Stats }) {
     fetchData();
   }, [fetchData]);
 
-  // Debounce szukania
+  // Reset strony przy zmianie szukania
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setSearch(searchInput);
-      setPage(1);
-    }, 400);
-    return () => clearTimeout(timer);
-  }, [searchInput]);
+    setPage(1);
+  }, [search]);
 
   function handleSort(column: SortableColumn) {
     if (sortBy === column) {
@@ -171,7 +169,7 @@ export function ReservationsClient({ initialStats }: { initialStats: Stats }) {
           className="sm:max-w-xs"
         />
         {(status || search) && (
-          <Button variant="outline" size="sm" onClick={() => { setStatus(''); setSearchInput(''); setSearch(''); setPage(1); }}>
+          <Button variant="outline" size="sm" onClick={() => { setStatus(''); setSearchInput(''); setPage(1); }}>
             Wyczyść filtry
           </Button>
         )}
@@ -315,32 +313,7 @@ export function ReservationsClient({ initialStats }: { initialStats: Stats }) {
         )}
       </div>
 
-      {/* Paginacja */}
-      {pages > 1 && (
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">
-            Strona {page} z {pages} ({total} rezerwacji)
-          </p>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page <= 1}
-              onClick={() => setPage(page - 1)}
-            >
-              Poprzednia
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page >= pages}
-              onClick={() => setPage(page + 1)}
-            >
-              Następna
-            </Button>
-          </div>
-        </div>
-      )}
+      <Pagination page={page} pages={pages} total={total} label="rezerwacji" onPageChange={setPage} />
     </div>
   );
 }
