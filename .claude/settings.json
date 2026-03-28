@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(npm uninstall:*)",
-      "Bash(npx prisma:*)"
+      "Bash(npx prisma:*)",
+      "mcp__claude_ai_Vercel__search_vercel_documentation",
+      "Bash(npm install:*)"
     ]
   }
 }

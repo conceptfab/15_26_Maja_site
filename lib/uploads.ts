@@ -1,21 +1,19 @@
-import path from 'path';
-import fs from 'fs/promises';
+import { put, del } from '@vercel/blob';
 
-// Katalog uploads — Railway Volume mount lub lokalnie
-const UPLOAD_ROOT = process.env.UPLOAD_DIR || path.join(process.cwd(), 'uploads');
-export const GALLERY_DIR = path.join(UPLOAD_ROOT, 'gallery');
-
-/** Upewnij się, że katalogi istnieją */
-export async function ensureUploadDirs() {
-  await fs.mkdir(GALLERY_DIR, { recursive: true });
+/** Wgrywa bufor do Vercel Blob i zwraca publiczny URL */
+export async function uploadToBlob(
+  filename: string,
+  buffer: Buffer,
+  contentType: string,
+): Promise<string> {
+  const { url } = await put(`gallery/${filename}`, buffer, {
+    access: 'public',
+    contentType,
+  });
+  return url;
 }
 
-/** Ścieżka pliku na dysku */
-export function filePath(filename: string) {
-  return path.join(GALLERY_DIR, filename);
-}
-
-/** URL publiczny do pliku */
-export function fileUrl(filename: string) {
-  return `/api/uploads/gallery/${filename}`;
+/** Usuwa plik z Vercel Blob na podstawie URL */
+export async function deleteFromBlob(url: string): Promise<void> {
+  await del(url);
 }
