@@ -57,7 +57,7 @@ function StackedBarChart({ data }: { data: OccupancyChartPoint[] }) {
       </div>
       {[...yLabels].map((l, i) => (
         <div key={i} className="absolute border-t border-border/30"
-          style={{ bottom: `calc(28px + ${l.pct}% * (${BAR_H}px / ${H}px) * ${H / BAR_H})`, left: 32, right: 0 }} />
+          style={{ bottom: 28 + (l.pct / 100) * BAR_H, left: 32, right: 0 }} />
       ))}
 
       {/* Bars */}
