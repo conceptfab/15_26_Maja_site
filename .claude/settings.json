@@ -1,21 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm uninstall:*)",
-      "Bash(npx prisma:*)",
-      "mcp__claude_ai_Vercel__search_vercel_documentation",
-      "Bash(npm install:*)",
-      "Bash(pwsh -Command \"npx prisma db push 2>&1 | Tee-Object -FilePath C:/temp/p.txt; Get-Content C:/temp/p.txt\")",
-      "Bash(pwsh -Command \"Set-Location ''f:/___APPS/15_26_Maja_site''; npx prisma db push 2>&1\")",
-      "Bash(pwsh.exe -NoProfile -Command \"Set-Location ''f:\\\\___APPS\\\\15_26_Maja_site''; & npx prisma db push 2>&1 | Out-String\")",
-      "Bash(cmd /c \"cd /d f:\\\\___APPS\\\\15_26_Maja_site && npx prisma db push 2>&1\")",
-      "Bash(npm ls:*)",
-      "Bash(find /c/_cloud/15_26_Maja_site -type f -name *.env* ! -path */node_modules/*)",
-      "Bash(xargs ls:*)",
-      "Bash(grep -r TODO /c/_cloud/15_26_Maja_site --include=*.ts --include=*.tsx)"
-    ],
-    "additionalDirectories": [
-      "c:\\_cloud\\15_26_Maja_site\\app\\admin\\clients"
+      "Bash(npm:*)",
+      "Bash(npx:*)",
+      "Bash(npx prisma:*)"
     ]
   }
 }
