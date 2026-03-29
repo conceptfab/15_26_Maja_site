@@ -19,7 +19,7 @@ import {
 } from '@/components/ui/table';
 import { format } from 'date-fns';
 import { Trash2 } from 'lucide-react';
-import { getStatusInfo, STATUS_CONFIG, DELETABLE_STATUSES } from '@/lib/reservation-status';
+import { getStatusInfo, STATUS_CONFIG, DELETABLE_STATUSES, type ReservationStatusKey } from '@/lib/reservation-status';
 
 const STATUS_OPTIONS = [
   { value: '', label: 'Wszystkie statusy' },
@@ -38,7 +38,7 @@ type Reservation = {
   nights: number;
   guests: number;
   totalPrice: number;
-  status: string;
+  status: ReservationStatusKey;
   adminNote: string | null;
   comment: string | null;
   isPaid: boolean;

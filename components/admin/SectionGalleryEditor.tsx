@@ -87,7 +87,7 @@ export function SectionGalleryEditor({ sectionId, initialImages }: Props) {
   const handleUnassign = async (id: string) => {
     if (!confirm('Odpiąć zdjęcie od tej sekcji? (Zdjęcie pozostanie w galerii głównej)')) return;
     const result = await updateImageSection(id, null);
-    if (result.success) {
+    if ('success' in result && result.success) {
       setImages((prev) => prev.filter((img) => img.id !== id));
     }
   };
@@ -97,7 +97,7 @@ export function SectionGalleryEditor({ sectionId, initialImages }: Props) {
   const handleDelete = async (id: string) => {
     if (!confirm('Trwale usunąć zdjęcie?')) return;
     const result = await deleteImage(id);
-    if (result.success) {
+    if ('success' in result && result.success) {
       setImages((prev) => prev.filter((img) => img.id !== id));
     }
   };
@@ -150,7 +150,7 @@ export function SectionGalleryEditor({ sectionId, initialImages }: Props) {
 
   const handlePickerSelect = async (id: string) => {
     const result = await updateImageSection(id, sectionId);
-    if (result.success) {
+    if ('success' in result && result.success) {
       const picked = pickerThumbs.find((t) => t.id === id);
       if (picked) {
         setImages((prev) => [

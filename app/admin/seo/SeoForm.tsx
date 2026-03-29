@@ -45,16 +45,16 @@ export function SeoForm({ initialData, initialLlmsTxt }: Props) {
   const handleSaveSeo = async () => {
     setSavingSeo(true);
     const res = await updateGlobalSeo(data);
-    if (res.success) toast.success('Zapisano ustawienia SEO');
-    else toast.error(res.error ?? 'Błąd zapisu');
+    if ('success' in res && res.success) toast.success('Zapisano ustawienia SEO');
+    else if ('error' in res) toast.error(typeof res.error === 'string' ? res.error : 'Błąd zapisu');
     setSavingSeo(false);
   };
 
   const handleSaveLlms = async () => {
     setSavingLlms(true);
     const res = await updateLlmsTxt(llmsTxt);
-    if (res.success) toast.success('Zapisano llms.txt');
-    else toast.error(res.error ?? 'Błąd zapisu');
+    if ('success' in res && res.success) toast.success('Zapisano llms.txt');
+    else if ('error' in res) toast.error(typeof res.error === 'string' ? res.error : 'Błąd zapisu');
     setSavingLlms(false);
   };
 

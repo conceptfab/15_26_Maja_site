@@ -68,6 +68,8 @@ export async function getReservations(filters: ReservationFilters = {}) {
         nights: true,
         guests: true,
         comment: true,
+        adminNote: true,
+        isPaid: true,
         createdAt: true,
         updatedAt: true,
       },

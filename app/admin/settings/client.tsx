@@ -34,7 +34,7 @@ export function SettingsClient({ initialSettings, initialAdmins }: Props) {
   const handleSave = async () => {
     setSaving(true);
     const result = await updateSettings(settings);
-    if (result.error) {
+    if ('error' in result) {
       toast.error(result.error);
     } else {
       toast.success('Ustawienia zapisane');
@@ -46,7 +46,7 @@ export function SettingsClient({ initialSettings, initialAdmins }: Props) {
   const handleAddAdmin = async () => {
     if (!newEmail) return;
     const result = await addAdmin(newEmail, newName || undefined);
-    if (result.error) {
+    if ('error' in result) {
       toast.error(result.error);
     } else {
       setNewEmail('');
@@ -59,7 +59,7 @@ export function SettingsClient({ initialSettings, initialAdmins }: Props) {
   const handleRemoveAdmin = async (id: string) => {
     if (!confirm('Na pewno usunąć tego admina?')) return;
     const result = await removeAdmin(id);
-    if (result.error) {
+    if ('error' in result) {
       toast.error(result.error);
     } else {
       setAdmins((prev) => prev.filter((a) => a.id !== id));

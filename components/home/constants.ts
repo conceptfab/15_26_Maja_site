@@ -1,4 +1,4 @@
-import type { SectionContent } from '@/lib/content';
+import type { SectionContent, GalleryImageData } from '@/lib/content';
 
 export const BRAND_COLOR = '#be1622';
 export const SCROLL_COMPACT_THRESHOLD = 10;
@@ -14,7 +14,7 @@ export const DISMISS_KEYS = new Set([
 
 export type ExpandableSection = 'sec2' | 'sec3';
 
-export const GALLERY_FALLBACK: Record<string, { src: string; altPl: string; altEn: string }[]> = {
+export const GALLERY_FALLBACK: Record<string, GalleryImageData[]> = {
   sec2: [
     { src: '/assets/gal_00.webp', altPl: 'Strefa relaksu i natura', altEn: 'Relaxation zone and nature' },
     { src: '/assets/gal_01.webp', altPl: 'Widok głównej przestrzeni', altEn: 'Main space view' },
