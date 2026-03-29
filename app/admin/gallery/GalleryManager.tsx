@@ -111,7 +111,7 @@ export function GalleryManager({ initialImages, sections }: Props) {
   const handleDelete = async (id: string) => {
     if (!confirm('Na pewno usunąć to zdjęcie?')) return;
     const result = await deleteImage(id);
-    if (result.success) {
+    if ('success' in result && result.success) {
       setImages((prev) => prev.filter((img) => img.id !== id));
     }
   };
