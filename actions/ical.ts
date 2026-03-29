@@ -132,15 +132,12 @@ function parseICalDate(val: string): Date | null {
   return null;
 }
 
-export async function syncICalFeed(id: string) {
-  const session = await verifySession();
-  if (!session) return unauthorized();
-
+/** Wewnętrzna synchronizacja (bez auth) — używana przez syncAllFeeds */
+async function _syncICalFeedInternal(id: string) {
   const feed = await prisma.iCalFeed.findUnique({ where: { id } });
   if (!feed) return { error: 'Feed nie znaleziony' };
 
   try {
-    // Walidacja URL — ochrona przed SSRF
     const urlError = validateICalUrl(feed.url);
     if (urlError) return { error: urlError };
 
@@ -150,7 +147,6 @@ export async function syncICalFeed(id: string) {
     const icalText = await response.text();
     const events = parseICalEvents(icalText);
 
-    // Zbierz wszystkie dni do zablokowania
     const allDays: { date: Date; reason: string }[] = [];
     for (const event of events) {
       const current = new Date(event.start);
@@ -161,7 +157,6 @@ export async function syncICalFeed(id: string) {
       }
     }
 
-    // Pobierz istniejące zablokowane daty w jednym zapytaniu (zamiast N+1)
     let created = 0;
     if (allDays.length > 0) {
       const minDate = allDays.reduce((min, d) => d.date < min ? d.date : min, allDays[0].date);
@@ -174,7 +169,6 @@ export async function syncICalFeed(id: string) {
       });
 
       const existingSet = new Set(existing.map((e) => e.date.toISOString().slice(0, 10)));
-
       const toCreate = allDays.filter(
         (d) => !existingSet.has(d.date.toISOString().slice(0, 10))
       );
@@ -204,6 +198,12 @@ export async function syncICalFeed(id: string) {
   }
 }
 
+export async function syncICalFeed(id: string) {
+  const session = await verifySession();
+  if (!session) return unauthorized();
+  return _syncICalFeedInternal(id);
+}
+
 export async function syncAllFeeds() {
   const session = await verifySession();
   if (!session) return unauthorized();
@@ -211,7 +211,7 @@ export async function syncAllFeeds() {
   const feeds = await prisma.iCalFeed.findMany();
 
   const settled = await Promise.allSettled(
-    feeds.map((feed) => syncICalFeed(feed.id))
+    feeds.map((feed) => _syncICalFeedInternal(feed.id))
   );
 
   const results = feeds.map((feed, i) => {

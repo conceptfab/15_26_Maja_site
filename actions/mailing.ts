@@ -47,9 +47,9 @@ export async function sendTestEmail(key: TemplateKey) {
   const session = await verifySession();
   if (!session) return unauthorized();
 
-  const settings = await getSettings();
-  const templates = await getEmailTemplates();
-  const logoUrl = await getMailingLogoUrl();
+  const [settings, templates, logoUrl] = await Promise.all([
+    getSettings(), getEmailTemplates(), getMailingLogoUrl(),
+  ]);
   const tmpl = templates[key];
 
   const subject = `[TEST] ${interpolate(tmpl.subject, SAMPLE_VARS)}`;

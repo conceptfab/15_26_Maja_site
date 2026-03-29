@@ -16,29 +16,29 @@ export async function GET(request: Request) {
       : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
     const endDate = requestedEnd > maxEnd ? maxEnd : requestedEnd;
 
-    // Rezerwacje aktywne w tym okresie
-    const reservations = await prisma.reservation.findMany({
-      where: {
-        status: { notIn: ['CANCELLED'] },
-        checkIn: { lt: endDate },
-        checkOut: { gte: startDate },
-      },
-      select: {
-        checkIn: true,
-        checkOut: true,
-      },
-    });
-
-    // Zablokowane daty w tym okresie
-    const blockedDates = await prisma.blockedDate.findMany({
-      where: {
-        date: { gte: startDate, lt: endDate },
-      },
-      select: {
-        date: true,
-        reason: true,
-      },
-    });
+    // Rezerwacje i zablokowane daty — równolegle
+    const [reservations, blockedDates] = await Promise.all([
+      prisma.reservation.findMany({
+        where: {
+          status: { notIn: ['CANCELLED'] },
+          checkIn: { lt: endDate },
+          checkOut: { gte: startDate },
+        },
+        select: {
+          checkIn: true,
+          checkOut: true,
+        },
+      }),
+      prisma.blockedDate.findMany({
+        where: {
+          date: { gte: startDate, lt: endDate },
+        },
+        select: {
+          date: true,
+          reason: true,
+        },
+      }),
+    ]);
 
     return NextResponse.json({
       reservations: reservations.map((r) => ({
@@ -49,6 +49,8 @@ export async function GET(request: Request) {
         date: toDateString(b.date),
         reason: b.reason,
       })),
+    }, {
+      headers: { 'Cache-Control': 's-maxage=30, stale-while-revalidate=60' },
     });
   } catch (error) {
     console.error('[availability] GET error:', error);

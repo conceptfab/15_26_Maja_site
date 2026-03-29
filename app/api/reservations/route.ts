@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { differenceInCalendarDays, format } from 'date-fns';
+import { differenceInCalendarDays } from 'date-fns';
 import { prisma } from '@/lib/db';
 import { reservationSchema } from '@/lib/validations';
 import { checkRateLimit } from '@/lib/rate-limit';
@@ -11,14 +11,14 @@ import {
   buildGuestConfirmationEmail,
   buildAdminNotificationEmail,
   loadEmailContext,
+  toReservationEmailData,
 } from '@/lib/mail';
+import { getClientIp } from '@/lib/request-utils';
 
 export async function POST(request: Request) {
   try {
     // Rate limiting per IP
-    const ip = request.headers.get('x-real-ip')
-      || request.headers.get('x-forwarded-for')?.split(',').pop()?.trim()
-      || 'unknown';
+    const ip = getClientIp(request);
     const { allowed, retryAfterMs } = checkRateLimit(ip);
     if (!allowed) {
       return NextResponse.json(
@@ -40,7 +40,7 @@ export async function POST(request: Request) {
     const { guestName, guestEmail, guestPhone, checkIn, checkOut, guests, comment } = parsed.data;
 
     const nights = differenceInCalendarDays(checkOut, checkIn);
-    const settings = await getSettings();
+    const [settings, pricingRules] = await Promise.all([getSettings(), getActivePricingRules()]);
 
     // Walidacja minimalnego pobytu
     if (nights < settings.minNights) {
@@ -57,8 +57,6 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
-
-    const pricingRules = await getActivePricingRules();
     const { totalPrice, depositAmount } = calculatePrice(checkIn, checkOut, settings, pricingRules);
 
     let reservation;
@@ -121,17 +119,7 @@ export async function POST(request: Request) {
     }
 
     // Emaile — fire & forget, nie blokujemy odpowiedzi
-    const emailData = {
-      guestName,
-      guestEmail,
-      guestPhone,
-      checkIn: format(checkIn, 'dd.MM.yyyy'),
-      checkOut: format(checkOut, 'dd.MM.yyyy'),
-      nights,
-      guests,
-      totalPrice: reservation.totalPrice,
-      comment,
-    };
+    const emailData = toReservationEmailData(reservation);
 
     const adminAddress = process.env.ADMIN_EMAIL || 'admin@hommm.eu';
 

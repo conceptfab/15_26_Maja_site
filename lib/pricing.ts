@@ -125,8 +125,7 @@ export type PriceBreakdown = {
 
 /**
  * Calculate total price for a stay.
- * Priority: PricingRule (cennik) > weekend > season > default.
- * Each entry in nightPrices corresponds to the night starting on that date.
+ * Uses getNightDetails for per-night pricing (single source of truth).
  */
 export function calculatePrice(
   checkIn: Date,
@@ -134,36 +133,8 @@ export function calculatePrice(
   settings: PricingSettings,
   pricingRules: PricingRuleRange[] = [],
 ): PriceBreakdown {
-  const nights: number[] = [];
-  let current = new Date(checkIn);
-  const end = new Date(checkOut);
-
-  while (current < end) {
-    // 1. Sprawdź cennik (najwyższy priorytet)
-    const rule = findPricingRule(current, pricingRules);
-    if (rule) {
-      nights.push(rule.pricePerNight);
-      current = addDays(current, 1);
-      continue;
-    }
-
-    // 2. Domyślna logika: sezon/weekend/baza
-    let price = settings.pricePerNight;
-
-    const highSeason = isHighSeason(current, settings.seasonHighStart, settings.seasonHighEnd);
-    if (highSeason && settings.priceSeasonHigh > 0) {
-      price = settings.priceSeasonHigh;
-    } else if (!highSeason && settings.priceSeasonLow > 0) {
-      price = settings.priceSeasonLow;
-    }
-
-    if (isWeekendNight(current) && settings.priceWeekend > 0) {
-      price = Math.max(price, settings.priceWeekend);
-    }
-
-    nights.push(price);
-    current = addDays(current, 1);
-  }
+  const details = getNightDetails(checkIn, checkOut, settings, pricingRules);
+  const nights = details.map((d) => d.price);
 
   const priceBeforeDiscount = nights.reduce((sum, p) => sum + p, 0);
   let discount = 0;

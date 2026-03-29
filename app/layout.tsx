@@ -73,14 +73,7 @@ export default function RootLayout({
           href="https://p.typekit.net"
           crossOrigin="anonymous"
         />
-        {/* Preload hero image — LCP optimization (eliminates render delay) */}
-        <link
-          rel="preload"
-          as="image"
-          type="image/webp"
-          href="/assets/hero.webp"
-          fetchPriority="high"
-        />
+        {/* Hero preload handled by next/image priority prop in SectionBg */}
         {/* Preconnect to Blob Storage for dynamic background images */}
         <link
           rel="preconnect"

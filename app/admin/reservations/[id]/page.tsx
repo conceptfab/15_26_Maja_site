@@ -1,7 +1,8 @@
 export const dynamic = 'force-dynamic';
 
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { prisma } from '@/lib/db';
+import { verifySession } from '@/lib/auth';
 import { AdminShell } from '@/components/admin/AdminShell';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -14,6 +15,9 @@ type PageProps = {
 };
 
 export default async function ReservationDetailPage({ params }: PageProps) {
+  const session = await verifySession();
+  if (!session) redirect('/admin/login');
+
   const { id } = await params;
   const reservation = await prisma.reservation.findUnique({ where: { id } });
 

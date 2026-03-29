@@ -1,6 +1,16 @@
 import { prisma } from './db';
 import { jsonToRecord } from './json-utils';
 import { EXPANDED_SECTION_CONTENT } from '@/data/content';
+import { sanitizeHtml, isHtml } from './sanitize';
+
+/** Sanityzuje wartości HTML w rekordzie (po stronie serwera) */
+function sanitizeRecord(record: Record<string, string>): Record<string, string> {
+  const result: Record<string, string> = {};
+  for (const [key, value] of Object.entries(record)) {
+    result[key] = isHtml(value) ? sanitizeHtml(value) : value;
+  }
+  return result;
+}
 
 export type GalleryImageData = {
   src: string;
@@ -53,8 +63,8 @@ export async function getHomeContent(): Promise<SectionContent[]> {
       slug: s.slug,
       titlePl: s.titlePl,
       titleEn: s.titleEn,
-      contentPl: jsonToRecord(s.contentPl),
-      contentEn: jsonToRecord(s.contentEn),
+      contentPl: sanitizeRecord(jsonToRecord(s.contentPl)),
+      contentEn: sanitizeRecord(jsonToRecord(s.contentEn)),
       isVisible: s.isVisible,
       bgImage: s.bgImage,
       bgColor: s.bgColor,

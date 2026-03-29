@@ -11,10 +11,10 @@ const SESSION_DURATION_MS = 7 * 24 * 60 * 60 * 1000; // 7 days (cookie/DB)
 const JWT_DURATION_MS = 24 * 60 * 60 * 1000; // 24h (JWT expiry — shorter for security)
 
 export async function createSession(adminId: string) {
-  // Clean expired sessions
-  await prisma.session.deleteMany({
+  // Clean expired sessions — fire & forget, nie blokuje logowania
+  prisma.session.deleteMany({
     where: { expiresAt: { lt: new Date() } },
-  });
+  }).catch(() => {});
 
   const expiresAt = new Date(Date.now() + SESSION_DURATION_MS);
 

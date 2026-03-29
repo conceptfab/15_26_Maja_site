@@ -16,7 +16,7 @@ function getWeekOfYear(date: Date): number {
   return Math.ceil((dayOfYear + jan1.getDay() + 1) / 7);
 }
 
-import { overlapNights } from '@/lib/date-utils';
+import { overlapNights, proportionalRevenue } from '@/lib/date-utils';
 
 async function getStats() {
   const now = new Date();
@@ -92,7 +92,7 @@ async function getStats() {
   for (const r of confirmedOverlappingMonth) {
     const nights = overlapNights(r.checkIn, r.checkOut, startOfMonth, endOfMonthDay);
     monthlyNights += nights;
-    monthlyRevenue += r.nights > 0 ? r.totalPrice * (nights / r.nights) : 0;
+    monthlyRevenue += proportionalRevenue(r.totalPrice, r.nights, nights);
   }
 
   let yearlyRevenue = 0;
@@ -100,7 +100,7 @@ async function getStats() {
   for (const r of confirmedOverlappingYear) {
     const nights = overlapNights(r.checkIn, r.checkOut, startOfYear, endOfYearDay);
     yearlyNights += nights;
-    yearlyRevenue += r.nights > 0 ? r.totalPrice * (nights / r.nights) : 0;
+    yearlyRevenue += proportionalRevenue(r.totalPrice, r.nights, nights);
   }
 
   // Obłożenie — cap na 100%

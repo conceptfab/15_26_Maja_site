@@ -28,23 +28,7 @@ import { updateEmailTemplate, updateMailingLogoUrl, sendTestEmail } from '@/acti
 import { InfoTooltip } from '@/components/ui/info-tooltip';
 import { getGalleryThumbs } from '@/actions/gallery';
 
-function buildPreviewHtml(body: string, logoUrl: string): string {
-  const logoHtml = logoUrl
-    ? `<img src="${logoUrl}" alt="HOMMM" width="120" style="display:block;margin:0 auto 16px" />`
-    : '';
-  return `<!doctype html><html><body style="margin:0;background:#f3f4f6">
-    <div style="font-family:'Helvetica Neue',Arial,sans-serif;max-width:600px;margin:24px auto;padding:24px;background:#fff;border-radius:8px">
-      <div style="text-align:center;margin-bottom:32px">
-        ${logoHtml}
-        <h1 style="color:#be1622;font-size:28px;letter-spacing:4px;margin:0">HOMMM</h1>
-      </div>
-      ${body}
-      <div style="margin-top:32px;padding-top:16px;border-top:1px solid #eee;font-size:12px;color:#999;text-align:center">
-        HOMMM &mdash; Your Special Time
-      </div>
-    </div>
-  </body></html>`;
-}
+import { emailLayout } from '@/lib/email-layout';
 
 type Props = {
   initialTemplates: EmailTemplatesMap;
@@ -170,7 +154,7 @@ export function MailingEditor({ initialTemplates, initialLogoUrl }: Props) {
       {(Object.keys(TEMPLATE_LABELS) as TemplateKey[]).map((key) => {
         const previewBody = interpolate(templates[key].body, SAMPLE_VARS);
         const previewSubject = interpolate(templates[key].subject, SAMPLE_VARS);
-        const previewHtml = buildPreviewHtml(previewBody, logoUrl);
+        const previewHtml = emailLayout(previewBody, logoUrl);
 
         return (
           <TabsContent key={key} value={key} className="mt-0">

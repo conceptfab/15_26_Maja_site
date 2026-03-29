@@ -29,16 +29,17 @@ export async function GET(request: NextRequest) {
   if (headerToken !== ICAL_TOKEN) {
     return new NextResponse('Unauthorized', { status: 401 });
   }
-  const reservations = await prisma.reservation.findMany({
-    where: { status: { not: 'CANCELLED' } },
-    select: { id: true, guestName: true, checkIn: true, checkOut: true, status: true, guests: true, createdAt: true },
-    orderBy: { checkIn: 'asc' },
-  });
-
-  const blockedDates = await prisma.blockedDate.findMany({
-    select: { id: true, date: true, reason: true },
-    orderBy: { date: 'asc' },
-  });
+  const [reservations, blockedDates] = await Promise.all([
+    prisma.reservation.findMany({
+      where: { status: { not: 'CANCELLED' } },
+      select: { id: true, guestName: true, checkIn: true, checkOut: true, status: true, guests: true, createdAt: true },
+      orderBy: { checkIn: 'asc' },
+    }),
+    prisma.blockedDate.findMany({
+      select: { id: true, date: true, reason: true },
+      orderBy: { date: 'asc' },
+    }),
+  ]);
 
   const lines: string[] = [
     'BEGIN:VCALENDAR',

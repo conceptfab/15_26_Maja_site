@@ -6,19 +6,26 @@
 
 const WINDOW_MS = 60 * 1000; // 1 minuta
 const MAX_REQUESTS = 5; // max 5 rezerwacji na minutę per IP
+const MAX_STORE_SIZE = 10000;
 
 type Entry = { count: number; resetAt: number };
 
 const store = new Map<string, Entry>();
 
-// Okresowe czyszczenie wygasłych wpisów (co 5 minut)
+// Okresowe czyszczenie wygasłych wpisów (co 5 minut) + limit rozmiaru
 let lastCleanup = Date.now();
 function cleanup() {
   const now = Date.now();
-  if (now - lastCleanup < 5 * 60 * 1000) return;
+  if (now - lastCleanup < 5 * 60 * 1000 && store.size < MAX_STORE_SIZE) return;
   lastCleanup = now;
   for (const [key, entry] of store) {
     if (entry.resetAt < now) store.delete(key);
+  }
+  // Jeśli nadal za dużo — usuń najstarsze wpisy
+  if (store.size >= MAX_STORE_SIZE) {
+    const entries = [...store.entries()].sort((a, b) => a[1].resetAt - b[1].resetAt);
+    const toRemove = entries.slice(0, store.size - MAX_STORE_SIZE + 1000);
+    for (const [key] of toRemove) store.delete(key);
   }
 }
 

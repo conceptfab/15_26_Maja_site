@@ -1,10 +1,20 @@
-'use server';
-
 import { prisma } from '@/lib/db';
 import { verifySession, unauthorized } from '@/lib/auth';
 import { sanitizeHtml } from '@/lib/sanitize';
+import { z } from 'zod';
+
+const updateContentSchema = z.object({
+  titlePl: z.string().max(200).nullable().optional(),
+  titleEn: z.string().max(200).nullable().optional(),
+  contentPl: z.record(z.string()).optional(),
+  contentEn: z.record(z.string()).optional(),
+  bgImage: z.string().max(500).refine((v) => !v || v.startsWith('https://') || v.startsWith('/'), 'URL musi zaczynać się od https:// lub /').nullable().optional(),
+  bgColor: z.string().max(20).refine((v) => !v || /^#[0-9a-fA-F]{3,8}$/.test(v), 'Nieprawidłowy format koloru hex').nullable().optional(),
+  isVisible: z.boolean().optional(),
+});
 
 export async function getContent() {
+  'use server';
   const session = await verifySession();
   if (!session) return unauthorized();
 
@@ -51,8 +61,12 @@ function sanitizeContentRecord(record: Record<string, string>): Record<string, s
 }
 
 export async function updateContent(slug: string, data: UpdateContentData) {
+  'use server';
   const session = await verifySession();
   if (!session) return unauthorized();
+
+  const parsed = updateContentSchema.safeParse(data);
+  if (!parsed.success) return { error: parsed.error.flatten().fieldErrors };
 
   const section = await prisma.section.findFirst({
     where: { slug, page: { isHome: true } },
@@ -62,14 +76,15 @@ export async function updateContent(slug: string, data: UpdateContentData) {
     return { error: 'Sekcja nie znaleziona' };
   }
 
+  const safe = parsed.data;
   const updateData: Record<string, unknown> = {};
-  if (data.titlePl !== undefined) updateData.titlePl = data.titlePl;
-  if (data.titleEn !== undefined) updateData.titleEn = data.titleEn;
-  if (data.contentPl !== undefined) updateData.contentPl = sanitizeContentRecord(data.contentPl) as object;
-  if (data.contentEn !== undefined) updateData.contentEn = sanitizeContentRecord(data.contentEn) as object;
-  if (data.bgImage !== undefined) updateData.bgImage = data.bgImage;
-  if (data.bgColor !== undefined) updateData.bgColor = data.bgColor;
-  if (data.isVisible !== undefined) updateData.isVisible = data.isVisible;
+  if (safe.titlePl !== undefined) updateData.titlePl = safe.titlePl;
+  if (safe.titleEn !== undefined) updateData.titleEn = safe.titleEn;
+  if (safe.contentPl !== undefined) updateData.contentPl = sanitizeContentRecord(safe.contentPl) as object;
+  if (safe.contentEn !== undefined) updateData.contentEn = sanitizeContentRecord(safe.contentEn) as object;
+  if (safe.bgImage !== undefined) updateData.bgImage = safe.bgImage;
+  if (safe.bgColor !== undefined) updateData.bgColor = safe.bgColor;
+  if (safe.isVisible !== undefined) updateData.isVisible = safe.isVisible;
 
   const updated = await prisma.section.update({
     where: { id: section.id },

@@ -3,7 +3,7 @@
 import { prisma } from '@/lib/db';
 import { verifySession, unauthorized } from '@/lib/auth';
 
-import { overlapNights } from '@/lib/date-utils';
+import { overlapNights, proportionalRevenue } from '@/lib/date-utils';
 import { CONFIRMED_STATUSES, MONTH_NAMES } from '@/lib/reservation-status';
 
 export async function getMonthlyReport(year: number, month: number) {
@@ -39,7 +39,7 @@ export async function getMonthlyReport(year: number, month: number) {
   for (const r of confirmed) {
     const n = overlapNights(r.checkIn, r.checkOut, mStart, mEnd);
     nights += n;
-    revenue += r.nights > 0 ? r.totalPrice * (n / r.nights) : 0;
+    revenue += proportionalRevenue(r.totalPrice, r.nights, n);
     totalGuests += r.guests;
   }
 
@@ -48,7 +48,7 @@ export async function getMonthlyReport(year: number, month: number) {
   for (const r of prevConfirmed) {
     const n = overlapNights(r.checkIn, r.checkOut, pmStart, pmEnd);
     prevNights += n;
-    prevRevenue += r.nights > 0 ? r.totalPrice * (n / r.nights) : 0;
+    prevRevenue += proportionalRevenue(r.totalPrice, r.nights, n);
   }
 
   const occupancy = Math.min(100, Math.round((nights / daysInMonth) * 100));
@@ -92,7 +92,7 @@ export async function getYearlyReport(year: number) {
     for (const r of confirmed) {
       const n = overlapNights(r.checkIn, r.checkOut, mStart, mEnd);
       occ += n;
-      rev += r.nights > 0 ? r.totalPrice * (n / r.nights) : 0;
+      rev += proportionalRevenue(r.totalPrice, r.nights, n);
     }
     const daysInM = new Date(year, i + 1, 0).getDate();
     return { name, revenue: Math.round(rev), occupancy: Math.min(100, Math.round((occ / daysInM) * 100)) };
@@ -109,7 +109,7 @@ export async function getYearlyReport(year: number) {
     const key = r.guestEmail;
     const existing = clientMap.get(key);
     const n = overlapNights(r.checkIn, r.checkOut, yStart, yEnd);
-    const rev = r.nights > 0 ? r.totalPrice * (n / r.nights) : 0;
+    const rev = proportionalRevenue(r.totalPrice, r.nights, n);
     if (existing) {
       existing.total += rev;
       existing.count += 1;

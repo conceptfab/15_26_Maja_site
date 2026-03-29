@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState, useCallback, useMemo, type MouseEvent } from 'react';
 import { differenceInCalendarDays, format, eachDayOfInterval } from 'date-fns';
 import { calculatePrice, type PricingRuleRange } from '@/lib/pricing';
-import { sanitizeHtml } from '@/lib/sanitize';
 const Lightbox = dynamic(() => import('./Lightbox').then((m) => ({ default: m.Lightbox })), { ssr: false });
 import { pl as plLocale } from 'date-fns/locale';
 import { enUS as enLocale } from 'date-fns/locale';
@@ -114,18 +113,8 @@ export function HomeClient({ sections: initialSections, settings, pricingRules =
     liveOverrides[s.slug] ? { ...s, ...liveOverrides[s.slug] } : s
   );
 
-  // Memoizacja sanitizeHtml — unika powtórnego parsowania przy każdym renderze
-  const memoSanitize = useMemo(() => {
-    const cache = new Map<string, string>();
-    return (html: string) => {
-      if (!html) return '';
-      const cached = cache.get(html);
-      if (cached !== undefined) return cached;
-      const result = sanitizeHtml(html);
-      cache.set(html, result);
-      return result;
-    };
-  }, []);
+  // Sanityzacja odbywa się po stronie serwera (w getHomeContent)
+  const memoSanitize = useCallback((html: string) => html || '', []);
 
   const [hasScrolled, setHasScrolled] = useState(false);
   const [expandedSection, setExpandedSection] =
@@ -623,7 +612,7 @@ export function HomeClient({ sections: initialSections, settings, pricingRules =
                 title="Powiększ"
               >
                 <Image
-                  src={image.src}
+                  src={image.thumbSrc || image.src}
                   alt={locale === 'pl' ? (image.altPl || '') : (image.altEn || '')}
                   fill
                   sizes="(max-width: 768px) 92vw, 40vw"

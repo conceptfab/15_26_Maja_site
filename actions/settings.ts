@@ -1,9 +1,8 @@
-'use server';
-
 import { prisma } from '@/lib/db';
 import { verifySession, unauthorized } from '@/lib/auth';
 import { z } from 'zod';
 import { extractZodError } from '@/lib/validations';
+import { unstable_cache, revalidateTag } from 'next/cache';
 
 // --- Typy ---
 
@@ -80,7 +79,7 @@ const settingsSchema = z.object({
 
 // --- Actions ---
 
-export async function getSettings(): Promise<SiteSettingsMap> {
+async function _getSettingsFromDb(): Promise<SiteSettingsMap> {
   const rows = await prisma.siteSettings.findMany();
   const map: Record<string, unknown> = {};
 
@@ -93,7 +92,14 @@ export async function getSettings(): Promise<SiteSettingsMap> {
   return parsed.success ? parsed.data : DEFAULTS;
 }
 
+export const getSettings = unstable_cache(
+  _getSettingsFromDb,
+  ['site-settings'],
+  { revalidate: 300, tags: ['settings'] },
+);
+
 export async function updateSettings(data: Partial<SiteSettingsMap>) {
+  'use server';
   const session = await verifySession();
   if (!session) return unauthorized();
 
@@ -116,12 +122,14 @@ export async function updateSettings(data: Partial<SiteSettingsMap>) {
     )
   );
 
+  revalidateTag('settings');
   return { success: true };
 }
 
 // --- Admin whitelist ---
 
 export async function getAdminWhitelist() {
+  'use server';
   const session = await verifySession();
   if (!session) return [];
 
@@ -132,6 +140,7 @@ export async function getAdminWhitelist() {
 }
 
 export async function addAdmin(email: string, name?: string) {
+  'use server';
   const session = await verifySession();
   if (!session) return unauthorized();
 
@@ -149,6 +158,7 @@ export async function addAdmin(email: string, name?: string) {
 }
 
 export async function removeAdmin(id: string) {
+  'use server';
   const session = await verifySession();
   if (!session) return unauthorized();
 

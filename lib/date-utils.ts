@@ -18,3 +18,8 @@ export function overlapNights(checkIn: Date, checkOut: Date, rangeStart: Date, r
   const overlapEnd = checkOut < rangeEnd ? checkOut : rangeEnd;
   return Math.max(0, differenceInCalendarDays(overlapEnd, overlapStart));
 }
+
+/** Proporcjonalny przychód na podstawie liczby nocy nakładających się na zakres */
+export function proportionalRevenue(totalPrice: number, totalNights: number, overlapNightsCount: number): number {
+  return totalNights > 0 ? totalPrice * (overlapNightsCount / totalNights) : 0;
+}

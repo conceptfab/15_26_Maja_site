@@ -7,9 +7,9 @@ import {
   buildStatusChangeEmail,
   buildGuestConfirmationEmail,
   loadEmailContext,
-  type ReservationEmailData,
+  toReservationEmailData,
 } from '@/lib/mail';
-import { format, differenceInCalendarDays } from 'date-fns';
+import { differenceInCalendarDays } from 'date-fns';
 import { z } from 'zod';
 import { extractZodError, type ReservationStatus } from '@/lib/validations';
 import { DELETABLE_STATUSES } from '@/lib/reservation-status';
@@ -314,17 +314,7 @@ export async function sendGuestEmail(reservationId: string, templateType: EmailT
 
   try {
     if (templateType === 'confirmation') {
-      const emailData: ReservationEmailData = {
-        guestName: reservation.guestName,
-        guestEmail: reservation.guestEmail,
-        guestPhone: reservation.guestPhone || '',
-        checkIn: format(reservation.checkIn, 'dd.MM.yyyy'),
-        checkOut: format(reservation.checkOut, 'dd.MM.yyyy'),
-        nights: reservation.nights,
-        guests: reservation.guests,
-        totalPrice: reservation.totalPrice,
-        comment: reservation.comment || undefined,
-      };
+      const emailData = toReservationEmailData(reservation);
       const ctx = await loadEmailContext();
       const email = await buildGuestConfirmationEmail(emailData, ctx);
       const result = await sendEmail({ to: reservation.guestEmail, ...email });
