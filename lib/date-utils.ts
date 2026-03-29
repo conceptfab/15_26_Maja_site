@@ -3,14 +3,21 @@ import { differenceInCalendarDays, format } from 'date-fns';
 /**
  * Oblicza liczbę nocy z rezerwacji przypadających na dany zakres dat.
  */
-/** Data jako YYYY-MM-DD (do zapytań, porównań) */
+/** Data jako YYYY-MM-DD (do zapytań, porównań).
+ *  Normalizuje daty bliskie północy UTC (np. 22:00 UTC = 00:00 CEST)
+ *  żeby nie przeskakiwały o dzień wstecz. */
 export function toDateString(date: Date): string {
-  return date.toISOString().split('T')[0];
+  const d = new Date(date);
+  if (d.getUTCHours() >= 18) {
+    d.setUTCDate(d.getUTCDate() + 1);
+  }
+  d.setUTCHours(12, 0, 0, 0);
+  return d.toISOString().split('T')[0];
 }
 
-/** Data czytelna dla użytkownika: dd.MM.yyyy */
+/** Data czytelna dla użytkownika: dd.MM.yyyy (timezone-safe) */
 export function toDisplayDate(date: Date): string {
-  return format(date, 'dd.MM.yyyy');
+  return format(new Date(toDateString(date) + 'T12:00:00'), 'dd.MM.yyyy');
 }
 
 export function overlapNights(checkIn: Date, checkOut: Date, rangeStart: Date, rangeEnd: Date): number {

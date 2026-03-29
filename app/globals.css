@@ -424,6 +424,16 @@ body {
   border-radius: 50%;
 }
 
+/* Excluded / disabled days (reservations, service, blocked) */
+.reservation-datepicker .react-datepicker__day--disabled,
+.reservation-datepicker .react-datepicker__day[aria-disabled="true"] {
+  color: rgba(0, 0, 0, 0.2) !important;
+  text-decoration: line-through;
+  pointer-events: none;
+  cursor: default;
+  background: transparent !important;
+}
+
 /* Outside-month days: show faint number, strip all backgrounds */
 .reservation-datepicker .react-datepicker__day--outside-month {
   color: rgba(0, 0, 0, 0.15) !important;

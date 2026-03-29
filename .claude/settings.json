@@ -4,7 +4,12 @@
       "Bash(npm:*)",
       "Bash(npx:*)",
       "Bash(npx prisma:*)",
-      "WebFetch(domain:homme-two.vercel.app)"
+      "WebFetch(domain:homme-two.vercel.app)",
+      "Bash(Select-Object -Last 30)",
+      "Bash(echo \"EXIT_CODE: $?\")",
+      "Bash(Out-String)",
+      "Bash(node -e \"console.log\\(''ok''\\)\")",
+      "Bash(where.exe node:*)"
     ]
   }
 }

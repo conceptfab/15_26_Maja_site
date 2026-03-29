@@ -2,6 +2,7 @@
 
 import { prisma } from '@/lib/db';
 import { verifySession, unauthorized } from '@/lib/auth';
+import { toDateString } from '@/lib/date-utils';
 
 function validateICalUrl(url: string): string | null {
   let parsed: URL;
@@ -168,9 +169,9 @@ async function _syncICalFeedInternal(id: string) {
         select: { date: true },
       });
 
-      const existingSet = new Set(existing.map((e) => e.date.toISOString().slice(0, 10)));
+      const existingSet = new Set(existing.map((e) => toDateString(e.date)));
       const toCreate = allDays.filter(
-        (d) => !existingSet.has(d.date.toISOString().slice(0, 10))
+        (d) => !existingSet.has(toDateString(d.date))
       );
 
       if (toCreate.length > 0) {

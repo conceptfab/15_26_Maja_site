@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -37,8 +38,8 @@ export function ReservationActions({ id, currentStatus, adminNote, checkIn, chec
   const [history, setHistory] = useState<HistoryEntry[]>([]);
 
   // Edycja danych
-  const [editCheckIn, setEditCheckIn] = useState(checkIn.slice(0, 10));
-  const [editCheckOut, setEditCheckOut] = useState(checkOut.slice(0, 10));
+  const [editCheckIn, setEditCheckIn] = useState(format(new Date(checkIn), 'yyyy-MM-dd'));
+  const [editCheckOut, setEditCheckOut] = useState(format(new Date(checkOut), 'yyyy-MM-dd'));
   const [editGuests, setEditGuests] = useState(guests);
   const [editPrice, setEditPrice] = useState(totalPrice);
 

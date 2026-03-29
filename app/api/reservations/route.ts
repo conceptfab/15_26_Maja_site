@@ -75,10 +75,11 @@ export async function POST(request: Request) {
           throw Object.assign(new Error('Wybrany termin jest niedostępny'), { statusCode: 409 });
         }
 
-        // Sprawdź zablokowane daty
+        // Sprawdź zablokowane daty (bufor -4h na wypadek dat zapisanych w local midnight ≈ 22:00 UTC)
+        const searchStart = new Date(checkIn.getTime() - 4 * 60 * 60 * 1000);
         const blockedDate = await tx.blockedDate.findFirst({
           where: {
-            date: { gte: checkIn, lte: checkOut },
+            date: { gte: searchStart, lte: checkOut },
           },
         });
 

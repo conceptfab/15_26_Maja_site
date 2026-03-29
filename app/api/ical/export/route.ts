@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { toDateString } from '@/lib/date-utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -57,8 +58,8 @@ export async function GET(request: NextRequest) {
     lines.push(
       'BEGIN:VEVENT',
       `UID:${r.id}@hommm`,
-      `DTSTART;VALUE=DATE:${r.checkIn.toISOString().slice(0, 10).replace(/-/g, '')}`,
-      `DTEND;VALUE=DATE:${icalEnd.toISOString().slice(0, 10).replace(/-/g, '')}`,
+      `DTSTART;VALUE=DATE:${toDateString(r.checkIn).replace(/-/g, '')}`,
+      `DTEND;VALUE=DATE:${toDateString(icalEnd).replace(/-/g, '')}`,
       `SUMMARY:${escapeIcal(r.guestName)} (${r.guests} os.)`,
       `DESCRIPTION:Status: ${r.status}`,
       `DTSTAMP:${formatDate(r.createdAt)}`,
@@ -72,8 +73,8 @@ export async function GET(request: NextRequest) {
     lines.push(
       'BEGIN:VEVENT',
       `UID:blocked-${b.id}@hommm`,
-      `DTSTART;VALUE=DATE:${b.date.toISOString().slice(0, 10).replace(/-/g, '')}`,
-      `DTEND;VALUE=DATE:${nextDay.toISOString().slice(0, 10).replace(/-/g, '')}`,
+      `DTSTART;VALUE=DATE:${toDateString(b.date).replace(/-/g, '')}`,
+      `DTEND;VALUE=DATE:${toDateString(nextDay).replace(/-/g, '')}`,
       `SUMMARY:${escapeIcal(b.reason || 'Zablokowana')}`,
       `DTSTAMP:${formatDate(b.date)}`,
       'END:VEVENT',

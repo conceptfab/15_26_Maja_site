@@ -269,20 +269,34 @@ export async function addBlockedDate(date: string, reason?: string, type: 'BLOCK
     return { error: 'Nieprawidłowy typ blokady' };
   }
 
-  const parsed = new Date(date);
-  if (isNaN(parsed.getTime())) {
-    return { error: 'Nieprawidłowy format daty' };
+  // Parsuj datę — obsługuj zarówno "YYYY-MM-DD" jak i ISO string
+  let normalized: Date;
+  const ymdMatch = date.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (ymdMatch) {
+    const [, y, m, d] = ymdMatch.map(Number);
+    normalized = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+  } else {
+    const parsed = new Date(date);
+    if (isNaN(parsed.getTime())) {
+      return { error: 'Nieprawidłowy format daty' };
+    }
+    // Stary format ISO — normalizuj do UTC noon tego samego dnia lokalnego
+    normalized = new Date(Date.UTC(parsed.getFullYear(), parsed.getMonth(), parsed.getDate(), 12, 0, 0));
   }
 
-  // Sprawdź duplikat
+  // Sprawdź duplikat (szukaj w zakresie całego dnia)
+  const dayStart = new Date(normalized);
+  dayStart.setUTCHours(0, 0, 0, 0);
+  const dayEnd = new Date(normalized);
+  dayEnd.setUTCHours(23, 59, 59, 999);
   const existing = await prisma.blockedDate.findFirst({
-    where: { date: parsed },
+    where: { date: { gte: dayStart, lte: dayEnd } },
   });
   if (existing) return { error: 'Ta data jest już zablokowana' };
 
   const blocked = await prisma.blockedDate.create({
     data: {
-      date: parsed,
+      date: normalized,
       reason: reason?.slice(0, 200) || null,
       type,
     },

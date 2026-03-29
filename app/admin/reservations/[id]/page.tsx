@@ -7,6 +7,7 @@ import { AdminShell } from '@/components/admin/AdminShell';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
+import { toDisplayDate } from '@/lib/date-utils';
 import { ReservationActions } from './ReservationActions';
 import { getStatusInfo } from '@/lib/reservation-status';
 
@@ -62,11 +63,11 @@ export default async function ReservationDetailPage({ params }: PageProps) {
             <CardContent className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Zameldowanie</span>
-                <span className="font-medium">{format(reservation.checkIn, 'dd.MM.yyyy')}</span>
+                <span className="font-medium">{toDisplayDate(reservation.checkIn)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Wymeldowanie</span>
-                <span className="font-medium">{format(reservation.checkOut, 'dd.MM.yyyy')}</span>
+                <span className="font-medium">{toDisplayDate(reservation.checkOut)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Noce</span>

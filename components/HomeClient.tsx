@@ -203,7 +203,7 @@ export function HomeClient({ sections: initialSections, settings, pricingRules =
         }
         setUnavailableDates(dates);
       })
-      .catch(() => {});
+      .catch((err) => console.error('[availability] fetch error:', err));
   }, []);
 
   useEffect(() => {

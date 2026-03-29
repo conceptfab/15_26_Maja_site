@@ -82,7 +82,7 @@ export function CalendarView({ reservations, blockedDates }: Props) {
 
   const handleBlockDate = (date: Date) => {
     startTransition(async () => {
-      await addBlockedDate(date.toISOString(), blockReason || undefined);
+      await addBlockedDate(format(date, 'yyyy-MM-dd'), blockReason || undefined);
       setBlockReason('');
       router.refresh();
     });
@@ -94,7 +94,7 @@ export function CalendarView({ reservations, blockedDates }: Props) {
       handleUnblockDate(existing.id);
     } else if (!existing) {
       startTransition(async () => {
-        await addBlockedDate(day.toISOString(), 'Serwis', 'SERVICE');
+        await addBlockedDate(format(day, 'yyyy-MM-dd'), 'Serwis', 'SERVICE');
         router.refresh();
       });
     }

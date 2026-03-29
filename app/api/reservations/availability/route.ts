@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { toDateString } from '@/lib/date-utils';
 
 export async function GET(request: Request) {
   try {
@@ -16,13 +15,16 @@ export async function GET(request: Request) {
       : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
     const endDate = requestedEnd > maxEnd ? maxEnd : requestedEnd;
 
+    // Bufor na daty zapisane w local midnight (~22:00 UTC zamiast 00:00)
+    const blockedStart = new Date(startDate.getTime() - 4 * 60 * 60 * 1000);
+
     // Rezerwacje i zablokowane daty — równolegle
     const [reservations, blockedDates] = await Promise.all([
       prisma.reservation.findMany({
         where: {
           status: { notIn: ['CANCELLED'] },
           checkIn: { lt: endDate },
-          checkOut: { gte: startDate },
+          checkOut: { gte: blockedStart },
         },
         select: {
           checkIn: true,
@@ -31,7 +33,7 @@ export async function GET(request: Request) {
       }),
       prisma.blockedDate.findMany({
         where: {
-          date: { gte: startDate, lt: endDate },
+          date: { gte: blockedStart, lt: endDate },
         },
         select: {
           date: true,
@@ -42,11 +44,11 @@ export async function GET(request: Request) {
 
     return NextResponse.json({
       reservations: reservations.map((r) => ({
-        checkIn: toDateString(r.checkIn),
-        checkOut: toDateString(r.checkOut),
+        checkIn: r.checkIn.toISOString(),
+        checkOut: r.checkOut.toISOString(),
       })),
       blockedDates: blockedDates.map((b) => ({
-        date: toDateString(b.date),
+        date: b.date.toISOString(),
         reason: b.reason,
       })),
     }, {

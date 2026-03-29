@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { format } from 'date-fns';
 import { useLocale } from '@/lib/i18n';
 import { PHONE_REGEX } from '@/lib/validations';
 import { XIcon } from 'lucide-react';
@@ -95,8 +96,8 @@ export function ReservationModal({
           guestName: name,
           guestEmail: email,
           guestPhone: phone,
-          checkIn: checkIn.toISOString(),
-          checkOut: checkOut.toISOString(),
+          checkIn: format(checkIn, 'yyyy-MM-dd'),
+          checkOut: format(checkOut, 'yyyy-MM-dd'),
           guests: Number(guests),
           comment: comment || undefined,
           rodoConsent: rodo,
