@@ -55,7 +55,7 @@ export function FooterSection({
       data-menu-logo="#ffffff"
     >
       <SectionBg src={stopkaSection?.bgImage || '/assets/footer.webp'} />
-      <div className="container footer-container relative z-10">
+      <div className="container footer-container">
         <div className="footer-brand reveal reveal--scale">
           <a
             href="#rezerwuj"
@@ -176,9 +176,9 @@ export function FooterSection({
       <div className="footer-banner">
         <Image
           src="/assets/baner.webp"
-          alt="Baner stopki"
-          width={1920}
-          height={400}
+          alt="Baner — Krajowy Plan Odbudowy, Rzeczpospolita Polska, NextGenerationEU"
+          width={2880}
+          height={150}
           className="footer-banner__img"
         />
       </div>

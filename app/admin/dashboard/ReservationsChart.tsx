@@ -2,15 +2,7 @@
 
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-
-type OccupancyChartPoint = {
-  name: string;
-  paid: number;
-  deposit: number;
-  pending: number;
-  blocked: number;
-  free: number;
-};
+import type { OccupancyChartPoint } from '@/lib/dashboard-stats';
 
 type Props = {
   monthlyData: OccupancyChartPoint[];

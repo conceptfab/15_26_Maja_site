@@ -23,3 +23,10 @@ export function overlapNights(checkIn: Date, checkOut: Date, rangeStart: Date, r
 export function proportionalRevenue(totalPrice: number, totalNights: number, overlapNightsCount: number): number {
   return totalNights > 0 ? totalPrice * (overlapNightsCount / totalNights) : 0;
 }
+
+/** Numer tygodnia w roku (ISO-like) */
+export function getWeekOfYear(date: Date): number {
+  const jan1 = new Date(date.getFullYear(), 0, 1);
+  const dayOfYear = Math.floor((date.getTime() - jan1.getTime()) / 86400000);
+  return Math.ceil((dayOfYear + jan1.getDay() + 1) / 7);
+}

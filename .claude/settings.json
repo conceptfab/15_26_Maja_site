@@ -3,7 +3,8 @@
     "allow": [
       "Bash(npm:*)",
       "Bash(npx:*)",
-      "Bash(npx prisma:*)"
+      "Bash(npx prisma:*)",
+      "WebFetch(domain:homme-two.vercel.app)"
     ]
   }
 }

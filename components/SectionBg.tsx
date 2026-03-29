@@ -18,8 +18,8 @@ export function SectionBg({ src, objectPosition = 'center', priority = false }: 
       fill
       sizes="100vw"
       priority={priority}
-      className="pointer-events-none object-cover"
-      style={{ objectPosition }}
+      className="pointer-events-none"
+      style={{ objectFit: 'cover', objectPosition }}
     />
   );
 }
