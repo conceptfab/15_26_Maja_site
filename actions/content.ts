@@ -8,8 +8,8 @@ import { z } from 'zod';
 const updateContentSchema = z.object({
   titlePl: z.string().max(200).nullable().optional(),
   titleEn: z.string().max(200).nullable().optional(),
-  contentPl: z.record(z.string()).optional(),
-  contentEn: z.record(z.string()).optional(),
+  contentPl: z.record(z.string(), z.string()).optional(),
+  contentEn: z.record(z.string(), z.string()).optional(),
   bgImage: z.string().max(500).refine((v) => !v || v.startsWith('https://') || v.startsWith('/'), 'URL musi zaczynać się od https:// lub /').nullable().optional(),
   bgColor: z.string().max(20).refine((v) => !v || /^#[0-9a-fA-F]{3,8}$/.test(v), 'Nieprawidłowy format koloru hex').nullable().optional(),
   isVisible: z.boolean().optional(),
