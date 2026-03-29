@@ -1,3 +1,5 @@
+'use server';
+
 import { prisma } from '@/lib/db';
 import { verifySession, unauthorized } from '@/lib/auth';
 import { sanitizeHtml } from '@/lib/sanitize';
@@ -14,7 +16,7 @@ const updateContentSchema = z.object({
 });
 
 export async function getContent() {
-  'use server';
+
   const session = await verifySession();
   if (!session) return unauthorized();
 
@@ -61,7 +63,7 @@ function sanitizeContentRecord(record: Record<string, string>): Record<string, s
 }
 
 export async function updateContent(slug: string, data: UpdateContentData) {
-  'use server';
+
   const session = await verifySession();
   if (!session) return unauthorized();
 

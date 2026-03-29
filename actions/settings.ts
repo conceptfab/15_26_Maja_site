@@ -1,3 +1,5 @@
+'use server';
+
 import { prisma } from '@/lib/db';
 import { verifySession, unauthorized } from '@/lib/auth';
 import { z } from 'zod';
@@ -99,7 +101,7 @@ export const getSettings = unstable_cache(
 );
 
 export async function updateSettings(data: Partial<SiteSettingsMap>) {
-  'use server';
+
   const session = await verifySession();
   if (!session) return unauthorized();
 
@@ -129,7 +131,7 @@ export async function updateSettings(data: Partial<SiteSettingsMap>) {
 // --- Admin whitelist ---
 
 export async function getAdminWhitelist() {
-  'use server';
+
   const session = await verifySession();
   if (!session) return [];
 
@@ -140,7 +142,7 @@ export async function getAdminWhitelist() {
 }
 
 export async function addAdmin(email: string, name?: string) {
-  'use server';
+
   const session = await verifySession();
   if (!session) return unauthorized();
 
@@ -158,7 +160,7 @@ export async function addAdmin(email: string, name?: string) {
 }
 
 export async function removeAdmin(id: string) {
-  'use server';
+
   const session = await verifySession();
   if (!session) return unauthorized();
 

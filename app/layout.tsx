@@ -49,6 +49,17 @@ export async function generateMetadata(): Promise<Metadata> {
       'max-image-preview': 'large',
       'max-video-preview': -1,
     },
+    icons: {
+      icon: [
+        { url: '/icons/favicon.ico' },
+        { url: '/icons/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
+        { url: '/icons/favicon-32x32.png', sizes: '32x32', type: 'image/png' },
+      ],
+      apple: [
+        { url: '/icons/favicon-180x180.png', sizes: '180x180', type: 'image/png' },
+      ],
+    },
+    manifest: '/icons/manifest.json',
     ...(process.env.GOOGLE_SITE_VERIFICATION
       ? { other: { 'google-site-verification': process.env.GOOGLE_SITE_VERIFICATION } }
       : {}),

@@ -1,3 +1,5 @@
+'use server';
+
 import { prisma } from '@/lib/db';
 import { verifySession, unauthorized } from '@/lib/auth';
 import { toDateString } from '@/lib/date-utils';
@@ -31,7 +33,7 @@ const pricingRuleSchema = z.object({
 // --- Actions ---
 
 export async function getPricingRules(): Promise<PricingRule[]> {
-  'use server';
+
   const session = await verifySession();
   if (!session) return [];
 
@@ -65,7 +67,7 @@ export async function createPricingRule(data: {
   dateTo: string;
   pricePerNight: number;
 }) {
-  'use server';
+
   const session = await verifySession();
   if (!session) return unauthorized();
 
@@ -95,7 +97,7 @@ export async function updatePricingRule(
     isActive?: boolean;
   },
 ) {
-  'use server';
+
   const session = await verifySession();
   if (!session) return unauthorized();
 
@@ -128,7 +130,7 @@ export async function updatePricingRule(
 }
 
 export async function deletePricingRule(id: string) {
-  'use server';
+
   const session = await verifySession();
   if (!session) return unauthorized();
 

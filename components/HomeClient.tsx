@@ -7,8 +7,6 @@ const Lightbox = dynamic(() => import('./Lightbox').then((m) => ({ default: m.Li
 import { pl as plLocale } from 'date-fns/locale';
 import { enUS as enLocale } from 'date-fns/locale';
 import dynamic from 'next/dynamic';
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const DatePicker = dynamic(() => import('react-datepicker') as any, { ssr: false }) as any;
 import Image from 'next/image';
 import { SectionBg } from './SectionBg';
 import { TopMenu, type MenuColors, type MenuView } from './TopMenu';
@@ -16,46 +14,18 @@ import { ReservationModal } from './ReservationModal';
 import { useLocale } from '@/lib/i18n';
 import type { SectionContent } from '@/lib/content';
 import type { SiteSettingsMap } from '@/actions/settings';
+
 import {
-  EraserIcon,
-  MailIcon,
-  PhoneIcon,
-  InstagramIcon,
-  TikTokIcon,
-  FacebookIcon,
-} from './Icons';
-
-const BRAND_COLOR = '#be1622';
-const SCROLL_COMPACT_THRESHOLD = 10;
-const DISMISS_KEYS = new Set([
-  'ArrowDown',
-  'ArrowUp',
-  'PageDown',
-  'PageUp',
-  'Home',
-  'End',
-  ' ',
-]);
-
-type ExpandableSection = 'sec2' | 'sec3';
-
-// Galeria statyczna — fallback gdy brak zdjęć z DB
-const GALLERY_FALLBACK: Record<string, { src: string; altPl: string; altEn: string }[]> = {
-  sec2: [
-    { src: '/assets/gal_00.webp', altPl: 'Strefa relaksu i natura', altEn: 'Relaxation zone and nature' },
-    { src: '/assets/gal_01.webp', altPl: 'Widok głównej przestrzeni', altEn: 'Main space view' },
-    { src: '/assets/gal_02.webp', altPl: 'Detale miejsca', altEn: 'Place details' },
-  ],
-  sec3: [
-    { src: '/assets/gal_01.webp', altPl: 'Kadr przestrzeni pobytu', altEn: 'Stay space shot' },
-    { src: '/assets/gal_00.webp', altPl: 'Strefa na zewnątrz', altEn: 'Outdoor zone' },
-    { src: '/assets/gal_02.webp', altPl: 'Ujęcie klimatu miejsca', altEn: 'Place atmosphere shot' },
-  ],
-};
-
-function getSectionBySlug(sections: SectionContent[], slug: string) {
-  return sections.find((s) => s.slug === slug);
-}
+  BRAND_COLOR,
+  SCROLL_COMPACT_THRESHOLD,
+  DISMISS_KEYS,
+  getSectionBySlug,
+  getGalleryWithFallback,
+  type ExpandableSection,
+} from './home/constants';
+import { ReservationSystem } from './home/ReservationSystem';
+import { StorySection } from './home/StorySection';
+import { FooterSection } from './home/FooterSection';
 
 export function HomeClient({ sections: initialSections, settings, pricingRules = [] }: { sections: SectionContent[]; settings: SiteSettingsMap; pricingRules?: PricingRuleRange[] }) {
   const { locale, t } = useLocale();
@@ -75,7 +45,6 @@ export function HomeClient({ sections: initialSections, settings, pricingRules =
   // Live preview: admin edytor wysyła zmiany przez postMessage
   useEffect(() => {
     const handler = (event: MessageEvent) => {
-      // Akceptuj wyłącznie wiadomości z tego samego origin
       if (event.origin !== window.location.origin) return;
 
       if (event.data?.type === 'cms-expand-section') {
@@ -108,12 +77,12 @@ export function HomeClient({ sections: initialSections, settings, pricingRules =
     return () => window.removeEventListener('message', handler);
   }, []);
 
-  // Merge: dane z DB nadpisane live overrides (zachowaj galleryImages z DB)
-  const sections = initialSections.map((s) =>
-    liveOverrides[s.slug] ? { ...s, ...liveOverrides[s.slug] } : s
-  );
+  const sections = useMemo(() =>
+    initialSections.map((s) =>
+      liveOverrides[s.slug] ? { ...s, ...liveOverrides[s.slug] } : s
+    ),
+  [initialSections, liveOverrides]);
 
-  // Sanityzacja odbywa się po stronie serwera (w getHomeContent)
   const memoSanitize = useCallback((html: string) => html || '', []);
 
   const [hasScrolled, setHasScrolled] = useState(false);
@@ -156,19 +125,20 @@ export function HomeClient({ sections: initialSections, settings, pricingRules =
     : '--.--.----';
   const today = useMemo(() => new Date(), []);
 
-  // Helper: pobierz treść wg języka
   const c = useCallback((section: SectionContent | undefined, field: string): string => {
     if (!section) return '';
     const content = locale === 'pl' ? section.contentPl : section.contentEn;
     return content[field] ?? '';
   }, [locale]);
 
-  const heroSection = getSectionBySlug(sections, 'hero');
-  const konceptSection = getSectionBySlug(sections, 'koncept');
-  const miejsceSection = getSectionBySlug(sections, 'miejsce');
-  const rezerwacjaSection = getSectionBySlug(sections, 'rezerwacja');
-  const menuSection = getSectionBySlug(sections, 'menu');
-  const stopkaSection = getSectionBySlug(sections, 'stopka');
+  const { heroSection, konceptSection, miejsceSection, rezerwacjaSection, menuSection, stopkaSection } = useMemo(() => ({
+    heroSection: getSectionBySlug(sections, 'hero'),
+    konceptSection: getSectionBySlug(sections, 'koncept'),
+    miejsceSection: getSectionBySlug(sections, 'miejsce'),
+    rezerwacjaSection: getSectionBySlug(sections, 'rezerwacja'),
+    menuSection: getSectionBySlug(sections, 'menu'),
+    stopkaSection: getSectionBySlug(sections, 'stopka'),
+  }), [sections]);
 
   const bgStyle = (section: SectionContent | undefined): React.CSSProperties => {
     const style: React.CSSProperties = {};
@@ -176,13 +146,11 @@ export function HomeClient({ sections: initialSections, settings, pricingRules =
     return style;
   };
 
-  // Shortcut for reservation texts — DB first, i18n fallback
   const r = useCallback((field: string): string => {
     const fromDb = c(rezerwacjaSection, field);
     return fromDb || t(`reservation.${field}`);
   }, [c, rezerwacjaSection, t]);
 
-  // Widok MIEJSCA — tytuł/opisy z sekcji 'miejsce' (nowe pola), fallback do rezerwacja
   const mw = useCallback((field: string): string =>
     c(miejsceSection, `miejsca_${field}`) || c(rezerwacjaSection, field) || t(`reservation.${field}`),
   [c, miejsceSection, rezerwacjaSection, t]);
@@ -216,14 +184,12 @@ export function HomeClient({ sections: initialSections, settings, pricingRules =
     setActiveView(view);
   };
 
-  // Pobierz zajęte daty z API
   const fetchAvailability = useCallback(() => {
     fetch('/api/reservations/availability')
       .then((res) => res.ok ? res.json() : null)
       .then((data) => {
         if (!data) return;
         const dates: Date[] = [];
-        // Rezerwacje — rozwiń zakresy do pojedynczych dat
         for (const r of data.reservations) {
           const start = new Date(r.checkIn);
           const end = new Date(r.checkOut);
@@ -232,7 +198,6 @@ export function HomeClient({ sections: initialSections, settings, pricingRules =
               .forEach((d) => dates.push(d));
           }
         }
-        // Zablokowane daty
         for (const b of data.blockedDates) {
           dates.push(new Date(b.date));
         }
@@ -246,10 +211,6 @@ export function HomeClient({ sections: initialSections, settings, pricingRules =
       fetchAvailability();
     }
   }, [isReservationView, fetchAvailability]);
-
-  const handleReservationClear = () => {
-    setReservationRange([null, null]);
-  };
 
   useEffect(() => {
     const mql = window.matchMedia('(max-width: 768px)');
@@ -397,232 +358,9 @@ export function HomeClient({ sections: initialSections, settings, pricingRules =
       ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
-  const handleFooterNavClick = (
-    event: MouseEvent<HTMLAnchorElement>,
-    targetId: string,
-  ) => {
-    event.preventDefault();
-    document
-      .getElementById(targetId)
-      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  };
-
-  const handlePlacesLogoMouseMove = (event: MouseEvent<HTMLDivElement>) => {
-    if (isMobileRef.current) return;
-    const rect = event.currentTarget.getBoundingClientRect();
-    if (!rect.width || !rect.height) return;
-    const offsetX = (event.clientX - rect.left) / rect.width - 0.5;
-    const offsetY = (event.clientY - rect.top) / rect.height - 0.5;
-    event.currentTarget.style.setProperty('--places-logo-mouse-x', offsetX.toFixed(3));
-    event.currentTarget.style.setProperty('--places-logo-mouse-y', offsetY.toFixed(3));
-  };
-
-  const handlePlacesLogoMouseLeave = (event: MouseEvent<HTMLDivElement>) => {
-    event.currentTarget.style.setProperty('--places-logo-mouse-x', '0');
-    event.currentTarget.style.setProperty('--places-logo-mouse-y', '0');
-  };
-
-  const handleReservationSubmit = () => {
-    if (!checkIn || !checkOut) return;
-    setReservationModalOpen(true);
-  };
-
-  const renderReservationSystem = () => (
-    <div className="reservation-layout__bottom">
-      <div
-        className={
-          showReservationGallery
-            ? 'reservation-system'
-            : 'reservation-system reservation-system--panel-only'
-        }
-      >
-        <div className="reservation-system__calendar-col reservation-system__calendar-col--wide">
-          <DatePicker
-            selected={today}
-            onChange={(update: [Date | null, Date | null]) => setReservationRange(update)}
-            startDate={checkIn}
-            endDate={checkOut}
-            selectsRange
-            inline
-            monthsShown={2}
-            locale={dateLocale}
-            minDate={today}
-            openToDate={today}
-            formatWeekDay={(dayName: string) =>
-              dayName.replace('.', '').slice(0, 3).toLowerCase()
-            }
-            calendarClassName="reservation-datepicker"
-            fixedHeight
-            excludeDates={unavailableDates}
-            renderCustomHeader={({
-              monthDate,
-              decreaseMonth,
-              increaseMonth,
-              prevMonthButtonDisabled,
-              customHeaderCount,
-            }: { monthDate: Date; decreaseMonth: () => void; increaseMonth: () => void; prevMonthButtonDisabled: boolean; customHeaderCount: number }) => (
-              <div className="reservation-datepicker__header">
-                {customHeaderCount === 0 && (
-                  <button
-                    type="button"
-                    className="reservation-datepicker__nav reservation-datepicker__nav--prev"
-                    onClick={decreaseMonth}
-                    disabled={prevMonthButtonDisabled}
-                    aria-label="Poprzedni miesiąc"
-                  >
-                    &#x276E;
-                  </button>
-                )}
-                <span className="reservation-datepicker__month-name">
-                  {monthDate.toLocaleDateString(locale === 'pl' ? 'pl-PL' : 'en-US', {
-                    month: 'long',
-                    year: 'numeric',
-                  })}
-                </span>
-                {customHeaderCount === 1 && (
-                  <button
-                    type="button"
-                    className="reservation-datepicker__nav reservation-datepicker__nav--next"
-                    onClick={increaseMonth}
-                    aria-label="Następny miesiąc"
-                  >
-                    &#x276F;
-                  </button>
-                )}
-              </div>
-            )}
-          />
-        </div>
-
-        <aside
-          className="reservation-summary-card"
-          aria-label={mw('title')}
-        >
-          {checkIn && !checkOut && (
-            <p className="reservation-summary-card__hint">
-              {t('reservation.select_checkout')}
-            </p>
-          )}
-          <p className="reservation-summary-card__price">
-            <span>{totalPrice} zl</span> za {nights} {getNightLabel(nights)}
-          </p>
-
-          <div className="reservation-summary-card__fields">
-            <div className="reservation-summary-card__dates">
-              <div className="reservation-summary-card__date-box">
-                <span>{r('checkin')}</span>
-                <strong>{checkInLabel}</strong>
-              </div>
-              <div className="reservation-summary-card__date-box">
-                <span>{r('checkout')}</span>
-                <strong>{checkOutLabel}</strong>
-              </div>
-            </div>
-
-            <label className="reservation-summary-card__guests">
-              <span>{r('guests_label')}</span>
-              <select
-                name="guests"
-                value={reservationGuests}
-                onChange={(event) => setReservationGuests(event.target.value)}
-              >
-                {[1, 2, 3, 4, 5, 6].map((n) => (
-                  <option key={n} value={String(n)}>
-                    {n} {n === 1 ? r('guest_one') : r('guest_few')}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-
-          <button
-            type="button"
-            className="reservation-summary-card__submit"
-            onClick={handleReservationSubmit}
-            disabled={!checkIn || !checkOut}
-          >
-            {r('submit')}
-          </button>
-
-          <p className="reservation-summary-card__note">
-            {r('note')}
-          </p>
-        </aside>
-
-        <button
-          type="button"
-          className="reservation-system__clear"
-          onClick={handleReservationClear}
-          style={{ justifySelf: 'end' }}
-        >
-          <EraserIcon />
-          <span>{r('clear')}</span>
-        </button>
-      </div>
-
-      <div className="reservation-info"
-        dangerouslySetInnerHTML={{ __html: memoSanitize(r('info')) }}
-      />
-    </div>
-  );
-
-  const renderExpandedContent = (section: ExpandableSection) => {
-    const dbSection = section === 'sec2' ? konceptSection : miejsceSection;
-    const dbGallery = dbSection?.galleryImages;
-    const gallery = dbGallery && dbGallery.length > 0
-      ? dbGallery
-      : GALLERY_FALLBACK[section] || [];
-    const heading = c(dbSection, 'heading') || (section === 'sec2' ? 'KONCEPT HOMMM' : 'YOUR SPECIAL PLACE');
-    const intro = c(dbSection, 'intro');
-    const body = c(dbSection, 'body');
-
-    const openLightbox = (index: number) => {
-      setLightboxSection(section);
-      setLightboxIndex(index);
-    };
-
-    return (
-      <div className="container container-white expanded-content-container relative z-10">
-        <div className="expanded-content-grid">
-          <div className="expanded-content-copy-col">
-            <h2 className="heading-secondary">{heading}</h2>
-            {intro && (
-              <div
-                className="expanded-content-intro"
-                dangerouslySetInnerHTML={{ __html: memoSanitize(intro) }}
-              />
-            )}
-            {body && (
-              <div
-                className="expanded-content-body"
-                dangerouslySetInnerHTML={{ __html: memoSanitize(body) }}
-              />
-            )}
-          </div>
-
-          <aside
-            className="expanded-content-gallery-col"
-            aria-label="Galeria miejsca"
-          >
-            {gallery.map((image, index) => (
-              <figure
-                className="expanded-content-gallery-item expanded-content-gallery-item--clickable"
-                key={`${image.src}-${index}`}
-                onClick={() => openLightbox(index)}
-                title="Powiększ"
-              >
-                <Image
-                  src={image.thumbSrc || image.src}
-                  alt={locale === 'pl' ? (image.altPl || '') : (image.altEn || '')}
-                  fill
-                  sizes="(max-width: 768px) 92vw, 40vw"
-                />
-              </figure>
-            ))}
-          </aside>
-        </div>
-      </div>
-    );
+  const handleOpenLightbox = (section: ExpandableSection, index: number) => {
+    setLightboxSection(section);
+    setLightboxIndex(index);
   };
 
   return (
@@ -684,8 +422,7 @@ export function HomeClient({ sections: initialSections, settings, pricingRules =
 
                 <div className="reservation-visual-gallery reservation-visual-gallery--places">
                   {(() => {
-                    const dbGal = miejsceSection?.galleryImages;
-                    const gal = (dbGal && dbGal.length > 0) ? dbGal : GALLERY_FALLBACK.sec3;
+                    const gal = getGalleryWithFallback(miejsceSection, 'sec3');
                     const imgs = [gal[0], gal[1], gal[2]].filter(Boolean);
                     const cls = ['reservation-visual-item--wide', 'reservation-visual-item--tall reservation-visual-item--tall-left', 'reservation-visual-item--tall reservation-visual-item--tall-right'];
                     return imgs.map((img, i) => (
@@ -704,7 +441,27 @@ export function HomeClient({ sections: initialSections, settings, pricingRules =
               </div>
             ) : null}
 
-            {renderReservationSystem()}
+            <ReservationSystem
+              checkIn={checkIn}
+              checkOut={checkOut}
+              today={today}
+              dateLocale={dateLocale}
+              locale={locale}
+              unavailableDates={unavailableDates}
+              onDateRangeChange={setReservationRange}
+              reservationGuests={reservationGuests}
+              onGuestsChange={setReservationGuests}
+              totalPrice={totalPrice}
+              nights={nights}
+              getNightLabel={getNightLabel}
+              showGallery={showReservationGallery}
+              onSubmit={() => { if (checkIn && checkOut) setReservationModalOpen(true); }}
+              onClear={() => setReservationRange([null, null])}
+              r={r}
+              mw={mw}
+              t={t}
+              sanitize={memoSanitize}
+            />
           </div>
         ) : (
           <div
@@ -716,220 +473,59 @@ export function HomeClient({ sections: initialSections, settings, pricingRules =
         )}
       </section>
 
-      <section
-        className={`section h-100vh section-bg-secondary relative ${expandedSection === 'sec2' ? '' : 'section-story'}`}
+      <StorySection
         id="koncept"
-        style={bgStyle(konceptSection)}
-        data-menu-font={expandedSection === 'sec2' ? BRAND_COLOR : '#ffffff'}
-        data-menu-logo={expandedSection === 'sec2' ? BRAND_COLOR : '#ffffff'}
-      >
-        <SectionBg src={konceptSection?.bgImage || '/assets/sec_2.webp'} />
-        {expandedSection === 'sec2' ? (
-          renderExpandedContent('sec2')
-        ) : (
-          <div className="container story-container relative z-10">
-            <h1 className="h1-brand">{c(konceptSection, 'heading') || 'YOUR SPECIAL TIME'}</h1>
-            <h2 className="heading-secondary story-subtitle">
-              {c(konceptSection, 'subheading') || 'KONCEPT HOMMM'}
-            </h2>
+        sectionKey="sec2"
+        sectionData={konceptSection}
+        bgClass="section-bg-secondary"
+        defaultBg="/assets/sec_2.webp"
+        defaultHeading="YOUR SPECIAL TIME"
+        defaultSubheading="KONCEPT HOMMM"
+        headingLevel={1}
+        expandedSection={expandedSection}
+        locale={locale}
+        c={c}
+        sanitize={memoSanitize}
+        t={t}
+        onReadMore={handleReadMoreClick}
+        onOpenLightbox={handleOpenLightbox}
+        bgStyle={bgStyle(konceptSection)}
+      />
 
-            <div
-              className="story-text-block"
-              dangerouslySetInnerHTML={{ __html: memoSanitize(c(konceptSection, 'body') || '') }}
-            />
-
-            <button
-              type="button"
-              className="story-read-more"
-              onClick={() => handleReadMoreClick('sec2')}
-            >
-              {t('section.readMore')}
-            </button>
-          </div>
-        )}
-      </section>
-
-      <section
-        className={`section h-100vh bg-dark relative ${expandedSection === 'sec3' ? '' : 'section-story'}`}
+      <StorySection
         id="miejsca"
-        style={bgStyle(miejsceSection)}
-        data-menu-font={expandedSection === 'sec3' ? BRAND_COLOR : '#ffffff'}
-        data-menu-logo={expandedSection === 'sec3' ? BRAND_COLOR : '#ffffff'}
-      >
-        <SectionBg src={miejsceSection?.bgImage || '/assets/sec_3.webp'} />
-        {expandedSection === 'sec3' ? (
-          renderExpandedContent('sec3')
-        ) : (
-          <div className="container story-container relative z-10">
-            <h2 className="h1-brand">{c(miejsceSection, 'heading') || 'YOUR SPECIAL PLACE'}</h2>
-            <h3 className="heading-secondary story-subtitle">
-              {c(miejsceSection, 'subheading') || ''}
-            </h3>
+        sectionKey="sec3"
+        sectionData={miejsceSection}
+        bgClass="bg-dark"
+        defaultBg="/assets/sec_3.webp"
+        defaultHeading="YOUR SPECIAL PLACE"
+        defaultSubheading=""
+        headingLevel={2}
+        expandedSection={expandedSection}
+        locale={locale}
+        c={c}
+        sanitize={memoSanitize}
+        t={t}
+        onReadMore={handleReadMoreClick}
+        onOpenLightbox={handleOpenLightbox}
+        bgStyle={bgStyle(miejsceSection)}
+      />
 
-            <div
-              className="story-text-block"
-              dangerouslySetInnerHTML={{ __html: memoSanitize(c(miejsceSection, 'body') || '') }}
-            />
-
-            <button
-              type="button"
-              className="story-read-more"
-              onClick={() => handleReadMoreClick('sec3')}
-            >
-              {t('section.readMore')}
-            </button>
-          </div>
-        )}
-      </section>
-
-      <section
-        className="section bg-light relative"
-        id="kontakt"
-        style={bgStyle(stopkaSection)}
-        data-menu-font="#ffffff"
-        data-menu-logo="#ffffff"
-      >
-        <SectionBg src={stopkaSection?.bgImage || '/assets/footer.webp'} />
-        <div className="container footer-container relative z-10">
-          <div className="footer-brand reveal reveal--scale">
-            <a
-              href="#rezerwuj"
-              onClick={handleFloatingLogoClick}
-              className="footer-logo-link"
-            >
-              <img
-                src="/assets/hommm.svg"
-                alt="HOMMM"
-                className="footer-logo"
-                width={168}
-                height={119}
-              />
-            </a>
-
-            <div className="footer-nav-group">
-              <a
-                href="#koncept"
-                className="footer-nav-link"
-                onClick={(event) => handleFooterNavClick(event, 'koncept')}
-              >
-                {c(stopkaSection, 'koncept_label') || t('menu.koncept').toUpperCase()}
-              </a>
-
-              <button
-                type="button"
-                className="footer-nav-link"
-                onClick={() => {
-                  navigateTo('miejsca');
-                  scrollToHeroStart();
-                }}
-              >
-                {c(stopkaSection, 'miejsca_label') || t('menu.miejsca').toUpperCase()}
-              </button>
-
-              <button
-                type="button"
-                className="footer-nav-link"
-                onClick={() => {
-                  navigateTo('rezerwuj');
-                  scrollToHeroStart();
-                }}
-              >
-                {c(stopkaSection, 'rezerwuj_label') || t('menu.rezerwuj').toUpperCase()}
-              </button>
-            </div>
-          </div>
-
-          <div className="footer-grid">
-            <div
-              className="footer-column footer-column--corporate reveal reveal--up"
-              style={{ '--reveal-delay': '100ms' } as React.CSSProperties}
-            >
-              <h3 className="footer-column__title">{c(stopkaSection, 'corporate_title') || t('footer.corporate')}</h3>
-              <div className="footer-column__content">
-                <p>{settings.companyName}</p>
-                <p>{settings.companyAddress}</p>
-                <p>NIP {settings.companyNip}</p>
-              </div>
-            </div>
-
-            <div
-              className="footer-column footer-column--contact reveal reveal--up"
-              style={{ '--reveal-delay': '200ms' } as React.CSSProperties}
-            >
-              <h3 className="footer-column__title">{c(stopkaSection, 'contact_title') || t('footer.contact')}</h3>
-              <div className="footer-column__content footer-contact">
-                <a
-                  href={`mailto:${settings.contactEmail}`}
-                  className="footer-contact__link"
-                >
-                  <MailIcon />
-                  <span>{settings.contactEmail}</span>
-                </a>
-
-                <a href={`tel:${settings.contactPhone}`} className="footer-contact__link">
-                  <PhoneIcon />
-                  <span>{settings.contactPhone.replace('+48 ', '')}</span>
-                </a>
-
-                <div className="footer-socials">
-                  {settings.socialInstagram && (
-                    <a
-                      href={settings.socialInstagram}
-                      aria-label="Instagram"
-                      className="footer-socials__link"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      <InstagramIcon />
-                      <span>Instagram</span>
-                    </a>
-                  )}
-                  {settings.socialTiktok && (
-                    <a
-                      href={settings.socialTiktok}
-                      aria-label="TikTok"
-                      className="footer-socials__link"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      <TikTokIcon />
-                      <span>TikTok</span>
-                    </a>
-                  )}
-                  {settings.socialFacebook && (
-                    <a
-                      href={settings.socialFacebook}
-                      aria-label="Facebook"
-                      className="footer-socials__link"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      <FacebookIcon />
-                      <span>Facebook</span>
-                    </a>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="footer-banner">
-          <Image
-            src="/assets/baner.webp"
-            alt="Baner stopki"
-            width={1920}
-            height={400}
-            className="footer-banner__img"
-          />
-        </div>
-      </section>
+      <FooterSection
+        settings={settings}
+        stopkaSection={stopkaSection}
+        locale={locale}
+        c={c}
+        t={t}
+        onLogoClick={handleFloatingLogoClick}
+        onNavigatePlaces={() => { navigateTo('miejsca'); scrollToHeroStart(); }}
+        onNavigateReservation={() => { navigateTo('rezerwuj'); scrollToHeroStart(); }}
+        bgStyle={bgStyle(stopkaSection)}
+      />
 
       {lightboxSection && (() => {
-        const dbSection = lightboxSection === 'sec2' ? konceptSection : miejsceSection;
-        const gallery = (dbSection?.galleryImages && dbSection.galleryImages.length > 0)
-          ? dbSection.galleryImages
-          : GALLERY_FALLBACK[lightboxSection] || [];
+        const sectionData = lightboxSection === 'sec2' ? konceptSection : miejsceSection;
+        const gallery = getGalleryWithFallback(sectionData, lightboxSection);
         return (
           <Lightbox
             images={gallery}
