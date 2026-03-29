@@ -1,5 +1,6 @@
 'use server';
 
+import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/db';
 import { verifySession, unauthorized } from '@/lib/auth';
 import { sanitizeHtml } from '@/lib/sanitize';
@@ -92,6 +93,8 @@ export async function updateContent(slug: string, data: UpdateContentData) {
     where: { id: section.id },
     data: updateData,
   });
+
+  revalidatePath('/');
 
   return { success: true, section: updated };
 }
