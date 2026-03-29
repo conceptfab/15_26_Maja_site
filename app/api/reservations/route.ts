@@ -68,8 +68,8 @@ export async function POST(request: Request) {
         const overlapping = await tx.reservation.findFirst({
           where: {
             status: { notIn: ['CANCELLED'] },
-            checkIn: { lte: checkOut },
-            checkOut: { gte: checkIn },
+            checkIn: { lt: checkOut },
+            checkOut: { gt: checkIn },
           },
         });
 
@@ -145,7 +145,9 @@ export async function POST(request: Request) {
         sendEmail({ to: guestEmail, ...guestTmpl }),
         sendEmail({ to: adminAddress, ...adminTmpl }),
       ]);
-    }).catch(() => {});
+    }).catch((err) => {
+      console.error('[reservations] Błąd wysyłki emaili potwierdzenia:', err);
+    });
 
     return NextResponse.json(
       { success: true, id: reservation.id },

@@ -19,6 +19,7 @@ import {
   updateImageAlt,
   updateImageSection,
 } from '@/actions/gallery';
+import { InfoTooltip } from '@/components/ui/info-tooltip';
 
 type GalleryImage = {
   id: string;
@@ -318,7 +319,7 @@ export function GalleryManager({ initialImages, sections }: Props) {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="altPl">Alt text (PL)</Label>
+                <Label htmlFor="altPl" className="flex items-center gap-1.5">Alt text (PL) <InfoTooltip text="Opis obrazka dla SEO i dostępności. Opisz co widać na zdjęciu (do 125 znaków)." /></Label>
                 <Input
                   id="altPl"
                   name="altPl"
@@ -328,7 +329,7 @@ export function GalleryManager({ initialImages, sections }: Props) {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="altEn">Alt text (EN)</Label>
+                <Label htmlFor="altEn" className="flex items-center gap-1.5">Alt text (EN) <InfoTooltip text="Opis obrazka dla SEO i dostępności. Opisz co widać na zdjęciu (do 125 znaków)." /></Label>
                 <Input
                   id="altEn"
                   name="altEn"

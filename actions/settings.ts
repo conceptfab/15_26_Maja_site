@@ -1,8 +1,9 @@
 'use server';
 
 import { prisma } from '@/lib/db';
-import { verifySession } from '@/lib/auth';
+import { verifySession, unauthorized } from '@/lib/auth';
 import { z } from 'zod';
+import { extractZodError } from '@/lib/validations';
 
 // --- Typy ---
 
@@ -87,40 +88,21 @@ export async function getSettings(): Promise<SiteSettingsMap> {
     map[row.key] = row.value;
   }
 
-  return {
-    pricePerNight: typeof map.pricePerNight === 'number' ? map.pricePerNight : DEFAULTS.pricePerNight,
-    priceWeekend: typeof map.priceWeekend === 'number' ? map.priceWeekend : DEFAULTS.priceWeekend,
-    priceSeasonHigh: typeof map.priceSeasonHigh === 'number' ? map.priceSeasonHigh : DEFAULTS.priceSeasonHigh,
-    priceSeasonLow: typeof map.priceSeasonLow === 'number' ? map.priceSeasonLow : DEFAULTS.priceSeasonLow,
-    seasonHighStart: typeof map.seasonHighStart === 'string' ? map.seasonHighStart : DEFAULTS.seasonHighStart,
-    seasonHighEnd: typeof map.seasonHighEnd === 'string' ? map.seasonHighEnd : DEFAULTS.seasonHighEnd,
-    minNights: typeof map.minNights === 'number' ? map.minNights : DEFAULTS.minNights,
-    minNightsWeekend: typeof map.minNightsWeekend === 'number' ? map.minNightsWeekend : DEFAULTS.minNightsWeekend,
-    longStayDiscount: typeof map.longStayDiscount === 'number' ? map.longStayDiscount : DEFAULTS.longStayDiscount,
-    longStayThreshold: typeof map.longStayThreshold === 'number' ? map.longStayThreshold : DEFAULTS.longStayThreshold,
-    maxGuests: typeof map.maxGuests === 'number' ? map.maxGuests : DEFAULTS.maxGuests,
-    contactEmail: typeof map.contactEmail === 'string' ? map.contactEmail : DEFAULTS.contactEmail,
-    contactPhone: typeof map.contactPhone === 'string' ? map.contactPhone : DEFAULTS.contactPhone,
-    socialInstagram: typeof map.socialInstagram === 'string' ? map.socialInstagram : DEFAULTS.socialInstagram,
-    socialFacebook: typeof map.socialFacebook === 'string' ? map.socialFacebook : DEFAULTS.socialFacebook,
-    socialTiktok: typeof map.socialTiktok === 'string' ? map.socialTiktok : DEFAULTS.socialTiktok,
-    companyName: typeof map.companyName === 'string' ? map.companyName : DEFAULTS.companyName,
-    companyAddress: typeof map.companyAddress === 'string' ? map.companyAddress : DEFAULTS.companyAddress,
-    companyNip: typeof map.companyNip === 'string' ? map.companyNip : DEFAULTS.companyNip,
-    depositPercent: typeof map.depositPercent === 'number' ? map.depositPercent : DEFAULTS.depositPercent,
-  };
+  const merged = { ...DEFAULTS, ...map };
+  const parsed = settingsSchema.safeParse(merged);
+  return parsed.success ? parsed.data : DEFAULTS;
 }
 
 export async function updateSettings(data: Partial<SiteSettingsMap>) {
   const session = await verifySession();
-  if (!session) return { error: 'Brak autoryzacji' };
+  if (!session) return unauthorized();
 
   // Pobierz aktualne i scal
   const current = await getSettings();
   const merged = { ...current, ...data };
 
   const parsed = settingsSchema.safeParse(merged);
-  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  if (!parsed.success) return { error: extractZodError(parsed.error) };
 
   // Upsert każdy klucz
   const entries = Object.entries(parsed.data) as [string, unknown][];
@@ -151,7 +133,7 @@ export async function getAdminWhitelist() {
 
 export async function addAdmin(email: string, name?: string) {
   const session = await verifySession();
-  if (!session) return { error: 'Brak autoryzacji' };
+  if (!session) return unauthorized();
 
   const emailSchema = z.string().email();
   if (!emailSchema.safeParse(email).success) return { error: 'Nieprawidłowy email' };
@@ -168,7 +150,7 @@ export async function addAdmin(email: string, name?: string) {
 
 export async function removeAdmin(id: string) {
   const session = await verifySession();
-  if (!session) return { error: 'Brak autoryzacji' };
+  if (!session) return unauthorized();
 
   // Nie pozwól usunąć samego siebie
   if (session.admin.id === id) return { error: 'Nie można usunąć samego siebie' };

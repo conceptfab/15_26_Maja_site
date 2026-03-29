@@ -1,6 +1,7 @@
 'use server';
 
 import { z } from 'zod';
+import { extractZodError } from '@/lib/validations';
 import { prisma } from '@/lib/db';
 import { verifySession, unauthorized } from '@/lib/auth';
 import { CONFIRMED_STATUSES } from '@/lib/reservation-status';
@@ -158,7 +159,7 @@ export async function updateClient(id: string, data: {
 
   const parsed = updateClientSchema.safeParse(data);
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? 'Nieprawidłowe dane' };
+    return { error: extractZodError(parsed.error) };
   }
 
   await prisma.client.update({

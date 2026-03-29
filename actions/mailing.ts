@@ -2,7 +2,7 @@
 
 import crypto from 'crypto';
 import { prisma } from '@/lib/db';
-import { verifySession } from '@/lib/auth';
+import { verifySession, unauthorized } from '@/lib/auth';
 import { type TemplateKey, type EmailTemplate, type EmailTemplatesMap, interpolate, SAMPLE_VARS } from '@/lib/email-template-defaults';
 import { getEmailTemplates, getMailingLogoUrl } from '@/lib/email-templates';
 import { sendEmail, emailLayout } from '@/lib/mail';
@@ -13,7 +13,7 @@ const LOGO_KEY = 'mailingLogoUrl';
 
 export async function updateMailingLogoUrl(url: string) {
   const session = await verifySession();
-  if (!session) return { error: 'Brak autoryzacji' };
+  if (!session) return unauthorized();
 
   if (!url.startsWith('https://') && !url.startsWith('/')) {
     return { error: 'URL musi zaczynać się od https:// lub /' };
@@ -29,7 +29,7 @@ export async function updateMailingLogoUrl(url: string) {
 
 export async function updateEmailTemplate(key: TemplateKey, template: EmailTemplate) {
   const session = await verifySession();
-  if (!session) return { error: 'Brak autoryzacji' };
+  if (!session) return unauthorized();
 
   const existing = await getEmailTemplates();
   const updated: EmailTemplatesMap = { ...existing, [key]: template };
@@ -45,7 +45,7 @@ export async function updateEmailTemplate(key: TemplateKey, template: EmailTempl
 
 export async function sendTestEmail(key: TemplateKey) {
   const session = await verifySession();
-  if (!session) return { error: 'Brak autoryzacji' };
+  if (!session) return unauthorized();
 
   const settings = await getSettings();
   const templates = await getEmailTemplates();

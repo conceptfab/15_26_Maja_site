@@ -1,5 +1,13 @@
 import { z } from 'zod';
 
+/** Wspólny regex walidacji numeru telefonu */
+export const PHONE_REGEX = /^\+?[\d\s\-()]{9,15}$/;
+
+/** Wyciąga czytelny komunikat błędu z wyniku safeParse */
+export function extractZodError(error: z.ZodError): string {
+  return error.issues[0]?.message ?? 'Nieprawidłowe dane';
+}
+
 export const loginSchema = z.object({
   email: z.string().email('Nieprawidłowy adres email'),
   secretCode: z.string().min(1, 'Kod jest wymagany'),
@@ -12,7 +20,7 @@ export type LoginInput = z.infer<typeof loginSchema>;
 export const reservationSchema = z.object({
   guestName: z.string().min(2, 'Imię i nazwisko jest wymagane').max(100, 'Imię zbyt długie'),
   guestEmail: z.string().email('Nieprawidłowy adres email').max(200),
-  guestPhone: z.string().min(9, 'Nieprawidłowy numer telefonu').max(20, 'Numer zbyt długi').regex(/^[\d\s+()-]+$/, 'Nieprawidłowy format numeru'),
+  guestPhone: z.string().min(9, 'Nieprawidłowy numer telefonu').max(20, 'Numer zbyt długi').regex(PHONE_REGEX, 'Nieprawidłowy format numeru'),
   checkIn: z.coerce.date(),
   checkOut: z.coerce.date(),
   guests: z.number().int().min(1).max(6),

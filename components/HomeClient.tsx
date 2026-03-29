@@ -125,7 +125,7 @@ export function HomeClient({ sections: initialSections, settings, pricingRules =
       cache.set(html, result);
       return result;
     };
-  }, [sections, locale]);
+  }, []);
 
   const [hasScrolled, setHasScrolled] = useState(false);
   const [expandedSection, setExpandedSection] =
@@ -165,14 +165,14 @@ export function HomeClient({ sections: initialSections, settings, pricingRules =
   const checkOutLabel = checkOut
     ? format(checkOut, 'd.MM.yyyy', { locale: dateLocale })
     : '--.--.----';
-  const today = useRef(new Date()).current;
+  const today = useMemo(() => new Date(), []);
 
   // Helper: pobierz treść wg języka
-  const c = (section: SectionContent | undefined, field: string): string => {
+  const c = useCallback((section: SectionContent | undefined, field: string): string => {
     if (!section) return '';
     const content = locale === 'pl' ? section.contentPl : section.contentEn;
     return content[field] ?? '';
-  };
+  }, [locale]);
 
   const heroSection = getSectionBySlug(sections, 'hero');
   const konceptSection = getSectionBySlug(sections, 'koncept');
@@ -188,16 +188,17 @@ export function HomeClient({ sections: initialSections, settings, pricingRules =
   };
 
   // Shortcut for reservation texts — DB first, i18n fallback
-  const r = (field: string): string => {
+  const r = useCallback((field: string): string => {
     const fromDb = c(rezerwacjaSection, field);
     return fromDb || t(`reservation.${field}`);
-  };
+  }, [c, rezerwacjaSection, t]);
 
   // Widok MIEJSCA — tytuł/opisy z sekcji 'miejsce' (nowe pola), fallback do rezerwacja
-  const mw = (field: string): string =>
-    c(miejsceSection, `miejsca_${field}`) || c(rezerwacjaSection, field) || t(`reservation.${field}`);
+  const mw = useCallback((field: string): string =>
+    c(miejsceSection, `miejsca_${field}`) || c(rezerwacjaSection, field) || t(`reservation.${field}`),
+  [c, miejsceSection, rezerwacjaSection, t]);
 
-  const getNightLabel = (n: number) => {
+  const getNightLabel = useCallback((n: number) => {
     if (n === 1) return r('night_one');
     const mod10 = n % 10;
     const mod100 = n % 100;
@@ -205,7 +206,7 @@ export function HomeClient({ sections: initialSections, settings, pricingRules =
       return r('night_few');
     }
     return r('night_many');
-  };
+  }, [r]);
 
   const scrollToHeroStart = () => {
     document

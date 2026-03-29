@@ -1,8 +1,9 @@
 'use server';
 
 import { prisma } from '@/lib/db';
-import { verifySession } from '@/lib/auth';
+import { verifySession, unauthorized } from '@/lib/auth';
 import { z } from 'zod';
+import { extractZodError } from '@/lib/validations';
 
 // --- Typy ---
 
@@ -64,7 +65,7 @@ function buildTree(pages: (PageNode & { children?: PageNode[] })[]): PageNode[] 
 
 export async function getPageTree(): Promise<PageNode[] | { error: string }> {
   const session = await verifySession();
-  if (!session) return { error: 'Brak autoryzacji' };
+  if (!session) return unauthorized();
 
   const pages = await prisma.page.findMany({
     orderBy: { order: 'asc' },
@@ -85,7 +86,7 @@ export type SectionNode = {
 
 export async function getSectionsForGraph(): Promise<SectionNode[] | { error: string }> {
   const session = await verifySession();
-  if (!session) return { error: 'Brak autoryzacji' };
+  if (!session) return unauthorized();
 
   return prisma.section.findMany({
     orderBy: { order: 'asc' },
@@ -95,7 +96,7 @@ export async function getSectionsForGraph(): Promise<SectionNode[] | { error: st
 
 export async function getPageFlat() {
   const session = await verifySession();
-  if (!session) return { error: 'Brak autoryzacji' };
+  if (!session) return unauthorized();
 
   return prisma.page.findMany({
     orderBy: { order: 'asc' },
@@ -105,10 +106,10 @@ export async function getPageFlat() {
 
 export async function createPage(data: z.infer<typeof createPageSchema>) {
   const session = await verifySession();
-  if (!session) return { error: 'Brak autoryzacji' };
+  if (!session) return unauthorized();
 
   const parsed = createPageSchema.safeParse(data);
-  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  if (!parsed.success) return { error: extractZodError(parsed.error) };
 
   const { title, slug, parentId, isVisible } = parsed.data;
 
@@ -142,10 +143,10 @@ export async function createPage(data: z.infer<typeof createPageSchema>) {
 
 export async function updatePage(id: string, data: z.infer<typeof updatePageSchema>) {
   const session = await verifySession();
-  if (!session) return { error: 'Brak autoryzacji' };
+  if (!session) return unauthorized();
 
   const parsed = updatePageSchema.safeParse(data);
-  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  if (!parsed.success) return { error: extractZodError(parsed.error) };
 
   const page = await prisma.page.findUnique({ where: { id } });
   if (!page) return { error: 'Strona nie znaleziona' };
@@ -193,7 +194,7 @@ export async function updatePage(id: string, data: z.infer<typeof updatePageSche
 
 export async function deletePage(id: string) {
   const session = await verifySession();
-  if (!session) return { error: 'Brak autoryzacji' };
+  if (!session) return unauthorized();
 
   const page = await prisma.page.findUnique({
     where: { id },
@@ -219,7 +220,7 @@ export async function deletePage(id: string) {
 
 export async function reorderPages(updates: { id: string; order: number; parentId: string | null }[]) {
   const session = await verifySession();
-  if (!session) return { error: 'Brak autoryzacji' };
+  if (!session) return unauthorized();
 
   // Batch update w transakcji
   await prisma.$transaction(

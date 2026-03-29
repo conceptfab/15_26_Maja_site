@@ -14,7 +14,14 @@ export async function GET(request: NextRequest) {
 
   try {
     const [reservations, pages, sections, settings] = await Promise.all([
-      prisma.reservation.findMany({ orderBy: { createdAt: 'desc' }, take: 500 }),
+      prisma.reservation.findMany({
+        orderBy: { createdAt: 'desc' },
+        take: 500,
+        select: {
+          id: true, guestName: true, guestEmail: true, checkIn: true, checkOut: true,
+          nights: true, guests: true, totalPrice: true, status: true, createdAt: true,
+        },
+      }),
       prisma.page.findMany({ orderBy: { order: 'asc' } }),
       prisma.section.findMany({ orderBy: { order: 'asc' }, select: { id: true, slug: true, pageId: true, titlePl: true, order: true } }),
       prisma.siteSettings.findMany(),
@@ -47,8 +54,8 @@ export async function GET(request: NextRequest) {
            <p>Rezerwacji: ${reservations.length}, Stron: ${pages.length}, Sekcji: ${sections.length}</p>
            <details><summary>Dane JSON</summary><pre style="font-size:11px;max-height:600px;overflow:auto">${safeJson}</pre></details>`,
         });
-      } catch {
-        // Email opcjonalny — nie blokuj eksportu
+      } catch (err) {
+        console.error('[cron/export] Błąd wysyłki emaila eksportu:', err);
       }
     }
 

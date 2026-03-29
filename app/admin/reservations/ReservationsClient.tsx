@@ -19,9 +19,7 @@ import {
 } from '@/components/ui/table';
 import { format } from 'date-fns';
 import { Trash2 } from 'lucide-react';
-import { getStatusInfo, STATUS_CONFIG } from '@/lib/reservation-status';
-
-const DELETABLE_STATUSES = ['CANCELLED', 'PENDING', 'DEPOSIT_PAID', 'PAID'];
+import { getStatusInfo, STATUS_CONFIG, DELETABLE_STATUSES } from '@/lib/reservation-status';
 
 const STATUS_OPTIONS = [
   { value: '', label: 'Wszystkie statusy' },

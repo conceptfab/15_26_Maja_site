@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useLocale } from '@/lib/i18n';
+import { PHONE_REGEX } from '@/lib/validations';
 import { XIcon } from 'lucide-react';
 
 type ReservationModalProps = {
@@ -46,13 +47,12 @@ export function ReservationModal({
   const markTouched = (field: string) =>
     setTouched((prev) => ({ ...prev, [field]: true }));
 
-  const PHONE_RE = /^\+?[\d\s\-()]{9,15}$/;
   const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
   const errors = {
     name: name.length < 2 ? t('reservation.modal.err_name') : '',
     email: !EMAIL_RE.test(email) ? t('reservation.modal.err_email') : '',
-    phone: !PHONE_RE.test(phone) ? t('reservation.modal.err_phone') : '',
+    phone: !PHONE_REGEX.test(phone) ? t('reservation.modal.err_phone') : '',
   };
 
   const handleClose = useCallback(() => {

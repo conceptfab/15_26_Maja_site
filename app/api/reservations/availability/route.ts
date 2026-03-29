@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { toDateString } from '@/lib/date-utils';
 
 export async function GET(request: Request) {
   try {
@@ -12,7 +13,7 @@ export async function GET(request: Request) {
     const maxEnd = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
     const requestedEnd = to
       ? new Date(to)
-      : new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
+      : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
     const endDate = requestedEnd > maxEnd ? maxEnd : requestedEnd;
 
     // Rezerwacje aktywne w tym okresie
@@ -41,11 +42,11 @@ export async function GET(request: Request) {
 
     return NextResponse.json({
       reservations: reservations.map((r) => ({
-        checkIn: r.checkIn.toISOString().split('T')[0],
-        checkOut: r.checkOut.toISOString().split('T')[0],
+        checkIn: toDateString(r.checkIn),
+        checkOut: toDateString(r.checkOut),
       })),
       blockedDates: blockedDates.map((b) => ({
-        date: b.date.toISOString().split('T')[0],
+        date: toDateString(b.date),
         reason: b.reason,
       })),
     });

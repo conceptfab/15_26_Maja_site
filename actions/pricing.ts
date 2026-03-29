@@ -1,8 +1,10 @@
 'use server';
 
 import { prisma } from '@/lib/db';
-import { verifySession } from '@/lib/auth';
+import { verifySession, unauthorized } from '@/lib/auth';
+import { toDateString } from '@/lib/date-utils';
 import { z } from 'zod';
+import { extractZodError } from '@/lib/validations';
 
 // --- Typy ---
 
@@ -41,8 +43,8 @@ export async function getPricingRules(): Promise<PricingRule[]> {
   return rules.map((r) => ({
     id: r.id,
     label: r.label,
-    dateFrom: r.dateFrom.toISOString().split('T')[0],
-    dateTo: r.dateTo.toISOString().split('T')[0],
+    dateFrom: toDateString(r.dateFrom),
+    dateTo: toDateString(r.dateTo),
     pricePerNight: r.pricePerNight,
     isActive: r.isActive,
   }));
@@ -65,10 +67,10 @@ export async function createPricingRule(data: {
   pricePerNight: number;
 }) {
   const session = await verifySession();
-  if (!session) return { error: 'Brak autoryzacji' };
+  if (!session) return unauthorized();
 
   const parsed = pricingRuleSchema.safeParse(data);
-  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  if (!parsed.success) return { error: extractZodError(parsed.error) };
 
   const rule = await prisma.pricingRule.create({
     data: {
@@ -94,21 +96,21 @@ export async function updatePricingRule(
   },
 ) {
   const session = await verifySession();
-  if (!session) return { error: 'Brak autoryzacji' };
+  if (!session) return unauthorized();
 
   const existing = await prisma.pricingRule.findUnique({ where: { id } });
   if (!existing) return { error: 'Reguła nie znaleziona' };
 
   const merged = {
     label: data.label ?? existing.label,
-    dateFrom: data.dateFrom ?? existing.dateFrom.toISOString().split('T')[0],
-    dateTo: data.dateTo ?? existing.dateTo.toISOString().split('T')[0],
+    dateFrom: data.dateFrom ?? toDateString(existing.dateFrom),
+    dateTo: data.dateTo ?? toDateString(existing.dateTo),
     pricePerNight: data.pricePerNight ?? existing.pricePerNight,
     isActive: data.isActive ?? existing.isActive,
   };
 
   const parsed = pricingRuleSchema.safeParse(merged);
-  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  if (!parsed.success) return { error: extractZodError(parsed.error) };
 
   await prisma.pricingRule.update({
     where: { id },
@@ -126,7 +128,7 @@ export async function updatePricingRule(
 
 export async function deletePricingRule(id: string) {
   const session = await verifySession();
-  if (!session) return { error: 'Brak autoryzacji' };
+  if (!session) return unauthorized();
 
   await prisma.pricingRule.delete({ where: { id } });
   return { success: true };

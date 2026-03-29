@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import { InfoTooltip } from '@/components/ui/info-tooltip';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { type GlobalSeoData, updateGlobalSeo, updateLlmsTxt } from '@/actions/seo';
 
@@ -74,7 +75,7 @@ export function SeoForm({ initialData, initialLlmsTxt }: Props) {
           <CardContent className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label>Tytuł (PL)</Label>
+                <Label>Tytuł (PL) <InfoTooltip text="Nagłówek strony w Google (max ~60 znaków). Powinien zawierać słowa kluczowe." /></Label>
                 <Input
                   value={data.defaultTitlePl}
                   onChange={(e) => handleChange('defaultTitlePl', e.target.value)}
@@ -82,7 +83,7 @@ export function SeoForm({ initialData, initialLlmsTxt }: Props) {
                 <CharCount value={data.defaultTitlePl} max={60} warn={70} />
               </div>
               <div className="space-y-2">
-                <Label>Tytuł (EN)</Label>
+                <Label>Tytuł (EN) <InfoTooltip text="Nagłówek strony w Google (max ~60 znaków). Powinien zawierać słowa kluczowe." /></Label>
                 <Input
                   value={data.defaultTitleEn}
                   onChange={(e) => handleChange('defaultTitleEn', e.target.value)}
@@ -92,7 +93,7 @@ export function SeoForm({ initialData, initialLlmsTxt }: Props) {
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label>Opis (PL)</Label>
+                <Label>Opis (PL) <InfoTooltip text="Opis pod tytułem w Google (max ~160 znaków). Zachęcający do kliknięcia." /></Label>
                 <Textarea
                   rows={3}
                   value={data.defaultDescriptionPl}
@@ -101,7 +102,7 @@ export function SeoForm({ initialData, initialLlmsTxt }: Props) {
                 <CharCount value={data.defaultDescriptionPl} max={160} warn={180} />
               </div>
               <div className="space-y-2">
-                <Label>Opis (EN)</Label>
+                <Label>Opis (EN) <InfoTooltip text="Opis pod tytułem w Google (max ~160 znaków). Zachęcający do kliknięcia." /></Label>
                 <Textarea
                   rows={3}
                   value={data.defaultDescriptionEn}
@@ -125,7 +126,7 @@ export function SeoForm({ initialData, initialLlmsTxt }: Props) {
               />
             </div>
             <div className="space-y-2">
-              <Label>OG Image URL</Label>
+              <Label>OG Image URL <InfoTooltip text="URL obrazka przy udostępnianiu na social media. Min. 1200x630px." /></Label>
               <Input
                 value={data.ogImageUrl}
                 onChange={(e) => handleChange('ogImageUrl', e.target.value)}
@@ -133,7 +134,7 @@ export function SeoForm({ initialData, initialLlmsTxt }: Props) {
               />
             </div>
             <div className="space-y-2">
-              <Label>Custom head tags (HTML)</Label>
+              <Label>Custom head tags (HTML) <InfoTooltip text="Dodatkowy HTML w <head>. Dla zaawansowanych: skrypty analityczne, custom meta tagi." /></Label>
               <Textarea
                 rows={4}
                 value={data.customHeadTags}

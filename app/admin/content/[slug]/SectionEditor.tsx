@@ -15,6 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { jsonToRecord } from '@/lib/json-utils';
 import { RichTextEditor } from '@/components/admin/RichTextEditor';
+import { InfoTooltip } from '@/components/ui/info-tooltip';
 import { SectionGalleryEditor } from '@/components/admin/SectionGalleryEditor';
 
 type SectionData = {
@@ -331,7 +332,7 @@ export function SectionEditor({ section, galleryImages }: Props) {
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="space-y-1.5">
-                <Label htmlFor="bgImage">Obraz tła (URL)</Label>
+                <Label htmlFor="bgImage" className="flex items-center gap-1.5">Obraz tła (URL) <InfoTooltip text="URL tła sekcji. Użyj przycisku 'Galeria' lub wklej zewnętrzny URL. Min. 1920x1080px." /></Label>
                 <div className="flex gap-2">
                   <Input
                     id="bgImage"
@@ -395,7 +396,7 @@ export function SectionEditor({ section, galleryImages }: Props) {
                 )}
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="bgColor">Kolor tła</Label>
+                <Label htmlFor="bgColor" className="flex items-center gap-1.5">Kolor tła <InfoTooltip text="Kolor tła gdy brak obrazu. Format hex (#RRGGBB) np. #1a1a1a." /></Label>
                 <div className="flex gap-2">
                   <Input
                     id="bgColor"

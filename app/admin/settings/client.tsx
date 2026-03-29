@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { updateSettings, addAdmin, removeAdmin, type SiteSettingsMap } from '@/actions/settings';
+import { InfoTooltip } from '@/components/ui/info-tooltip';
 
 type AdminRow = {
   id: string;
@@ -75,6 +76,7 @@ export function SettingsClient({ initialSettings, initialAdmins }: Props) {
         <div className="grid grid-cols-2 gap-4">
           <label className="block text-sm">
             Maksymalna liczba gości
+            <InfoTooltip text="Limit osób na jedną rezerwację. Formularz rezerwacji nie pozwoli przekroczyć tej wartości." />
             <Input
               type="number"
               min="1"
@@ -87,6 +89,7 @@ export function SettingsClient({ initialSettings, initialAdmins }: Props) {
 
           <label className="block text-sm">
             Min. liczba nocy
+            <InfoTooltip text="Minimalna długość pobytu. Np. 2 = nie można zarezerwować na jedną noc." />
             <Input
               type="number"
               min="1"
@@ -124,6 +127,7 @@ export function SettingsClient({ initialSettings, initialAdmins }: Props) {
 
         <label className="block text-sm">
           Instagram (URL)
+            <InfoTooltip text="Pełny URL profilu. Pojawi się jako ikona w stopce strony." />
           <Input
             value={settings.socialInstagram}
             onChange={(e) => setSettings({ ...settings, socialInstagram: e.target.value })}
@@ -159,6 +163,7 @@ export function SettingsClient({ initialSettings, initialAdmins }: Props) {
 
         <label className="block text-sm">
           Nazwa firmy
+            <InfoTooltip text="Oficjalna nazwa firmy. Widoczna w emailach i meta tagach." />
           <Input
             value={settings.companyName}
             onChange={(e) => setSettings({ ...settings, companyName: e.target.value })}
@@ -177,6 +182,7 @@ export function SettingsClient({ initialSettings, initialAdmins }: Props) {
 
         <label className="block text-sm">
           NIP
+            <InfoTooltip text="NIP do faktur. Może być pusty dla osób fizycznych." />
           <Input
             value={settings.companyNip}
             onChange={(e) => setSettings({ ...settings, companyNip: e.target.value })}

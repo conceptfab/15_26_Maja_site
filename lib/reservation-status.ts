@@ -60,4 +60,7 @@ export const STATUS_BORDER_COLORS: Record<ReservationStatusKey, string> = {
   CANCELLED: 'border-red-400',
 };
 
+/** Statusy pozwalające na usunięcie rezerwacji */
+export const DELETABLE_STATUSES: readonly ReservationStatusKey[] = ['CANCELLED', 'PENDING', 'DEPOSIT_PAID', 'PAID'] as const;
+
 export const MONTH_NAMES = ['Sty', 'Lut', 'Mar', 'Kwi', 'Maj', 'Cze', 'Lip', 'Sie', 'Wrz', 'Paź', 'Lis', 'Gru'] as const;

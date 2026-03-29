@@ -11,7 +11,8 @@ import {
 } from '@/lib/mail';
 import { format, differenceInCalendarDays } from 'date-fns';
 import { z } from 'zod';
-import type { ReservationStatus } from '@/lib/validations';
+import { extractZodError, type ReservationStatus } from '@/lib/validations';
+import { DELETABLE_STATUSES } from '@/lib/reservation-status';
 
 const updateReservationSchema = z.object({
   checkIn: z.string().optional(),
@@ -55,6 +56,21 @@ export async function getReservations(filters: ReservationFilters = {}) {
   const [reservations, total] = await Promise.all([
     prisma.reservation.findMany({
       where,
+      select: {
+        id: true,
+        guestName: true,
+        guestEmail: true,
+        guestPhone: true,
+        checkIn: true,
+        checkOut: true,
+        status: true,
+        totalPrice: true,
+        nights: true,
+        guests: true,
+        comment: true,
+        createdAt: true,
+        updatedAt: true,
+      },
       orderBy: { [orderByColumn]: orderByDir },
       skip: (page - 1) * perPage,
       take: perPage,
@@ -132,9 +148,13 @@ export async function updateReservationStatus(id: string, status: ReservationSta
   // Email do gościa o zmianie statusu
   buildStatusChangeEmail(updated.guestName, status).then((emailContent) => {
     if (emailContent) {
-      sendEmail({ to: updated.guestEmail, ...emailContent }).catch(() => {});
+      sendEmail({ to: updated.guestEmail, ...emailContent }).catch((err) => {
+        console.error('[reservations] Błąd wysyłki emaila statusu:', err);
+      });
     }
-  }).catch(() => {});
+  }).catch((err) => {
+    console.error('[reservations] Błąd budowania emaila statusu:', err);
+  });
 
   return { success: true, reservation: updated };
 }
@@ -147,7 +167,7 @@ export async function updateReservation(
   if (!session) return unauthorized();
 
   const parsed = updateReservationSchema.safeParse(data);
-  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? 'Nieprawidłowe dane' };
+  if (!parsed.success) return { error: extractZodError(parsed.error) };
 
   const reservation = await prisma.reservation.findUnique({ where: { id } });
   if (!reservation) return { error: 'Rezerwacja nie znaleziona' };
@@ -170,8 +190,8 @@ export async function updateReservation(
     where: {
       id: { not: id },
       status: { notIn: ['CANCELLED'] },
-      checkIn: { lte: checkOut },
-      checkOut: { gte: checkIn },
+      checkIn: { lt: checkOut },
+      checkOut: { gt: checkIn },
     },
   });
 
@@ -328,8 +348,6 @@ export async function sendGuestEmail(reservationId: string, templateType: EmailT
     return { error: 'Wystąpił błąd przy wysyłaniu emaila' };
   }
 }
-
-const DELETABLE_STATUSES = ['CANCELLED', 'PENDING', 'DEPOSIT_PAID', 'PAID'];
 
 export async function deleteReservation(id: string) {
   const session = await verifySession();

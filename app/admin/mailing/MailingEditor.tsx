@@ -25,6 +25,7 @@ import {
   interpolate,
 } from '@/lib/email-template-defaults';
 import { updateEmailTemplate, updateMailingLogoUrl, sendTestEmail } from '@/actions/mailing';
+import { InfoTooltip } from '@/components/ui/info-tooltip';
 import { getGalleryThumbs } from '@/actions/gallery';
 
 function buildPreviewHtml(body: string, logoUrl: string): string {
@@ -128,7 +129,7 @@ export function MailingEditor({ initialTemplates, initialLogoUrl }: Props) {
     <div className="space-y-6">
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="text-base">Logo w mailach</CardTitle>
+        <CardTitle className="text-base flex items-center gap-1.5">Logo w mailach <InfoTooltip text="Logo na górze emaili do gości. PNG/WebP, do 200px szerokości." /></CardTitle>
       </CardHeader>
       <CardContent className="flex items-center gap-4">
         <div className="w-20 h-20 rounded border border-border bg-muted flex items-center justify-center overflow-hidden shrink-0">
@@ -191,7 +192,7 @@ export function MailingEditor({ initialTemplates, initialLogoUrl }: Props) {
 
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
-                      <Label>Treść (HTML)</Label>
+                      <Label className="flex items-center gap-1.5">Treść (HTML) <InfoTooltip text="HTML body emaila. Użyj zmiennych {{guestName}}, {{totalPrice}} itp. do dynamicznych danych." /></Label>
                       <Button
                         type="button"
                         size="sm"

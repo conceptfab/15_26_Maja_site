@@ -4,6 +4,11 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Natywne elementy formularzy (ikona kalendarza, strzałki number) w dark mode */
+.dark {
+  color-scheme: dark;
+}
+
 @theme inline {
     --font-heading: var(--font-sans);
     --font-sans: var(--font-sans);

@@ -34,7 +34,7 @@ const securityHeaders = [
     key: 'Content-Security-Policy',
     value: [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://use.typekit.net https://cloud.umami.is",
+      `script-src 'self' 'unsafe-inline' ${process.env.NODE_ENV === 'development' ? "'unsafe-eval'" : ''} https://use.typekit.net https://cloud.umami.is`,
       "style-src 'self' 'unsafe-inline' https://use.typekit.net",
       "font-src 'self' https://use.typekit.net",
       "img-src 'self' data: blob: https://*.public.blob.vercel-storage.com https://*.private.blob.vercel-storage.com",

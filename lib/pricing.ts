@@ -47,6 +47,74 @@ function findPricingRule(date: Date, rules: PricingRuleRange[]): PricingRuleRang
   return rules.find((r) => dayStart >= r.dateFrom && dayStart <= r.dateTo);
 }
 
+export type PriceSource = 'rule' | 'weekend' | 'seasonHigh' | 'seasonLow' | 'base';
+
+const DAY_NAMES_PL = ['Nd', 'Pn', 'Wt', 'Śr', 'Cz', 'Pt', 'So'] as const;
+
+export type NightDetail = {
+  date: Date;
+  dayName: string;
+  price: number;
+  source: PriceSource;
+  isWeekend: boolean;
+  isHighSeason: boolean;
+};
+
+/** Zwraca szczegóły cenowe dla każdej nocy pobytu */
+export function getNightDetails(
+  checkIn: Date,
+  checkOut: Date,
+  settings: PricingSettings,
+  pricingRules: PricingRuleRange[] = [],
+): NightDetail[] {
+  const details: NightDetail[] = [];
+  let current = new Date(checkIn);
+  const end = new Date(checkOut);
+
+  while (current < end) {
+    const weekend = isWeekendNight(current);
+    const highSeason = isHighSeason(current, settings.seasonHighStart, settings.seasonHighEnd);
+    const rule = findPricingRule(current, pricingRules);
+
+    let price: number;
+    let source: PriceSource;
+
+    if (rule) {
+      price = rule.pricePerNight;
+      source = 'rule';
+    } else {
+      price = settings.pricePerNight;
+      source = 'base';
+
+      if (highSeason && settings.priceSeasonHigh > 0) {
+        price = settings.priceSeasonHigh;
+        source = 'seasonHigh';
+      } else if (!highSeason && settings.priceSeasonLow > 0) {
+        price = settings.priceSeasonLow;
+        source = 'seasonLow';
+      }
+
+      if (weekend && settings.priceWeekend > 0 && settings.priceWeekend > price) {
+        price = settings.priceWeekend;
+        source = 'weekend';
+      }
+    }
+
+    details.push({
+      date: new Date(current),
+      dayName: DAY_NAMES_PL[getDay(current)],
+      price,
+      source,
+      isWeekend: weekend,
+      isHighSeason: highSeason,
+    });
+
+    current = addDays(current, 1);
+  }
+
+  return details;
+}
+
 export type PriceBreakdown = {
   totalPrice: number;
   nightPrices: number[];
@@ -90,7 +158,7 @@ export function calculatePrice(
     }
 
     if (isWeekendNight(current) && settings.priceWeekend > 0) {
-      price = settings.priceWeekend;
+      price = Math.max(price, settings.priceWeekend);
     }
 
     nights.push(price);

@@ -3,7 +3,7 @@
 import sharp from 'sharp';
 import crypto from 'crypto';
 import { prisma } from '@/lib/db';
-import { verifySession } from '@/lib/auth';
+import { verifySession, unauthorized } from '@/lib/auth';
 import { uploadToBlob, deleteFromBlob } from '@/lib/uploads';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
@@ -19,7 +19,7 @@ const ORIGINAL_QUALITY = 95; // Pełna jakość WebP dla archiwum
 export async function uploadImage(formData: FormData) {
   try {
     const session = await verifySession();
-    if (!session) return { error: 'Brak autoryzacji' };
+    if (!session) return unauthorized();
 
     const file = formData.get('file') as File | null;
     const sectionId = (formData.get('sectionId') as string) || null;
@@ -65,7 +65,7 @@ export async function uploadImage(formData: FormData) {
 
 export async function deleteImage(id: string) {
   const session = await verifySession();
-  if (!session) return { error: 'Brak autoryzacji' };
+  if (!session) return unauthorized();
 
   const image = await prisma.galleryImage.findUnique({ where: { id } });
   if (!image) return { error: 'Obraz nie znaleziony' };
@@ -82,7 +82,7 @@ export async function deleteImage(id: string) {
 
 export async function updateImageOrder(ids: string[]) {
   const session = await verifySession();
-  if (!session) return { error: 'Brak autoryzacji' };
+  if (!session) return unauthorized();
 
   await prisma.$transaction(
     ids.map((id, index) =>
@@ -101,7 +101,7 @@ export async function updateImageAlt(
   altEn: string | null,
 ) {
   const session = await verifySession();
-  if (!session) return { error: 'Brak autoryzacji' };
+  if (!session) return unauthorized();
 
   await prisma.galleryImage.update({ where: { id }, data: { altPl, altEn } });
 
@@ -116,7 +116,7 @@ export async function updateImageCaption(
   captionEn: string | null,
 ) {
   const session = await verifySession();
-  if (!session) return { error: 'Brak autoryzacji' };
+  if (!session) return unauthorized();
 
   await prisma.galleryImage.update({ where: { id }, data: { captionPl, captionEn } });
 
@@ -127,7 +127,7 @@ export async function updateImageCaption(
 
 export async function updateImageSection(id: string, sectionId: string | null) {
   const session = await verifySession();
-  if (!session) return { error: 'Brak autoryzacji' };
+  if (!session) return unauthorized();
 
   await prisma.galleryImage.update({ where: { id }, data: { sectionId } });
 
@@ -138,7 +138,7 @@ export async function updateImageSection(id: string, sectionId: string | null) {
 
 export async function getGalleryImages() {
   const session = await verifySession();
-  if (!session) return { error: 'Brak autoryzacji' };
+  if (!session) return unauthorized();
 
   return prisma.galleryImage.findMany({
     orderBy: { order: 'asc' },

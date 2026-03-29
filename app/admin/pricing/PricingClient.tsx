@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { InfoTooltip } from '@/components/ui/info-tooltip';
 import {
   createPricingRule,
   updatePricingRule,
@@ -15,6 +16,7 @@ import {
 } from '@/actions/pricing';
 import { updateSettings, type SiteSettingsMap } from '@/actions/settings';
 import { Trash2, Plus, Pencil } from 'lucide-react';
+import { calculatePrice, getNightDetails, type PricingRuleRange, type PriceSource } from '@/lib/pricing';
 
 type PricingFields = Pick<
   SiteSettingsMap,
@@ -153,34 +155,32 @@ export function PricingClient({ initialRules, initialSettings }: Props) {
     <div className="space-y-6 max-w-2xl">
       <h1 className="text-2xl font-bold">Cennik</h1>
 
+      {/* Symulator ceny — wyróżniony na górze */}
+      <PriceSimulator settings={settings} rules={rules} />
+
       {/* Cennik bazowy */}
       <section className="border border-border rounded-lg p-5 space-y-4">
         <h2 className="font-semibold">Cennik bazowy</h2>
 
         <div className="grid grid-cols-2 gap-4">
-          <label className="block text-sm">
-            Cena za noc (PLN)
-            <Input
-              type="number"
-              step="0.5"
-              min="0"
-              value={settings.pricePerNight}
-              onChange={(e) => setSettings({ ...settings, pricePerNight: parseFloat(e.target.value) || 0 })}
-              className="mt-1"
-            />
-          </label>
-
-          <label className="block text-sm">
-            Cena weekendowa (PLN) <span className="text-muted-foreground text-xs">(0 = brak)</span>
-            <Input
-              type="number"
-              step="0.5"
-              min="0"
-              value={settings.priceWeekend}
-              onChange={(e) => setSettings({ ...settings, priceWeekend: parseFloat(e.target.value) || 0 })}
-              className="mt-1"
-            />
-          </label>
+          <NumberStepper
+            label="Cena za noc (PLN)"
+            tooltip="Podstawowa cena za jedną noc. Może być nadpisana przez cenę weekendową, sezonową lub regułę z cennika dat."
+            value={settings.pricePerNight}
+            onChange={(v) => setSettings({ ...settings, pricePerNight: v })}
+            step={10}
+            min={0}
+            suffix="zł"
+          />
+          <NumberStepper
+            label="Cena weekendowa (PLN)"
+            tooltip="Cena obowiązująca w noce piątek→sobota i sobota→niedziela. Stosowana gdy jest wyższa od ceny sezonowej. Ustaw 0 aby wyłączyć."
+            value={settings.priceWeekend}
+            onChange={(v) => setSettings({ ...settings, priceWeekend: v })}
+            step={10}
+            min={0}
+            suffix="zł"
+          />
         </div>
       </section>
 
@@ -190,34 +190,30 @@ export function PricingClient({ initialRules, initialSettings }: Props) {
         <p className="text-xs text-muted-foreground">Ustaw 0 aby wyłączyć daną cenę sezonową.</p>
 
         <div className="grid grid-cols-2 gap-4">
-          <label className="block text-sm">
-            Cena — sezon wysoki (PLN)
-            <Input
-              type="number"
-              step="0.5"
-              min="0"
-              value={settings.priceSeasonHigh}
-              onChange={(e) => setSettings({ ...settings, priceSeasonHigh: parseFloat(e.target.value) || 0 })}
-              className="mt-1"
-            />
-          </label>
-
-          <label className="block text-sm">
-            Cena — sezon niski (PLN)
-            <Input
-              type="number"
-              step="0.5"
-              min="0"
-              value={settings.priceSeasonLow}
-              onChange={(e) => setSettings({ ...settings, priceSeasonLow: parseFloat(e.target.value) || 0 })}
-              className="mt-1"
-            />
-          </label>
+          <NumberStepper
+            label="Cena — sezon wysoki (PLN)"
+            tooltip="Cena w okresie sezonu wysokiego (daty poniżej). Nadpisuje cenę bazową. Ustaw 0 aby wyłączyć."
+            value={settings.priceSeasonHigh}
+            onChange={(v) => setSettings({ ...settings, priceSeasonHigh: v })}
+            step={10}
+            min={0}
+            suffix="zł"
+          />
+          <NumberStepper
+            label="Cena — sezon niski (PLN)"
+            tooltip="Cena poza sezonem wysokim. Nadpisuje cenę bazową. Ustaw 0 aby wyłączyć."
+            value={settings.priceSeasonLow}
+            onChange={(v) => setSettings({ ...settings, priceSeasonLow: v })}
+            step={10}
+            min={0}
+            suffix="zł"
+          />
         </div>
 
         <div className="grid grid-cols-2 gap-4">
           <label className="block text-sm">
             Sezon wysoki od (MM-DD)
+            <InfoTooltip text="Data początkowa sezonu w formacie MM-DD. Np. 06-01 = 1 czerwca. Obsługuje przełom roku (np. 11-01 do 03-31)." />
             <Input
               value={settings.seasonHighStart}
               onChange={(e) => setSettings({ ...settings, seasonHighStart: e.target.value })}
@@ -228,6 +224,7 @@ export function PricingClient({ initialRules, initialSettings }: Props) {
 
           <label className="block text-sm">
             Sezon wysoki do (MM-DD)
+            <InfoTooltip text="Data końcowa sezonu w formacie MM-DD. Jeśli 'od' > 'do', system rozumie to jako okres przez zmianę roku." />
             <Input
               value={settings.seasonHighEnd}
               onChange={(e) => setSettings({ ...settings, seasonHighEnd: e.target.value })}
@@ -243,29 +240,26 @@ export function PricingClient({ initialRules, initialSettings }: Props) {
         <h2 className="font-semibold">Rabat za długi pobyt</h2>
 
         <div className="grid grid-cols-2 gap-4">
-          <label className="block text-sm">
-            Rabat (%)
-            <Input
-              type="number"
-              min="0"
-              max="100"
-              value={settings.longStayDiscount}
-              onChange={(e) => setSettings({ ...settings, longStayDiscount: parseFloat(e.target.value) || 0 })}
-              className="mt-1"
-            />
-          </label>
-
-          <label className="block text-sm">
-            Próg (noce)
-            <Input
-              type="number"
-              min="1"
-              max="365"
-              value={settings.longStayThreshold}
-              onChange={(e) => setSettings({ ...settings, longStayThreshold: parseInt(e.target.value) || 7 })}
-              className="mt-1"
-            />
-          </label>
+          <NumberStepper
+            label="Rabat (%)"
+            tooltip="Procent rabatu od całkowitej ceny rezerwacji. Aktywuje się gdy liczba nocy >= próg poniżej."
+            value={settings.longStayDiscount}
+            onChange={(v) => setSettings({ ...settings, longStayDiscount: v })}
+            step={1}
+            min={0}
+            max={100}
+            suffix="%"
+          />
+          <NumberStepper
+            label="Próg (noce)"
+            tooltip="Minimalna liczba nocy do aktywacji rabatu. Np. 7 = rabat od tygodnia wzwyż."
+            value={settings.longStayThreshold}
+            onChange={(v) => setSettings({ ...settings, longStayThreshold: v })}
+            step={1}
+            min={1}
+            max={365}
+            integer
+          />
         </div>
       </section>
 
@@ -273,22 +267,21 @@ export function PricingClient({ initialRules, initialSettings }: Props) {
       <section className="border border-border rounded-lg p-5 space-y-4">
         <h2 className="font-semibold">Zaliczka</h2>
 
-        <div className="flex items-center gap-2">
-          <label className="block text-sm max-w-[120px]">
-            Wysokość (%)
-            <Input
-              type="number"
-              min={0}
-              max={100}
-              value={settings.depositPercent}
-              onChange={(e) => setSettings({ ...settings, depositPercent: Number(e.target.value) })}
-              className="mt-1"
-            />
-          </label>
+        <div className="max-w-[200px]">
+          <NumberStepper
+            label="Wysokość (%)"
+            tooltip="Procent ceny rezerwacji wymagany jako zaliczka. Obliczany od ceny PO rabacie. Ustaw 0 aby wyłączyć."
+            value={settings.depositPercent}
+            onChange={(v) => setSettings({ ...settings, depositPercent: v })}
+            step={5}
+            min={0}
+            max={100}
+            suffix="%"
+          />
         </div>
         <p className="text-xs text-muted-foreground">
           Procentowa wysokość zaliczki od całkowitej ceny rezerwacji.
-          {settings.depositPercent > 0 && ` Np. przy cenie 1000 zł zaliczka wyniesie ${settings.depositPercent * 10} zł.`}
+          {settings.depositPercent > 0 && ` Np. przy cenie 1000 zł zaliczka wyniesie ${Math.round(1000 * settings.depositPercent / 100)} zł.`}
         </p>
       </section>
 
@@ -330,7 +323,7 @@ export function PricingClient({ initialRules, initialSettings }: Props) {
               </h3>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
-                  <label className="text-xs text-muted-foreground">Nazwa</label>
+                  <label className="text-xs text-muted-foreground">Nazwa <InfoTooltip text="Wewnętrzna nazwa reguły (np. 'Wakacje 2026', 'Sylwester'). Widoczna tylko w panelu." /></label>
                   <Input
                     value={form.label}
                     onChange={(e) => setForm((f) => ({ ...f, label: e.target.value }))}
@@ -338,7 +331,7 @@ export function PricingClient({ initialRules, initialSettings }: Props) {
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-muted-foreground">Cena za noc (zł)</label>
+                  <label className="text-xs text-muted-foreground">Cena za noc (zł) <InfoTooltip text="Cena noclegowa w tym przedziale dat. Nadpisuje WSZYSTKIE inne ceny (bazową, weekendową, sezonową)." /></label>
                   <Input
                     type="number"
                     min={0}
@@ -349,7 +342,7 @@ export function PricingClient({ initialRules, initialSettings }: Props) {
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-muted-foreground">Od</label>
+                  <label className="text-xs text-muted-foreground">Od <InfoTooltip text="Pierwszy dzień obowiązywania reguły (włącznie)." /></label>
                   <Input
                     type="date"
                     value={form.dateFrom}
@@ -357,7 +350,7 @@ export function PricingClient({ initialRules, initialSettings }: Props) {
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-muted-foreground">Do</label>
+                  <label className="text-xs text-muted-foreground">Do <InfoTooltip text="Ostatni dzień obowiązywania reguły (włącznie)." /></label>
                   <Input
                     type="date"
                     value={form.dateTo}
@@ -438,6 +431,207 @@ export function PricingClient({ initialRules, initialSettings }: Props) {
           )}
         </CardContent>
       </Card>
+
     </div>
+  );
+}
+
+// --- Symulator ceny ---
+
+const SOURCE_LABELS: Record<PriceSource, string> = {
+  rule: 'Reguła dat',
+  weekend: 'Weekendowa',
+  seasonHigh: 'Sezon wysoki',
+  seasonLow: 'Sezon niski',
+  base: 'Bazowa',
+};
+
+const SOURCE_COLORS: Record<PriceSource, string> = {
+  rule: 'text-yellow-400',
+  weekend: 'text-blue-400',
+  seasonHigh: 'text-orange-400',
+  seasonLow: 'text-cyan-400',
+  base: 'text-muted-foreground',
+};
+
+function PriceSimulator({ settings, rules }: { settings: PricingFields; rules: PricingRule[] }) {
+  const [simCheckIn, setSimCheckIn] = useState('');
+  const [simCheckOut, setSimCheckOut] = useState('');
+
+  const pricingRules: PricingRuleRange[] = useMemo(
+    () => rules.filter((r) => r.isActive).map((r) => ({
+      dateFrom: new Date(r.dateFrom),
+      dateTo: new Date(r.dateTo),
+      pricePerNight: r.pricePerNight,
+    })),
+    [rules],
+  );
+
+  const checkIn = simCheckIn ? new Date(simCheckIn) : null;
+  const checkOut = simCheckOut ? new Date(simCheckOut) : null;
+  const valid = checkIn && checkOut && checkOut > checkIn;
+
+  const nightDetails = useMemo(
+    () => valid ? getNightDetails(checkIn, checkOut, settings, pricingRules) : [],
+    [valid, checkIn, checkOut, settings, pricingRules],
+  );
+
+  const breakdown = useMemo(
+    () => valid ? calculatePrice(checkIn, checkOut, settings, pricingRules) : null,
+    [valid, checkIn, checkOut, settings, pricingRules],
+  );
+
+  return (
+    <Card className="border-primary/40 bg-primary/5 shadow-md">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base font-semibold flex items-center gap-2">
+          <span className="inline-block w-2 h-2 rounded-full bg-primary" />
+          Symulator ceny
+        </CardTitle>
+        <p className="text-xs text-muted-foreground">
+          Sprawdź końcową cenę rezerwacji dla dowolnych dat. Używa aktualnych ustawień z formularza poniżej (bez konieczności zapisu).
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="text-xs text-muted-foreground">Zameldowanie</label>
+            <Input type="date" value={simCheckIn} onChange={(e) => setSimCheckIn(e.target.value)} />
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground">Wymeldowanie</label>
+            <Input type="date" value={simCheckOut} onChange={(e) => setSimCheckOut(e.target.value)} />
+          </div>
+        </div>
+
+        {valid && nightDetails.length > 0 && breakdown && (
+          <>
+            {/* Tabela nocy */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-border text-muted-foreground">
+                    <th className="py-1.5 text-left font-medium">Noc</th>
+                    <th className="py-1.5 text-left font-medium">Data</th>
+                    <th className="py-1.5 text-left font-medium">Dzień</th>
+                    <th className="py-1.5 text-left font-medium">Źródło ceny</th>
+                    <th className="py-1.5 text-right font-medium">Cena</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {nightDetails.map((n, i) => (
+                    <tr key={i} className="border-b border-border/50">
+                      <td className="py-1.5">{i + 1}</td>
+                      <td className="py-1.5">{n.date.toLocaleDateString('pl-PL', { day: '2-digit', month: '2-digit', year: 'numeric' })}</td>
+                      <td className="py-1.5">{n.dayName}</td>
+                      <td className={`py-1.5 font-medium ${SOURCE_COLORS[n.source]}`}>
+                        {SOURCE_LABELS[n.source]}
+                      </td>
+                      <td className="py-1.5 text-right font-medium">{n.price} zł</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Podsumowanie */}
+            <div className="rounded-md border border-border p-4 space-y-1.5 text-sm">
+              <div className="flex justify-between">
+                <span>Suma nocy ({nightDetails.length}):</span>
+                <span className="font-medium">{breakdown.priceBeforeDiscount} zł</span>
+              </div>
+              <div className="flex justify-between">
+                <span>
+                  Rabat za długi pobyt:
+                  {nightDetails.length < settings.longStayThreshold && settings.longStayDiscount > 0 && (
+                    <span className="text-muted-foreground text-xs ml-1">
+                      (min. {settings.longStayThreshold} nocy, masz {nightDetails.length})
+                    </span>
+                  )}
+                </span>
+                <span className="font-medium">{breakdown.discount > 0 ? `-${breakdown.discount} zł` : '—'}</span>
+              </div>
+              <div className="flex justify-between font-bold text-base border-t border-border pt-1.5">
+                <span>Cena końcowa:</span>
+                <span>{breakdown.totalPrice} zł</span>
+              </div>
+              {breakdown.depositAmount > 0 && (
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Zaliczka ({settings.depositPercent}%):</span>
+                  <span>{breakdown.depositAmount} zł</span>
+                </div>
+              )}
+            </div>
+
+            {/* Legenda priorytetów */}
+            <div className="text-xs text-muted-foreground space-y-0.5">
+              <p className="font-medium mb-1">Hierarchia priorytetów cen:</p>
+              <p><span className={SOURCE_COLORS.rule}>■</span> 1. Reguła z cennika dat — najwyższy priorytet</p>
+              <p><span className={SOURCE_COLORS.weekend}>■</span> 2. Cena weekendowa — stosowana gdy wyższa od sezonowej</p>
+              <p><span className={SOURCE_COLORS.seasonHigh}>■</span> 3. Cena sezonowa (wysoka/niska)</p>
+              <p><span className={SOURCE_COLORS.base}>■</span> 4. Cena bazowa — najniższy priorytet</p>
+            </div>
+          </>
+        )}
+
+        {simCheckIn && simCheckOut && !valid && (
+          <p className="text-sm text-red-400">Data wymeldowania musi być po dacie zameldowania.</p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// --- Kontrolka numeryczna z suffixem ---
+
+function NumberStepper({
+  label,
+  tooltip,
+  value,
+  onChange,
+  step = 1,
+  min = 0,
+  max,
+  suffix,
+  integer,
+}: {
+  label: string;
+  tooltip: string;
+  value: number;
+  onChange: (v: number) => void;
+  step?: number;
+  min?: number;
+  max?: number;
+  suffix?: string;
+  integer?: boolean;
+}) {
+  return (
+    <label className="block text-sm">
+      <span className="flex items-center gap-1 mb-1">
+        {label}
+        <InfoTooltip text={tooltip} />
+      </span>
+      <div className="relative">
+        <Input
+          type="number"
+          step={step}
+          min={min}
+          max={max}
+          value={value}
+          onChange={(e) => {
+            let v = integer ? parseInt(e.target.value) || 0 : parseFloat(e.target.value) || 0;
+            if (v < min) v = min;
+            if (max !== undefined && v > max) v = max;
+            onChange(v);
+          }}
+          className={suffix ? 'pr-8' : ''}
+        />
+        {suffix && (
+          <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">
+            {suffix}
+          </span>
+        )}
+      </div>
+    </label>
   );
 }

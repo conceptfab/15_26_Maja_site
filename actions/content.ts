@@ -1,12 +1,12 @@
 'use server';
 
 import { prisma } from '@/lib/db';
-import { verifySession } from '@/lib/auth';
+import { verifySession, unauthorized } from '@/lib/auth';
 import { sanitizeHtml } from '@/lib/sanitize';
 
 export async function getContent() {
   const session = await verifySession();
-  if (!session) return { error: 'Brak autoryzacji' };
+  if (!session) return unauthorized();
 
   const sections = await prisma.section.findMany({
     where: { page: { isHome: true } },
@@ -52,9 +52,7 @@ function sanitizeContentRecord(record: Record<string, string>): Record<string, s
 
 export async function updateContent(slug: string, data: UpdateContentData) {
   const session = await verifySession();
-  if (!session) {
-    return { error: 'Brak autoryzacji' };
-  }
+  if (!session) return unauthorized();
 
   const section = await prisma.section.findFirst({
     where: { slug, page: { isHome: true } },

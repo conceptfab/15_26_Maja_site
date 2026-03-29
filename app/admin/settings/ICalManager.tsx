@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { getICalFeeds, addICalFeed, removeICalFeed, syncICalFeed, syncAllFeeds } from '@/actions/ical';
+import { InfoTooltip } from '@/components/ui/info-tooltip';
 
 type Feed = {
   id: string;
@@ -155,9 +156,15 @@ export function ICalManager() {
         {/* Dodaj nowy feed */}
         <div className="border-t border-border pt-4">
           <p className="text-sm font-medium mb-2">Dodaj kalendarz</p>
-          <div className="flex flex-col sm:flex-row gap-2">
-            <Input placeholder="Nazwa (np. Booking.com)" value={name} onChange={(e) => setName(e.target.value)} className="sm:w-48" />
-            <Input placeholder="URL kalendarza iCal" value={url} onChange={(e) => setUrl(e.target.value)} className="flex-1" />
+          <div className="flex flex-col sm:flex-row gap-2 items-end">
+            <div className="space-y-1 sm:w-48">
+              <p className="text-xs text-muted-foreground flex items-center gap-1">Nazwa <InfoTooltip text="Etykieta źródła (np. 'Booking.com', 'Airbnb'). Dla Twojej identyfikacji." /></p>
+              <Input placeholder="Nazwa (np. Booking.com)" value={name} onChange={(e) => setName(e.target.value)} />
+            </div>
+            <div className="space-y-1 flex-1">
+              <p className="text-xs text-muted-foreground flex items-center gap-1">URL <InfoTooltip text="URL feedu iCal z Booking/Airbnb. Znajdź w ustawieniach kalendarza danego portalu." /></p>
+              <Input placeholder="URL kalendarza iCal" value={url} onChange={(e) => setUrl(e.target.value)} />
+            </div>
             <Button size="sm" onClick={handleAdd} disabled={isPending}>Dodaj</Button>
           </div>
         </div>
